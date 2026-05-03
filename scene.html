@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>CPR心肺复苏现场指导</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * {box-sizing: border-box; margin:0; padding:0;}
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 10px;
+  }
+  .container {
+    width: 100%;
+    max-width: 360px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+  #start-screen, #cpr-screen, #breath-screen {
+    padding: 20px;
+    text-align: center;
+  }
+  #start-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #startBtn {
+    background-color: #E53935;
+    color: #fff;
+    border: none;
+    padding: 16px 24px;
+    font-size: 20px;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 280px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: background-color 0.2s;
+  }
+  #startBtn:hover {background-color: #D32F2F;}
+  #cpr-screen, #breath-screen {display:none;}
+  .status {
+    margin-bottom: 16px;
+    font-size: 16px;
+    color: #555;
+  }
+  #beat-display {
+    font-size: 48px;
+    font-weight: bold;
+    color: #E53935;
+    min-height: 60px;
+    transition: transform 0.1s ease;
+  }
+  #breath-display {
+    font-size: 48px;
+    font-weight: bold;
+    color: #1565C0;
+    min-height: 60px;
+    transition: transform 0.1s ease;
+  }
+  .btn-group {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    background-color: #E53935;
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    font-size: 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s;
+    flex: 1;
+    min-width: 120px;
+    max-width: 200px;
+  }
+  .btn:hover {background-color: #D32F2F;}
+  .btn.secondary {
+    background-color: #1565C0;
+  }
+  .btn.secondary:hover {background-color: #0D47A1;}
+  .btn.warning {
+    background-color: #F9A825;
+    color: #000;
+  }
+  .btn.warning:hover {background-color: #F57F17;}
+  .footer {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #777;
+  }
+  .footer p {margin: 4px 0;}
+  .timer-display {
+    font-size: 24px;
+    font-weight: bold;
+    color: #E53935;
+    margin: 10px 0;
+  }
+  .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 10px 0;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #E53935;
+    transition: width 0.3s;
+  }
+  .breath-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: #1565C0;
+    margin: 20px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    transition: transform 0.5s ease;
+  }
+  .breath-circle.expanding {transform: scale(1.3);}
+  .breath-circle.shrinking {transform: scale(1);}
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="start-screen">
+    <h2 style="margin-bottom:16px;color:#E53935;">🫀 CPR心肺复苏指导</h2>
+    <p style="font-size:14px;color:#666;margin-bottom:20px;line-height:1.5;">
+      适用于成人突发心脏骤停<br>
+      按压深度：5-6厘米<br>
+      频率：100-120次/分钟
+    </p>
+    <button id="startBtn">开始心肺复苏</button>
+    <div style="margin-top:20px;font-size:12px;color:#999;">
+      <p>⚠️ 使用前请确认环境安全</p>
+      <p>⚠️ 仅适用于无反应、无呼吸的患者</p>
+    </div>
+  </div>
+
+  <div id="cpr-screen">
+    <div class="status">
+      <div>当前状态：正在进行CPR</div>
+      <div>节奏：110次/分钟</div>
+      <div>已按压：<span id="press-count">0</span> 次</div>
+      <div>计时：<span id="cpr-timer">0:00</span></div>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="cpr-progress" style="width:0%"></div>
+    </div>
+    <div id="beat-display">按压！</div>
+    <div class="btn-group">
+      <button class="btn secondary" id="breathBtn">人工呼吸</button>
+      <button class="btn warning" id="stopBtn">停止</button>
+    </div>
+    <div class="footer">
+      <p>请持续按压胸部中央（两乳头连线中点）</p>
+      <p>按压深度5-6厘米，让胸廓充分回弹</p>
+      <p>每30次按压后进行2次人工呼吸</p>
+    </div>
+  </div>
+
+  <div id="breath-screen">
+    <div class="status">
+      <div>当前状态：人工呼吸</div>
+      <div>请进行2次人工呼吸</div>
+      <div>第 <span id="breath-num">1</span> 次</div>
+    </div>
+    <div class="breath-circle" id="breath-circle">吸气</div>
+    <div class="btn-group">
+      <button class="btn" id="resumeBtn">继续按压</button>
+    </div>
+    <div class="footer">
+      <p>捏住鼻子，包住患者口部</p>
+      <p>吹气1秒，看到胸廓抬起即可</p>
+      <p>每次吹气间隔让气体自然排出</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const breathBtn = document.getElementById('breathBtn');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const startScreen = document.getElementById('start-screen');
+  const cprScreen = document.getElementById('cpr-screen');
+  const breathScreen = document.getElementById('breath-screen');
+  const beatDisplay = document.getElementById('beat-display');
+  const breathDisplay = document.getElementById('breath-circle');
+  const pressCountEl = document.getElementById('press-count');
+  const cprTimerEl = document.getElementById('cpr-timer');
+  const cprProgressEl = document.getElementById('cpr-progress');
+  const breathNumEl = document.getElementById('breath-num');
+
+  let intervalId = null;
+  let timerId = null;
+  let isRunning = false;
+  let isPress = true;
+  let speaking = false;
+  let pressCount = 0;
+  let cprSeconds = 0;
+  let breathCount = 0;
+  let isBreathMode = false;
+
+  const utterancePress = new SpeechSynthesisUtterance('按压！');
+  const utteranceContinue = new SpeechSynthesisUtterance('继续！');
+  const utteranceBlow = new SpeechSynthesisUtterance('吹气！');
+  const utteranceExhale = new SpeechSynthesisUtterance('放气！');
+  const utteranceStart = new SpeechSynthesisUtterance('开始心肺复苏！按压！');
+  const utteranceResume = new SpeechSynthesisUtterance('继续按压！');
+  const utteranceCheck = new SpeechSynthesisUtterance('检查呼吸！');
+  [utterancePress, utteranceContinue, utteranceBlow, utteranceExhale, utteranceStart, utteranceResume, utteranceCheck].forEach(u => {
+    u.lang = 'zh-CN';
+    u.volume = 0.8;
+    u.rate = 1.0;
+  });
+
+  function speak(utterance) {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.speak(utterance);
+    speaking = true;
+    utterance.onend = () => { speaking = false; };
+    utterance.onerror = () => { speaking = false; };
+  }
+
+  function tick() {
+    if (isBreathMode) return;
+    
+    if (isPress) {
+      beatDisplay.textContent = '按压！';
+      beatDisplay.style.transform = 'scale(1.2)';
+      pressCount++;
+      pressCountEl.textContent = pressCount;
+      
+      // 每30次按压提示呼吸
+      if (pressCount % 30 === 0) {
+        setTimeout(() => {
+          if (isRunning && !isBreathMode) {
+            enterBreathMode();
+          }
+        }, 600);
+      }
+    } else {
+      beatDisplay.textContent = '松开！';
+      beatDisplay.style.transform = 'scale(1)';
+    }
+    isPress = !isPress;
+
+    if ('vibrate' in navigator) {
+      navigator.vibrate(100);
+    }
+
+    if (beatDisplay.textContent === '按压！') {
+      speak(utterancePress);
+    } else {
+      speak(utteranceContinue);
+    }
+
+    // 更新进度条（30次为一个周期）
+    const cyclePos = (pressCount % 30) / 30 * 100;
+    cprProgressEl.style.width = cyclePos + '%';
+  }
+
+  function updateTimer() {
+    cprSeconds++;
+    const mins = Math.floor(cprSeconds / 60);
+    const secs = cprSeconds % 60;
+    cprTimerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  function enterBreathMode() {
+    isBreathMode = true;
+    clearInterval(intervalId);
+    cprScreen.style.display = 'none';
+    breathScreen.style.display = 'block';
+    breathCount = 0;
+    doBreath();
+  }
+
+  function doBreath() {
+    breathCount++;
+    breathNumEl.textContent = breathCount;
+    
+    if (breathCount === 1) {
+      speak(utteranceBlow);
+      breathDisplay.textContent = '吹气！';
+      breathDisplay.classList.add('expanding');
+      breathDisplay.classList.remove('shrinking');
+      if ('vibrate' in navigator) navigator.vibrate(200);
+      
+      setTimeout(() => {
+        if (isBreathMode) {
+          breathDisplay.textContent = '放气！';
+          breathDisplay.classList.remove('expanding');
+          breathDisplay.classList.add('shrinking');
+          speak(utteranceExhale);
+          setTimeout(() => {
+            if (breathCount < 2 && isBreathMode) {
+              setTimeout(doBreath, 500);
+            } else if (isBreathMode) {
+              // 呼吸完成，提示检查
+              breathDisplay.textContent = '检查';
+              speak(utteranceCheck);
+            }
+          }, 1000);
+        }
+      }, 1500);
+    }
+  }
+
+  function resumeCPR() {
+    isBreathMode = false;
+    breathScreen.style.display = 'none';
+    cprScreen.style.display = 'block';
+    isPress = true;
+    beatDisplay.textContent = '按压！';
+    beatDisplay.style.transform = 'scale(1.2)';
+    cprProgressEl.style.width = '0%';
+    intervalId = setInterval(tick, 545);
+    speak(utteranceResume);
+    if ('vibrate' in navigator) navigator.vibrate(100);
+  }
+
+  function startCPR() {
+    if (isRunning) return;
+    isRunning = true;
+    pressCount = 0;
+    cprSeconds = 0;
+    breathCount = 0;
+    isBreathMode = false;
+    
+    startScreen.style.display = 'none';
+    cprScreen.style.display = 'block';
+    isPress = true;
+    beatDisplay.textContent = '按压！';
+    beatDisplay.style.transform = 'scale(1.2)';
+    pressCountEl.textContent = '0';
+    cprProgressEl.style.width = '0%';
+    
+    intervalId = setInterval(tick, 545);
+    timerId = setInterval(updateTimer, 1000);
+    
+    if ('vibrate' in navigator) navigator.vibrate(100);
+    speak(utteranceStart);
+  }
+
+  function stopCPR() {
+    if (!isRunning) return;
+    isRunning = false;
+    isBreathMode = false;
+    clearInterval(intervalId);
+    clearInterval(timerId);
+    intervalId = null;
+    timerId = null;
+    
+    startScreen.style.display = 'flex';
+    cprScreen.style.display = 'none';
+    breathScreen.style.display = 'none';
+    
+    beatDisplay.textContent = '';
+    beatDisplay.style.transform = '';
+    breathDisplay.textContent = '吸气';
+    breathDisplay.classList.remove('expanding', 'shrinking');
+    
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      speaking = false;
+    }
+  }
+
+  startBtn.addEventListener('click', startCPR);
+  stopBtn.addEventListener('click', stopCPR);
+  breathBtn.addEventListener('click', enterBreathMode);
+  resumeBtn.addEventListener('click', resumeCPR);
+</script>
+</body>
+</html>

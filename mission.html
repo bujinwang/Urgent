@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>任务 - 应急救援协同系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <a href="index.html" class="back-btn">返回</a>
+            <h1 class="title">救援任务</h1>
+        </header>
+
+        <main class="main">
+            <div class="mission-card">
+                <div class="mission-info">
+                    <p class="mission-distance">距离：80m</p>
+                    <h3>操作步骤</h3>
+                    <ol class="steps">
+                        <li>确认意识</li>
+                        <li>呼叫120</li>
+                        <li>开始CPR</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-danger" onclick="showCall120()">拨打120</button>
+                <button class="btn btn-success" onclick="showArrived()">我已到达</button>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <a href="index.html">返回首页</a>
+        </footer>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>

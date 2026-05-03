@@ -1,0 +1,5053 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#C0392B">
+<title>急救侠 · CPR + AED 救援网络</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --rescue-red: #C0392B;
+  --rescue-red-deep: #8B2A1F;
+  --rescue-red-soft: #FFE8E5;
+  --ink: #1A1A1A;
+  --ink-soft: #4A4A4A;
+  --ink-mute: #8E8E8E;
+  --paper: #FAFAF7;
+  --paper-warm: #F4F1EA;
+  --line: #E8E4DD;
+  --green: #1F8A5B;
+  --green-soft: #E8F5EF;
+  --gold: #C8A656;
+  --bronze: #B87333;
+  --silver: #9CA3AF;
+  --diamond: #4A90E2;
+
+  --serif: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+  --mono: 'DM Mono', 'Menlo', monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  font-family: var(--sans);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+body {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  position: relative;
+  background: var(--paper);
+  box-shadow: 0 0 80px rgba(0,0,0,0.06);
+}
+
+button { border: none; background: none; font-family: inherit; cursor: pointer; color: inherit; }
+
+/* ============ 通用页面结构 ============ */
+.page {
+  display: none;
+  min-height: 100vh;
+  position: relative;
+  padding-bottom: 100px;
+  animation: pageIn 0.3s ease-out;
+}
+.page.active { display: block; }
+@keyframes pageIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.app-bar {
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+  z-index: 100;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.app-bar.transparent { background: transparent; border-bottom: none; }
+.back-btn {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  font-size: 22px;
+  color: var(--ink);
+}
+.app-bar h1 {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 18px;
+  flex: 1;
+}
+
+/* ============ 底部导航 ============ */
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  background: rgba(255,255,255,0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--line);
+  display: flex;
+  z-index: 200;
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+}
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  color: var(--ink-mute);
+  font-size: 11px;
+  transition: color 0.2s;
+}
+.tab.active { color: var(--rescue-red); }
+.tab-icon {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+}
+
+/* ============ 首页 ============ */
+#home {
+  background: var(--paper);
+  padding: 0;
+}
+.home-hero {
+  background: linear-gradient(165deg, var(--rescue-red) 0%, var(--rescue-red-deep) 100%);
+  color: white;
+  padding: 48px 24px 36px;
+  border-radius: 0 0 32px 32px;
+  position: relative;
+  overflow: hidden;
+}
+.home-hero::before {
+  content: '';
+  position: absolute;
+  top: -40%; right: -20%;
+  width: 280px; height: 280px;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.home-hero::after {
+  content: '+';
+  position: absolute;
+  top: 20px; right: 24px;
+  font-size: 80px;
+  font-weight: 900;
+  color: rgba(255,255,255,0.12);
+  font-family: var(--serif);
+}
+.home-brand {
+  font-family: var(--serif);
+  font-weight: 900;
+  font-size: 36px;
+  letter-spacing: -1px;
+  margin-bottom: 8px;
+  position: relative;
+}
+.home-tagline {
+  font-size: 13px;
+  opacity: 0.85;
+  margin-bottom: 24px;
+  position: relative;
+}
+.home-stats {
+  display: flex;
+  gap: 16px;
+  position: relative;
+}
+.home-stat {
+  flex: 1;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.home-stat-num {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  display: block;
+}
+.home-stat-label {
+  font-size: 10px;
+  opacity: 0.8;
+  letter-spacing: 0.5px;
+}
+
+/* 紧急按钮 */
+.emergency-section {
+  padding: 24px 20px 12px;
+}
+.emergency-btn {
+  width: 100%;
+  background: white;
+  border: 2px solid var(--rescue-red);
+  color: var(--rescue-red);
+  padding: 24px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  box-shadow: 0 6px 20px rgba(192, 57, 43, 0.15);
+  transition: transform 0.15s;
+}
+.emergency-btn:active { transform: scale(0.98); }
+.emergency-btn::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 20px;
+  background: var(--rescue-red);
+  z-index: -1;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.04); }
+}
+.emergency-btn-icon {
+  width: 48px; height: 48px;
+  background: var(--rescue-red);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14px;
+  font-size: 28px;
+  font-weight: 700;
+}
+.emergency-btn-text {
+  flex: 1;
+  text-align: left;
+}
+.emergency-btn-title {
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.emergency-btn-sub {
+  font-size: 12px;
+  color: var(--ink-mute);
+}
+
+/* 入口卡片 */
+.entry-grid {
+  padding: 16px 20px 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.entry-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  text-align: left;
+  transition: transform 0.15s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.entry-card:active {
+  transform: scale(0.97);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+.entry-card-icon {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  font-size: 22px;
+}
+.entry-card-title {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+.entry-card-desc {
+  font-size: 11px;
+  color: var(--ink-mute);
+  line-height: 1.4;
+}
+
+/* 信息行 */
+.info-section {
+  padding: 8px 20px 24px;
+}
+.section-label {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-label::before {
+  content: '';
+  width: 4px; height: 14px;
+  background: var(--rescue-red);
+  border-radius: 2px;
+}
+
+.news-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.news-num {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--rescue-red);
+  line-height: 1;
+}
+.news-content {
+  flex: 1;
+}
+.news-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.news-meta {
+  font-size: 11px;
+  color: var(--ink-mute);
+}
+
+/* ============ 紧急任务 Banner（高优先级置顶） ============ */
+/* 主救护按钮 - 决策页核心 */
+.primary-rescue-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #C0392B 0%, #8B2A1F 100%);
+  border: 2px solid rgba(255, 107, 91, 0.5);
+  border-radius: 24px;
+  padding: 26px 22px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(192, 57, 43, 0.45);
+  transition: transform 0.15s;
+}
+.primary-rescue-btn:active {
+  transform: scale(0.98);
+}
+.primary-rescue-pulse,
+.primary-rescue-pulse-2 {
+  position: absolute;
+  inset: -2px;
+  border-radius: 24px;
+  pointer-events: none;
+}
+.primary-rescue-pulse {
+  background: rgba(255, 107, 91, 0.4);
+  animation: missionPulse 1.5s ease-in-out infinite;
+  z-index: -1;
+}
+.primary-rescue-pulse-2 {
+  background: rgba(255, 107, 91, 0.25);
+  animation: missionPulse 1.5s ease-in-out infinite 0.6s;
+  z-index: -2;
+}
+.primary-rescue-btn::after {
+  content: '+';
+  position: absolute;
+  right: -10px;
+  top: -30px;
+  font-family: var(--serif);
+  font-size: 130px;
+  font-weight: 900;
+  color: rgba(255,255,255,0.10);
+  line-height: 1;
+  pointer-events: none;
+}
+.primary-rescue-content {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  position: relative;
+  z-index: 1;
+}
+.primary-rescue-icon {
+  width: 56px;
+  height: 56px;
+  background: rgba(255,255,255,0.2);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  flex-shrink: 0;
+}
+.primary-rescue-text {
+  flex: 1;
+  text-align: left;
+}
+.primary-rescue-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+.primary-rescue-sub {
+  font-size: 12px;
+  opacity: 0.85;
+  line-height: 1.4;
+}
+.primary-rescue-arrow {
+  font-size: 24px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.mission-alert-banner {
+  margin: 16px 20px 0;
+  background: linear-gradient(135deg, #C0392B 0%, #8B2A1F 100%);
+  color: white;
+  padding: 18px 20px;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(192, 57, 43, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s;
+  border: 2px solid rgba(255, 107, 91, 0.6);
+}
+.mission-alert-banner:active {
+  transform: scale(0.98);
+}
+
+/* 双层光晕脉冲 - 比 SOS 按钮还强 */
+.mission-alert-pulse,
+.mission-alert-pulse-2 {
+  position: absolute;
+  inset: -2px;
+  border-radius: 20px;
+  pointer-events: none;
+}
+.mission-alert-pulse {
+  background: rgba(255, 107, 91, 0.5);
+  animation: missionPulse 1.4s ease-in-out infinite;
+  z-index: -1;
+}
+.mission-alert-pulse-2 {
+  background: rgba(255, 107, 91, 0.3);
+  animation: missionPulse 1.4s ease-in-out infinite 0.5s;
+  z-index: -2;
+}
+@keyframes missionPulse {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+/* 右上角的暗光晕 */
+.mission-alert-banner::before {
+  content: '';
+  position: absolute;
+  right: -40px; top: -40px;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 60%);
+  pointer-events: none;
+}
+.mission-alert-banner::after {
+  content: '!';
+  position: absolute;
+  right: 16px; top: 8px;
+  font-family: var(--serif);
+  font-size: 80px;
+  font-weight: 900;
+  color: rgba(255,255,255,0.10);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.mission-alert-content {
+  position: relative;
+  z-index: 1;
+}
+
+.mission-alert-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0,0,0,0.25);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.mission-alert-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #FFEC8B;
+  box-shadow: 0 0 10px #FFEC8B;
+  animation: blink 1s infinite;
+  flex-shrink: 0;
+}
+.mission-alert-time {
+  margin-left: auto;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255,255,255,0.2);
+  color: #FFEC8B;
+}
+
+.mission-alert-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+
+.mission-alert-detail {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.mission-alert-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  color: var(--rescue-red);
+  padding: 10px 18px;
+  border-radius: 24px;
+  font-family: var(--serif);
+  font-size: 14px;
+  font-weight: 700;
+}
+.mission-alert-arrow {
+  font-size: 16px;
+  transition: transform 0.2s;
+}
+.mission-alert-banner:hover .mission-alert-arrow {
+  transform: translateX(3px);
+}
+#rescue {
+  background: linear-gradient(180deg, #2A0F0C 0%, #1A0907 100%);
+  color: white;
+  min-height: 100vh;
+  padding-bottom: 0;
+}
+.rescue-stage {
+  display: none;
+  padding: 0;
+}
+.rescue-stage.active { display: block; }
+
+/* 决策窗口 */
+.decision {
+  padding: 28px 20px;
+  text-align: center;
+}
+.decision-tag {
+  display: inline-block;
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.8);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  font-family: var(--mono);
+  font-weight: 500;
+}
+.decision-title {
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+.decision-sub {
+  font-size: 14px;
+  opacity: 0.7;
+  margin-bottom: 24px;
+}
+.decision-status {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  text-align: left;
+}
+.decision-status-ready {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+.decision-status-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #F59E0B;
+  flex-shrink: 0;
+}
+.decision-status-text {
+  flex: 1;
+  line-height: 1.5;
+}
+.decision-status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: blink 1.4s ease-in-out infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.decision-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 20px;
+}
+.dbtn {
+  padding: 24px 20px;
+  border-radius: 18px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.dbtn-primary {
+  background: var(--rescue-red);
+  color: white;
+  border: 2px solid var(--rescue-red);
+  box-shadow: 0 8px 24px rgba(192, 57, 43, 0.4);
+}
+.dbtn-secondary {
+  background: rgba(255,255,255,0.06);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.15);
+}
+.dbtn-icon {
+  width: 44px; height: 44px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.dbtn-primary .dbtn-icon { background: rgba(255,255,255,0.25); }
+.dbtn-text {
+  flex: 1;
+}
+.dbtn-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.dbtn-sub {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* CPR 节拍器 - 共用 */
+.cpr-stage {
+  padding: 16px 20px 0;
+}
+
+/* 步骤进度条 */
+.step-progress {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px 16px;
+  gap: 4px;
+}
+.step-pill {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  border: 1.5px solid rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  position: relative;
+}
+.step-pill span {
+  position: absolute;
+  bottom: -16px;
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.step-pill.active {
+  background: var(--rescue-red);
+  border-color: var(--rescue-red);
+  color: white;
+  box-shadow: 0 0 16px rgba(192, 57, 43, 0.5);
+}
+.step-pill.active span { color: white; }
+.step-pill.done {
+  background: rgba(52, 210, 119, 0.2);
+  border-color: var(--green);
+  color: var(--green);
+}
+.step-line {
+  flex: 1;
+  height: 2px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 1px;
+}
+.step-line.done { background: var(--green); }
+
+/* 单个步骤布局 */
+.cpr-step {
+  padding: 24px 20px 20px;
+  text-align: center;
+}
+
+.step-icon-big {
+  width: 100px; height: 100px;
+  border-radius: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+  position: relative;
+}
+.step-icon-big::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 36px;
+  border: 2px solid rgba(255,255,255,0.1);
+  animation: pulse 2s infinite;
+}
+
+.step-action {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.step-quote {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1.2;
+  color: white;
+  margin-bottom: 16px;
+}
+
+.step-detail {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.step-timer {
+  margin-bottom: 24px;
+}
+.step-timer-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+.step-timer-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.step-timer-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--rescue-red), #FF6B5B);
+  width: 0%;
+  border-radius: 3px;
+  transition: width 0.3s linear;
+}
+
+.step-buttons {
+  display: flex;
+  gap: 12px;
+}
+.step-btn-primary, .step-btn-secondary {
+  flex: 1;
+  padding: 16px;
+  border-radius: 14px;
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 700;
+}
+.step-btn-primary {
+  background: var(--rescue-red);
+  color: white;
+  border: 2px solid var(--rescue-red);
+  box-shadow: 0 6px 18px rgba(192, 57, 43, 0.4);
+}
+.step-btn-secondary {
+  background: rgba(255,255,255,0.06);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.15);
+}
+
+/* 步骤 3 任务列表 */
+.step-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0;
+  text-align: left;
+}
+.step-task {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+}
+.step-task.done {
+  background: rgba(52, 210, 119, 0.1);
+  border-color: rgba(52, 210, 119, 0.3);
+}
+.step-task-check {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--green);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.step-task-check.todo {
+  background: var(--rescue-red);
+}
+.step-task-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 通气清单 */
+.vent-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+.vent-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  transition: all 0.3s;
+}
+.vent-item.done {
+  background: rgba(52, 210, 119, 0.1);
+  border-color: rgba(52, 210, 119, 0.4);
+}
+.vent-item.active {
+  background: rgba(192, 57, 43, 0.2);
+  border-color: var(--rescue-red);
+  box-shadow: 0 0 16px rgba(192, 57, 43, 0.3);
+}
+.vent-num {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.vent-item.done .vent-num {
+  background: var(--green);
+}
+.vent-item.active .vent-num {
+  background: var(--rescue-red);
+}
+.vent-text {
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--serif);
+}
+.vent-sub {
+  display: block;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.6);
+  margin-top: 2px;
+}
+
+.cpr-rounds-show {
+  background: rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+.cpr-rounds-show strong {
+  font-family: var(--mono);
+  font-size: 32px;
+  color: var(--rescue-red);
+  display: block;
+  margin: 4px 0;
+}
+.cpr-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.cpr-bar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.cpr-bar-label {
+  opacity: 0.6;
+  font-size: 10px;
+}
+.cpr-bar-value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.metronome-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0 24px;
+}
+.metronome {
+  width: 240px; height: 240px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.metronome-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.1);
+}
+.metronome-ring-active {
+  border: 3px solid var(--rescue-red);
+  animation: beat 0.545s ease-in-out infinite;
+  box-shadow: 0 0 40px rgba(192, 57, 43, 0.4);
+}
+@keyframes beat {
+  0%, 100% { transform: scale(0.92); opacity: 0.6; }
+  20% { transform: scale(1); opacity: 1; }
+}
+.metronome-center {
+  text-align: center;
+  z-index: 2;
+}
+.metronome-bpm {
+  font-family: var(--mono);
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+}
+.metronome-bpm-label {
+  font-size: 12px;
+  opacity: 0.6;
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+.metronome-tip {
+  margin-top: 16px;
+  font-size: 13px;
+  opacity: 0.8;
+  font-family: var(--serif);
+}
+
+.cpr-instruction {
+  background: rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 0 20px 16px;
+  border-left: 3px solid var(--rescue-red);
+}
+.cpr-instruction-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--rescue-red);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+.cpr-instruction-text {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.cpr-instruction-detail {
+  font-size: 12px;
+  opacity: 0.75;
+  line-height: 1.6;
+}
+
+.cpr-actions {
+  padding: 16px 20px 24px;
+  display: flex;
+  gap: 10px;
+}
+.cpr-action {
+  flex: 1;
+  padding: 14px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 12px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: white;
+}
+.cpr-action-icon {
+  font-size: 20px;
+}
+.cpr-action.danger {
+  background: var(--rescue-red);
+  border-color: var(--rescue-red);
+}
+
+.helpers-bar {
+  background: rgba(31, 138, 91, 0.15);
+  border: 1px solid rgba(31, 138, 91, 0.3);
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin: 0 20px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.helpers-dot {
+  width: 10px; height: 10px;
+  background: #34D277;
+  border-radius: 50%;
+  box-shadow: 0 0 12px #34D277;
+  animation: blink 1.6s infinite;
+}
+.helpers-text {
+  flex: 1;
+  font-size: 13px;
+}
+.helpers-arrow {
+  opacity: 0.6;
+}
+
+/* ============ AED 地图 ============ */
+/* AED 卡片（升级版） */
+.aed-card {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  padding: 14px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  margin-bottom: 10px;
+  transition: box-shadow 0.2s;
+}
+.aed-card:active {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+.aed-card-rank {
+  width: 36px;
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--rescue-red);
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+.aed-card-info {
+  flex: 1;
+  min-width: 0;
+}
+.aed-card-name {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+.aed-card-addr {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.aed-card-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.aed-tag {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-family: var(--mono);
+  font-weight: 600;
+}
+.aed-tag-ok {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.aed-tag-distance {
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+}
+.aed-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  flex-shrink: 0;
+  justify-content: center;
+}
+.aed-card-btn {
+  background: var(--paper-warm);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 64px;
+}
+.aed-card-btn-primary {
+  background: var(--rescue-red);
+  color: white;
+}
+
+.aed-map-bg {
+  background: linear-gradient(135deg, #E8EBE5 0%, #D4DBD3 100%);
+  height: 280px;
+  position: relative;
+  overflow: hidden;
+}
+.aed-map-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.map-pin {
+  position: absolute;
+  width: 28px; height: 28px;
+  background: var(--rescue-red);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--mono);
+  box-shadow: 0 4px 12px rgba(192, 57, 43, 0.4);
+  border: 2px solid white;
+}
+.map-pin.me {
+  background: var(--green);
+  box-shadow: 0 4px 12px rgba(31, 138, 91, 0.4);
+}
+.map-pin.me::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: var(--green);
+  opacity: 0.2;
+  animation: pulse 2s infinite;
+}
+
+.aed-list {
+  padding: 16px 20px;
+}
+.aed-item {
+  display: flex;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+}
+.aed-item-num {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--rescue-red);
+  width: 36px;
+}
+.aed-item-info { flex: 1; }
+.aed-item-name {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.aed-item-addr {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-bottom: 6px;
+}
+.aed-item-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  font-family: var(--mono);
+}
+.aed-status {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.aed-status-ok {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.aed-distance {
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.aed-item-action {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--rescue-red-soft);
+  color: var(--rescue-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+/* ============ 急救图谱 ============ */
+.atlas-card-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  color: currentColor;
+}
+.atlas-card.featured .atlas-card-icon-wrap {
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+.atlas-card:not(.featured) .atlas-card-icon-wrap {
+  background: rgba(192, 57, 43, 0.1);
+  color: var(--rescue-red);
+}
+.atlas-card-urgent {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: linear-gradient(135deg, rgba(245,158,11,0.04), white);
+}
+.atlas-card-wide {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 10px;
+  width: 100%;
+  text-align: left;
+}
+.atlas-card-wide .atlas-card-num {
+  margin-bottom: 4px;
+  font-size: 10px;
+}
+.atlas-card-wide .atlas-card-title {
+  font-size: 15px;
+  margin-bottom: 0;
+}
+.atlas-card-wide .atlas-card-desc {
+  font-size: 11px;
+}
+.atlas-card-wide .atlas-card-icon-wrap {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 0;
+  border-radius: 12px;
+}
+
+.atlas-grid {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.atlas-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px 16px;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+.atlas-card-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.atlas-card-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  display: block;
+}
+.atlas-card-title {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.atlas-card-desc {
+  font-size: 11px;
+  color: var(--ink-mute);
+  line-height: 1.4;
+}
+.atlas-card.featured {
+  background: var(--rescue-red);
+  color: white;
+  border-color: var(--rescue-red);
+}
+.atlas-card.featured .atlas-card-num,
+.atlas-card.featured .atlas-card-desc { color: rgba(255,255,255,0.85); }
+
+/* ============ 学习中心 ============ */
+.learn-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 12px 8px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--ink-mute);
+  transition: all 0.2s;
+}
+.learn-tab-active {
+  background: white;
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.learn-banner {
+  margin: 20px;
+  background: linear-gradient(135deg, #1F2937 0%, #111827 100%);
+  color: white;
+  padding: 24px 20px;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.learn-banner::before {
+  content: '';
+  position: absolute;
+  right: -30px; top: -30px;
+  width: 140px; height: 140px;
+  background: radial-gradient(circle, rgba(192,57,43,0.4) 0%, transparent 70%);
+}
+.learn-banner-tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  opacity: 0.7;
+  margin-bottom: 8px;
+}
+.learn-banner-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+.learn-banner-meta {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-bottom: 16px;
+}
+.learn-banner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--rescue-red);
+  color: white;
+  padding: 10px 18px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lesson-list {
+  padding: 0 20px 20px;
+}
+.lesson-item {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+.lesson-thumb {
+  width: 80px;
+  height: 56px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--rescue-red-deep), var(--rescue-red));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--mono);
+  flex-shrink: 0;
+}
+.lesson-info { flex: 1; }
+.lesson-title {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.lesson-meta {
+  font-size: 11px;
+  color: var(--ink-mute);
+  display: flex;
+  gap: 8px;
+}
+.lesson-progress {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 3px solid var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 700;
+}
+.lesson-progress.todo {
+  border-color: var(--line);
+  color: var(--ink-mute);
+}
+
+/* ============ 培训页 ============ */
+.train-video {
+  background: #000;
+  height: 220px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.video-play {
+  width: 64px; height: 64px;
+  background: rgba(255,255,255,0.15);
+  border: 2px solid white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+  backdrop-filter: blur(10px);
+}
+.video-meta {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-family: var(--mono);
+}
+
+.train-content {
+  padding: 20px;
+}
+.train-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+.train-sub {
+  font-size: 13px;
+  color: var(--ink-mute);
+  margin-bottom: 20px;
+}
+.train-points {
+  background: var(--paper-warm);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.train-point {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 13px;
+}
+.train-point-num {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--rescue-red);
+  flex-shrink: 0;
+}
+
+.quiz-card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.quiz-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--rescue-red);
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+.quiz-q {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.quiz-options { display: flex; flex-direction: column; gap: 8px; }
+.quiz-opt {
+  padding: 14px 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  width: 100%;
+  transition: all 0.15s;
+}
+.quiz-opt-letter {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-mute);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-mute);
+  flex-shrink: 0;
+  font-family: var(--mono);
+}
+.quiz-opt.correct {
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: var(--green);
+}
+.quiz-opt.correct .quiz-opt-letter {
+  border-color: var(--green);
+  background: var(--green);
+  color: white;
+}
+.quiz-opt.wrong {
+  border-color: var(--rescue-red);
+  background: var(--rescue-red-soft);
+  color: var(--rescue-red);
+}
+.quiz-opt.wrong .quiz-opt-letter {
+  border-color: var(--rescue-red);
+  background: var(--rescue-red);
+  color: white;
+}
+
+/* ============ 我的证书 ============ */
+.profile-header {
+  background: linear-gradient(165deg, #2C3E50 0%, #1A2530 100%);
+  color: white;
+  padding: 32px 24px 80px;
+  position: relative;
+}
+.profile-avatar {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--rescue-red), var(--rescue-red-deep));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.profile-name {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.profile-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  opacity: 0.6;
+  margin-bottom: 16px;
+}
+.profile-stats {
+  display: flex;
+  gap: 12px;
+}
+.profile-stat {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 12px;
+}
+.profile-stat-num {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 700;
+  display: block;
+  line-height: 1;
+}
+.profile-stat-label {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+
+.cert-card {
+  margin: -64px 20px 20px;
+  background: white;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  position: relative;
+  overflow: hidden;
+}
+.cert-card::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 140px; height: 140px;
+  background: radial-gradient(circle, rgba(200, 166, 86, 0.15) 0%, transparent 70%);
+}
+.cert-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, var(--gold), #B8941A);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  position: relative;
+}
+.cert-name {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 900;
+  margin-bottom: 8px;
+  position: relative;
+}
+.cert-issuer {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-bottom: 24px;
+}
+.cert-meta {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+}
+.cert-meta-item {
+  font-size: 11px;
+  color: var(--ink-mute);
+}
+.cert-meta-value {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  display: block;
+  margin-top: 2px;
+}
+
+.cert-qr {
+  margin: 0 20px 20px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.qr-box {
+  width: 90px; height: 90px;
+  background:
+    repeating-linear-gradient(0deg, var(--ink) 0 4px, transparent 4px 8px),
+    repeating-linear-gradient(90deg, var(--ink) 0 4px, transparent 4px 8px);
+  background-size: 8px 8px;
+  border-radius: 8px;
+  position: relative;
+  flex-shrink: 0;
+}
+.qr-box::after {
+  content: '';
+  position: absolute;
+  inset: 30px;
+  background: white;
+  border-radius: 6px;
+  border: 4px solid var(--ink);
+}
+.qr-info-title {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.qr-info-desc {
+  font-size: 12px;
+  color: var(--ink-mute);
+  line-height: 1.5;
+}
+
+/* ============ 志愿者主页 ============ */
+.volunteer-header {
+  padding: 20px;
+  text-align: center;
+  background: linear-gradient(180deg, var(--rescue-red-soft) 0%, transparent 100%);
+}
+.volunteer-rank {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--rescue-red);
+  letter-spacing: 2px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.volunteer-score {
+  font-family: var(--serif);
+  font-size: 64px;
+  font-weight: 900;
+  color: var(--ink);
+  line-height: 1;
+}
+.volunteer-score-label {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-top: 8px;
+}
+
+.medals-row {
+  padding: 0 20px 24px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.medal {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-weight: 900;
+  font-size: 18px;
+  color: white;
+  position: relative;
+  border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.medal-bronze { background: linear-gradient(135deg, var(--bronze), #8B5A2B); }
+.medal-silver { background: linear-gradient(135deg, var(--silver), #6B7280); }
+.medal-gold { background: linear-gradient(135deg, var(--gold), #8B7515); }
+.medal-diamond {
+  background: linear-gradient(135deg, var(--diamond), #2563EB);
+  opacity: 0.3;
+}
+.medal-locked::after {
+  content: '🔒';
+  position: absolute;
+  font-size: 14px;
+  background: rgba(0,0,0,0.4);
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.leaderboard {
+  padding: 0 20px;
+}
+.lb-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.lb-tab {
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  color: var(--ink-mute);
+}
+.lb-tab.active {
+  background: var(--ink);
+  color: white;
+  border-color: var(--ink);
+}
+
+.lb-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.lb-rank {
+  width: 32px;
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink-mute);
+  text-align: center;
+}
+.lb-rank.top1 { color: var(--gold); font-size: 22px; }
+.lb-rank.top2 { color: var(--silver); font-size: 20px; }
+.lb-rank.top3 { color: var(--bronze); font-size: 20px; }
+.lb-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--rescue-red-soft), #F8E8E5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rescue-red);
+  font-weight: 700;
+  font-family: var(--serif);
+}
+.lb-info { flex: 1; }
+.lb-name {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 14px;
+}
+.lb-meta {
+  font-size: 11px;
+  color: var(--ink-mute);
+  font-family: var(--mono);
+}
+.lb-score {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--rescue-red);
+}
+.lb-item.me {
+  background: var(--rescue-red-soft);
+  margin: 0 -20px;
+  padding: 14px 20px;
+  border-bottom: none;
+  border-radius: 12px;
+  margin-top: 10px;
+}
+
+/* ============ 通用工具 ============ */
+.spacer-sm { height: 12px; }
+.spacer { height: 24px; }
+.spacer-lg { height: 40px; }
+
+.demo-badge {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-family: var(--mono);
+  z-index: 999;
+  letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+
+<div class="demo-badge">DEMO</div>
+
+<!-- ====================================================== -->
+<!--                       首页                              -->
+<!-- ====================================================== -->
+<div class="page active" id="home">
+  <div class="home-hero">
+    <div class="home-brand">急救侠</div>
+    <div class="home-tagline">遇见倒下的人 · 你也能伸手</div>
+    <div class="home-stats">
+      <div class="home-stat">
+        <span class="home-stat-num">12,847</span>
+        <span class="home-stat-label">认证急救侠</span>
+      </div>
+      <div class="home-stat">
+        <span class="home-stat-num">3,256</span>
+        <span class="home-stat-label">联网 AED</span>
+      </div>
+      <div class="home-stat">
+        <span class="home-stat-num">89</span>
+        <span class="home-stat-label">本月救援</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 紧急任务大Banner（仅志愿者收到任务时出现） -->
+  <div class="mission-alert-banner" onclick="goPage('aed-mission')">
+    <div class="mission-alert-pulse"></div>
+    <div class="mission-alert-pulse-2"></div>
+    <div class="mission-alert-content">
+      <div class="mission-alert-tag">
+        <span class="mission-alert-dot"></span>
+        <span>MISSION · 紧急任务</span>
+        <span class="mission-alert-time" id="mission-countdown">23s</span>
+      </div>
+      <div class="mission-alert-title">100m 外有人需要 AED</div>
+      <div class="mission-alert-detail">系统已为您锁定最近 AED · 80m · 写字楼 1F</div>
+      <div class="mission-alert-cta">
+        <span>立即接受任务</span>
+        <span class="mission-alert-arrow">→</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="emergency-section">
+    <button class="emergency-btn" onclick="goPage('rescue')">
+      <div class="emergency-btn-icon" style="font-size:18px;letter-spacing:0.5px;">SOS</div>
+      <div class="emergency-btn-text">
+        <div class="emergency-btn-title">紧急救护</div>
+        <div class="emergency-btn-sub">语音引导 · 召唤志愿者 · 联动 120</div>
+      </div>
+      <div style="font-size:24px;color:var(--rescue-red);">→</div>
+    </button>
+  </div>
+
+  <div class="info-section" style="padding-top:12px;padding-bottom:0;">
+    <div class="section-label" style="margin-bottom:12px;">功能</div>
+  </div>
+  <div class="entry-grid" style="margin-bottom:8px;">
+    <button class="entry-card" onclick="goPage('aed')">
+      <div class="entry-card-icon" style="background:#FFE8E5;color:#C0392B;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21z"/></svg>
+      </div>
+      <div class="entry-card-title">附近 AED</div>
+      <div class="entry-card-desc">实时位置 · 一键导航</div>
+    </button>
+    <button class="entry-card" onclick="goPage('atlas')">
+      <div class="entry-card-icon" style="background:#FFF8E0;color:#C8A656;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14h-4v-2h4v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+      </div>
+      <div class="entry-card-title">急救图谱</div>
+      <div class="entry-card-desc">6 类常见急救速查</div>
+    </button>
+    <button class="entry-card" onclick="goPage('learn')">
+      <div class="entry-card-icon" style="background:#E8F5EF;color:#1F8A5B;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/></svg>
+      </div>
+      <div class="entry-card-title">学习训练</div>
+      <div class="entry-card-desc">看视频 + 练手感</div>
+    </button>
+    <button class="entry-card" onclick="goPage('cert')">
+      <div class="entry-card-icon" style="background:#EEF2FF;color:#4A90E2;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+      </div>
+      <div class="entry-card-title">我的徽章</div>
+      <div class="entry-card-desc">证书 · 积分 · 排行</div>
+    </button>
+  </div>
+
+  <div class="info-section">
+    <div class="section-label">最近动态</div>
+    <div class="news-card">
+      <div class="news-num">28</div>
+      <div class="news-content">
+        <div class="news-title">深圳福田区新增 12 台联网 AED</div>
+        <div class="news-meta">2 小时前 · 系统消息</div>
+      </div>
+    </div>
+    <div class="news-card">
+      <div class="news-num">04</div>
+      <div class="news-content">
+        <div class="news-title">本周成功救援 4 例 · 全部已送医</div>
+        <div class="news-meta">本周 · 救援网络</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--                  紧急救援页                              -->
+<!-- ====================================================== -->
+<div class="page" id="rescue">
+  <!-- 阶段1：决策 -->
+  <div class="rescue-stage active" id="rescue-decision">
+    <div class="app-bar transparent" style="background:transparent;position:relative;">
+      <button class="back-btn" style="color:white;" onclick="goPage('home')">‹</button>
+      <h1 style="color:white;">紧急救护</h1>
+      <button onclick="alert('演示：直接拨打 120 + 同步发送您的精准位置')" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);padding:8px 14px;border-radius:20px;color:white;font-size:12px;font-family:var(--mono);font-weight:600;display:flex;align-items:center;gap:6px;">
+        <span style="color:#FF6B5B;">📞</span>120
+      </button>
+    </div>
+
+    <!-- 紧迫感铺垫 -->
+    <div style="text-align:center;padding:20px 24px 0;">
+      <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(192,57,43,0.2);border:1px solid rgba(192,57,43,0.4);padding:5px 12px;border-radius:20px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#FF8B5B;margin-bottom:24px;">
+        <span style="display:inline-block;width:7px;height:7px;background:#FF6B5B;border-radius:50%;animation:blink 1s infinite;"></span>
+        EMERGENCY · 黄金 4 分钟
+      </div>
+    </div>
+
+    <!-- 主问题 -->
+    <div style="text-align:center;padding:0 24px 28px;">
+      <div style="font-family:var(--serif);font-size:32px;font-weight:900;line-height:1.2;color:white;margin-bottom:10px;">看到有人倒下？</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.7);">深呼吸 · 您不会孤军奋战</div>
+    </div>
+
+    <!-- 主按钮 - 巨大且醒目 -->
+    <div style="padding:0 20px 16px;">
+      <button onclick="startRescueFlow()" class="primary-rescue-btn">
+        <div class="primary-rescue-pulse"></div>
+        <div class="primary-rescue-pulse-2"></div>
+        <div class="primary-rescue-content">
+          <div class="primary-rescue-icon">❤</div>
+          <div class="primary-rescue-text">
+            <div class="primary-rescue-title">立即开始救护</div>
+            <div class="primary-rescue-sub">系统语音引导 · 您只管按动作做</div>
+          </div>
+          <div class="primary-rescue-arrow">→</div>
+        </div>
+      </button>
+    </div>
+
+    <!-- 系统将做什么（紧凑版） -->
+    <div style="padding:0 20px 20px;">
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px 18px;">
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,0.5);margin-bottom:10px;">点击后 5 秒内系统自动:</div>
+        <div style="display:flex;gap:10px;font-size:12px;color:rgba(255,255,255,0.85);">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:32px;height:32px;background:rgba(245,158,11,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#F59E0B;font-size:14px;">📞</div>
+            <div>呼叫 120</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:32px;height:32px;background:rgba(245,158,11,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#F59E0B;font-size:14px;">👥</div>
+            <div>召志愿者</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:32px;height:32px;background:rgba(245,158,11,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#F59E0B;font-size:14px;">⚡</div>
+            <div>派 AED</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 次要选项（不是按钮，是信息提示） -->
+    <div style="padding:0 24px 24px;text-align:center;">
+      <div style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.7;">
+        不确定要不要救护？
+        <a onclick="alert('演示：进入意识/呼吸快速检查指南')" style="color:#FF8B5B;text-decoration:underline;cursor:pointer;">先做快速判断</a>
+      </div>
+    </div>
+
+    <!-- 底部信任区 -->
+    <div style="padding:0 24px 24px;">
+      <div style="display:flex;align-items:center;gap:10px;justify-content:center;font-size:11px;color:rgba(255,255,255,0.4);font-family:var(--mono);">
+        <span>🛡 善意救助免责</span>
+        <span style="opacity:0.5;">·</span>
+        <span>《民法典》184 条</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 阶段2：CPR 流程引导（多阶段） -->
+  <div class="rescue-stage" id="rescue-cpr">
+    <div class="app-bar transparent" style="background:transparent;">
+      <button class="back-btn" style="color:white;" onclick="backToDecision()">‹</button>
+      <h1 style="color:white;" id="cpr-stage-title">第 1 步 · 判断意识</h1>
+      <button class="back-btn" style="color:white;font-size:18px;">⚙</button>
+    </div>
+
+    <!-- 顶部进度条 -->
+    <div class="step-progress">
+      <div class="step-pill" data-step="1">1<span>呼救</span></div>
+      <div class="step-line"></div>
+      <div class="step-pill" data-step="2">2<span>判断</span></div>
+      <div class="step-line"></div>
+      <div class="step-pill" data-step="3">3<span>呼吸</span></div>
+      <div class="step-line"></div>
+      <div class="step-pill" data-step="4">4<span>按压</span></div>
+      <div class="step-line"></div>
+      <div class="step-pill" data-step="5">5<span>通气</span></div>
+    </div>
+
+    <!-- 步骤 1：呼救（系统自动调度 + 派志愿者带AED） -->
+    <div class="cpr-step" id="step-1">
+      <div class="step-icon-big" style="background:linear-gradient(135deg,#F59E0B,#D97706);">
+        <span style="font-size:48px;">📣</span>
+      </div>
+      <div class="step-action">系统调度中 · 您只管准备按压</div>
+      <div class="step-quote" style="font-size:22px;line-height:1.4;">"你！打 120！<br>剩下交给系统！"</div>
+      <div class="step-tasks">
+        <div class="step-task done">
+          <div class="step-task-check">✓</div>
+          <div class="step-task-text">
+            <strong>120 已自动呼叫</strong>
+            <div style="font-size:11px;opacity:0.7;margin-top:2px;">已发送您的精准位置</div>
+          </div>
+        </div>
+        <div class="step-task done">
+          <div class="step-task-check">✓</div>
+          <div class="step-task-text">
+            <strong>5km 内 8 名志愿者</strong>已通知
+            <div style="font-size:11px;opacity:0.7;margin-top:2px;">最近 240m · 预计 3 分钟到达</div>
+          </div>
+        </div>
+        <div class="step-task" style="background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.4);">
+          <div class="step-task-check" style="background:#F59E0B;">⚡</div>
+          <div class="step-task-text">
+            <strong>2 名志愿者正带 AED 过来</strong>
+            <div style="font-size:11px;opacity:0.85;margin-top:2px;">100m 内 · 最近 AED 在 80m 写字楼 1F</div>
+          </div>
+        </div>
+        <div class="step-task" onclick="goPage('helper')">
+          <div class="step-task-check todo">→</div>
+          <div class="step-task-text">点这里 · 让现场路人扫码协助</div>
+        </div>
+      </div>
+      <div class="step-detail" style="margin-top:16px;">
+        <strong style="color:#FF8B5B;">您不用自己去找 AED</strong>——附近的认证志愿者会带过来。<br>
+        放下手机，跟着语音指令准备开始按压。
+      </div>
+      <div class="step-timer">
+        <div class="step-timer-label">7 秒后自动开始判断意识</div>
+        <div class="step-timer-bar"><div class="step-timer-fill" id="timer-1"></div></div>
+      </div>
+      <div class="step-buttons">
+        <button class="step-btn-primary" onclick="goStep(2)">已喊人 · 立即开始</button>
+      </div>
+    </div>
+
+    <!-- 步骤 2：判断意识 -->
+    <div class="cpr-step" id="step-2" style="display:none;">
+      <div class="step-icon-big" style="background:linear-gradient(135deg,#FF6B5B,#C0392B);">
+        <span style="font-size:48px;">👋</span>
+      </div>
+      <div class="step-action">判断意识 · 5 秒</div>
+      <div class="step-quote">"大爷！你怎么啦？"</div>
+      <div class="step-detail">
+        拍打患者两侧肩膀，在耳边大声呼喊。<br>
+        观察是否有任何反应——眨眼、动手、出声。
+      </div>
+      <div class="step-timer">
+        <div class="step-timer-label">5 秒后自动进入下一步</div>
+        <div class="step-timer-bar"><div class="step-timer-fill" id="timer-2"></div></div>
+      </div>
+      <div class="step-buttons">
+        <button class="step-btn-secondary" onclick="abortFlow('有反应')">有反应 · 暂停流程</button>
+      </div>
+    </div>
+
+    <!-- 步骤 3：判断呼吸 -->
+    <div class="cpr-step" id="step-3" style="display:none;">
+      <div class="step-icon-big" style="background:linear-gradient(135deg,#4A90E2,#2563EB);">
+        <span style="font-size:48px;">🫁</span>
+      </div>
+      <div class="step-action">判断呼吸 · 默数 7 秒</div>
+      <div class="step-quote" id="breath-counter">1001</div>
+      <div class="step-detail">
+        把脸贴近患者口鼻，<strong style="color:#FF8B5B;">同时</strong>看胸口起伏、听呼吸、感受气流。<br>
+        跟着屏幕一起数。
+      </div>
+      <div class="step-timer">
+        <div class="step-timer-label">数到 1007 自动开始按压</div>
+        <div class="step-timer-bar"><div class="step-timer-fill" id="timer-3"></div></div>
+      </div>
+      <div class="step-buttons">
+        <button class="step-btn-secondary" onclick="abortFlow('有正常呼吸')">有正常呼吸 · 暂停流程</button>
+      </div>
+    </div>
+
+    <!-- 步骤 4：按压（30 次报数） -->
+    <div class="cpr-step" id="step-4" style="display:none;">
+      <div class="cpr-bar">
+        <div class="cpr-bar-item">
+          <span class="cpr-bar-label">总坚持</span>
+          <span class="cpr-bar-value" id="cpr-time">00:00</span>
+        </div>
+        <div class="cpr-bar-item">
+          <span class="cpr-bar-label">本组</span>
+          <span class="cpr-bar-value"><span id="cpr-count">0</span>/30</span>
+        </div>
+        <div class="cpr-bar-item">
+          <span class="cpr-bar-label">完成组数</span>
+          <span class="cpr-bar-value" id="cpr-rounds">0</span>
+        </div>
+      </div>
+
+      <div class="metronome-wrap">
+        <div class="metronome" id="metronome-clickable" onclick="resetCprCount()" style="cursor:pointer;">
+          <div class="metronome-ring"></div>
+          <div class="metronome-ring metronome-ring-active"></div>
+          <div class="metronome-center">
+            <div class="metronome-bpm" id="press-num">准备</div>
+            <div class="metronome-bpm-label" id="press-label">点圆圈可重置</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cpr-instruction" id="cpr-tip">
+        <div class="cpr-instruction-num">按压要点</div>
+        <div class="cpr-instruction-text">双掌交叠 · 胸骨中下段 · 下压 5-6cm</div>
+        <div class="cpr-instruction-detail">
+          手臂保持<strong style="color:#FF8B5B;">伸直</strong>，借上半身重量下压。<br>
+          <strong>AED 到了</strong>，或者<strong>换人接力</strong>，点圆圈重置计数。
+        </div>
+      </div>
+
+      <div class="helpers-bar">
+        <div class="helpers-dot"></div>
+        <div class="helpers-text">最近志愿者 <strong>240m</strong> · 预计 <strong>3 分钟</strong> 到达</div>
+        <div class="helpers-arrow">›</div>
+      </div>
+
+      <div class="cpr-actions">
+        <button class="cpr-action" onclick="goPage('helper')">
+          <div class="cpr-action-icon">+</div>
+          <span>叫人协助</span>
+        </button>
+        <button class="cpr-action" onclick="startAedInterrupt()" style="background:rgba(245,158,11,0.2);border-color:rgba(245,158,11,0.5);">
+          <div class="cpr-action-icon" style="color:#F59E0B;">⚡</div>
+          <span>AED 到了</span>
+        </button>
+        <button class="cpr-action danger" onclick="alert('演示:拨打 120')">
+          <div class="cpr-action-icon">📞</div>
+          <span>120</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- AED 介入流程页（覆盖按压页） -->
+    <div class="cpr-step" id="step-aed" style="display:none;">
+      <div class="step-icon-big" style="background:linear-gradient(135deg,#F59E0B,#D97706);">
+        <span style="font-size:48px;">⚡</span>
+      </div>
+      <div class="step-action" id="aed-stage-label">AED 介入 · 停止按压</div>
+      <div class="step-quote" id="aed-stage-quote" style="font-size:26px;">所有人离开患者！</div>
+
+      <div class="step-detail" id="aed-stage-detail" style="margin-top:16px;">
+        AED 正在<strong style="color:#F59E0B;">分析心律</strong>，请离开患者，不要触碰。<br>
+        机器会告诉您下一步怎么做。
+      </div>
+
+      <div class="step-timer">
+        <div class="step-timer-label" id="aed-timer-label">分析中... 约 10 秒</div>
+        <div class="step-timer-bar"><div class="step-timer-fill" id="timer-aed"></div></div>
+      </div>
+
+      <div class="step-buttons">
+        <button class="step-btn-secondary" onclick="cancelAedInterrupt()">取消 · 继续按压</button>
+      </div>
+    </div>
+
+    <!-- 步骤 5：通气 2 次 -->
+    <div class="cpr-step" id="step-5" style="display:none;">
+      <div class="step-icon-big" style="background:linear-gradient(135deg,#10B981,#059669);">
+        <span style="font-size:48px;">💨</span>
+      </div>
+      <div class="step-action">人工通气 · <span id="vent-counter-num">1</span> / 2</div>
+      <div class="step-quote" id="vent-counter">第 1 次</div>
+
+      <div class="vent-checklist">
+        <div class="vent-item" id="vent-1">
+          <div class="vent-num">1</div>
+          <div class="vent-text">仰头抬下巴 <span class="vent-sub">让气道打开</span></div>
+        </div>
+        <div class="vent-item" id="vent-2">
+          <div class="vent-num">2</div>
+          <div class="vent-text">检查口腔 <span class="vent-sub">清除可见异物</span></div>
+        </div>
+        <div class="vent-item" id="vent-3">
+          <div class="vent-num">3</div>
+          <div class="vent-text">捏住鼻子 <span class="vent-sub">嘴包嘴密封</span></div>
+        </div>
+        <div class="vent-item" id="vent-4">
+          <div class="vent-num">4</div>
+          <div class="vent-text">吹一口气 <span class="vent-sub">看到胸部鼓起即可</span></div>
+        </div>
+      </div>
+
+      <div class="step-detail">
+        每次吹气约 1 秒。<br>
+        看到胸部明显鼓起就停止，<strong>不要吹太久</strong>。
+      </div>
+
+      <div class="step-timer">
+        <div class="step-timer-label" id="vent-timer-label">本次通气倒计时</div>
+        <div class="step-timer-bar"><div class="step-timer-fill" id="timer-vent"></div></div>
+      </div>
+
+      <div class="step-buttons">
+        <button class="step-btn-secondary" onclick="speak('暂停');alert('演示：可手动暂停（但实际场景应避免操作）')">需要更多时间</button>
+      </div>
+    </div>
+
+    <!-- 步骤 6：循环 -->
+    <div class="cpr-step" id="step-loop" style="display:none;">
+      <div class="step-icon-big" style="background:linear-gradient(135deg,#C0392B,#8B2A1F);">
+        <span style="font-size:48px;">🔁</span>
+      </div>
+      <div class="step-action">完成 1 个 CPR 循环</div>
+      <div class="step-quote" style="font-size:24px;">继续 30 按压 + 2 通气</div>
+      <div class="step-detail">
+        持续循环到 120 急救员或志愿者到达接手。<br>
+        <strong style="color:#FF8B5B;">不要停下！</strong>
+      </div>
+      <div class="cpr-rounds-show">
+        已完成 <strong id="loop-rounds">1</strong> 个循环
+      </div>
+      <div class="step-timer">
+        <div class="step-timer-label">3 秒后自动开始下一组</div>
+        <div class="step-timer-bar"><div class="step-timer-fill" id="timer-loop"></div></div>
+      </div>
+      <div class="step-buttons">
+        <button class="step-btn-primary" onclick="goStep(4)">立即开始下一组</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--                  AED 地图                               -->
+<!-- ====================================================== -->
+<div class="page" id="aed">
+  <div class="app-bar">
+    <button class="back-btn" onclick="goPage('home')">‹</button>
+    <h1>附近 AED</h1>
+    <button onclick="alert('演示：分享 AED 地图给朋友')" style="background:none;border:none;color:var(--ink-soft);font-size:20px;padding:8px;">⋯</button>
+  </div>
+
+  <!-- 顶部紧迫感引导 -->
+  <div style="padding:0 20px 16px;">
+    <div style="background:linear-gradient(135deg,rgba(192,57,43,0.06),rgba(192,57,43,0.02));border:1px solid rgba(192,57,43,0.15);border-radius:14px;padding:14px 16px;display:flex;gap:12px;align-items:center;">
+      <div style="width:40px;height:40px;background:var(--rescue-red);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21z"/></svg>
+      </div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-weight:700;font-size:14px;margin-bottom:2px;">提前知道身边 AED 在哪</div>
+        <div style="font-size:11px;color:var(--ink-mute);line-height:1.5;">心脏骤停黄金 4 分钟 · 每秒都重要</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 地图（更醒目） -->
+  <div class="aed-map-bg" style="margin:0 20px;border-radius:18px;height:240px;border:1px solid var(--line);">
+    <div class="map-pin me" style="left:48%;top:55%;">我</div>
+    <div class="map-pin" style="left:30%;top:30%;">1</div>
+    <div class="map-pin" style="left:65%;top:35%;">2</div>
+    <div class="map-pin" style="left:20%;top:70%;">3</div>
+    <div class="map-pin" style="left:75%;top:75%;">4</div>
+
+    <!-- 浮动统计 -->
+    <div style="position:absolute;bottom:12px;left:12px;background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);padding:8px 12px;border-radius:12px;font-size:11px;color:var(--ink-soft);box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+      <span style="font-family:var(--mono);font-weight:700;color:var(--rescue-red);font-size:13px;">4</span> 台 · 1km 内
+    </div>
+    <div style="position:absolute;bottom:12px;right:12px;background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);padding:8px 10px;border-radius:12px;font-size:11px;color:var(--ink-soft);box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+      📍 福田中心
+    </div>
+  </div>
+
+  <!-- 列表标签 + 排序 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 20px 12px;">
+    <div class="section-label" style="margin-bottom:0;">距离从近到远</div>
+    <button onclick="alert('演示：可切换为按可用状态排序')" style="background:var(--paper-warm);border:none;padding:6px 12px;border-radius:14px;font-size:11px;color:var(--ink-soft);font-family:var(--mono);">↕ 切换排序</button>
+  </div>
+
+  <!-- AED 列表（可操作卡片） -->
+  <div style="padding:0 20px;">
+    <div class="aed-card">
+      <div class="aed-card-rank">1</div>
+      <div class="aed-card-info">
+        <div class="aed-card-name">福田地铁站 A 出口</div>
+        <div class="aed-card-addr">深圳市福田区福华路 88 号</div>
+        <div class="aed-card-tags">
+          <span class="aed-tag aed-tag-ok">● 在线可用</span>
+          <span class="aed-tag aed-tag-distance">240m · 步行 3 分钟</span>
+        </div>
+      </div>
+      <div class="aed-card-actions">
+        <button class="aed-card-btn aed-card-btn-primary" onclick="alert('演示：调用高德/百度导航到 AED 位置')">
+          <span style="font-size:14px;">→</span>
+          <span>导航</span>
+        </button>
+        <button class="aed-card-btn" onclick="alert('演示：分享给微信好友/朋友圈')">
+          ⌇
+        </button>
+      </div>
+    </div>
+
+    <div class="aed-card">
+      <div class="aed-card-rank">2</div>
+      <div class="aed-card-info">
+        <div class="aed-card-name">益田假日广场 1F 服务台</div>
+        <div class="aed-card-addr">深圳市福田区福华三路 6 号</div>
+        <div class="aed-card-tags">
+          <span class="aed-tag aed-tag-ok">● 在线可用</span>
+          <span class="aed-tag aed-tag-distance">380m · 步行 5 分钟</span>
+        </div>
+      </div>
+      <div class="aed-card-actions">
+        <button class="aed-card-btn aed-card-btn-primary" onclick="alert('演示：导航')">
+          <span style="font-size:14px;">→</span>
+          <span>导航</span>
+        </button>
+        <button class="aed-card-btn" onclick="alert('演示：分享')">⌇</button>
+      </div>
+    </div>
+
+    <div class="aed-card">
+      <div class="aed-card-rank">3</div>
+      <div class="aed-card-info">
+        <div class="aed-card-name">福田中心公园南门</div>
+        <div class="aed-card-addr">深圳市福田区福中路 168 号</div>
+        <div class="aed-card-tags">
+          <span class="aed-tag aed-tag-ok">● 在线可用</span>
+          <span class="aed-tag aed-tag-distance">520m · 步行 7 分钟</span>
+        </div>
+      </div>
+      <div class="aed-card-actions">
+        <button class="aed-card-btn aed-card-btn-primary" onclick="alert('演示：导航')">
+          <span style="font-size:14px;">→</span>
+          <span>导航</span>
+        </button>
+        <button class="aed-card-btn" onclick="alert('演示：分享')">⌇</button>
+      </div>
+    </div>
+
+    <div class="aed-card">
+      <div class="aed-card-rank">4</div>
+      <div class="aed-card-info">
+        <div class="aed-card-name">深圳实验中学医务室</div>
+        <div class="aed-card-addr">深圳市福田区红荔路 3001 号</div>
+        <div class="aed-card-tags">
+          <span class="aed-tag aed-tag-ok">● 在线可用</span>
+          <span class="aed-tag aed-tag-distance">680m · 步行 9 分钟</span>
+        </div>
+      </div>
+      <div class="aed-card-actions">
+        <button class="aed-card-btn aed-card-btn-primary" onclick="alert('演示：导航')">
+          <span style="font-size:14px;">→</span>
+          <span>导航</span>
+        </button>
+        <button class="aed-card-btn" onclick="alert('演示：分享')">⌇</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部 CTA -->
+  <div style="padding:20px;">
+    <button onclick="alert('演示：报告新发现的 AED 位置 · 审核通过 +50 积分')" style="width:100%;padding:14px;background:white;border:1.5px dashed var(--line);border-radius:14px;color:var(--ink-soft);font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;">
+      <span style="font-size:18px;color:var(--rescue-red);">+</span>
+      <span>发现新 AED 位置 · 报告可获积分</span>
+    </button>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--                 急救图谱                                -->
+<!-- ====================================================== -->
+<div class="page" id="atlas">
+  <div class="app-bar">
+    <button class="back-btn" onclick="goPage('home')">‹</button>
+    <h1>急救图谱</h1>
+  </div>
+
+  <!-- 顶部说明 -->
+  <div style="padding:0 20px 16px;">
+    <div style="font-size:13px;color:var(--ink-soft);line-height:1.6;">
+      <strong style="color:var(--rescue-red);">遇到突发情况</strong>，先点对应的卡片快速查看应对步骤。
+    </div>
+  </div>
+
+  <!-- 致命急症（最紧急的前3个） -->
+  <div style="padding:0 20px 8px;">
+    <div class="section-label" style="margin-bottom:10px;">致命急症 · 黄金分钟</div>
+  </div>
+  <div class="atlas-grid" style="padding-top:0;padding-bottom:8px;">
+    <button class="atlas-card featured" onclick="alert('演示：CPR 详细图文')">
+      <div class="atlas-card-num">01 · 紧急</div>
+      <div class="atlas-card-icon-wrap">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      </div>
+      <div class="atlas-card-title">心脏骤停</div>
+      <div class="atlas-card-desc">CPR · 胸外按压 · 4分钟黄金窗口</div>
+    </button>
+    <button class="atlas-card atlas-card-urgent" onclick="alert('演示：海姆立克详细图文')">
+      <div class="atlas-card-num">02 · 紧急</div>
+      <div class="atlas-card-icon-wrap" style="background:rgba(245,158,11,0.15);color:#F59E0B;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 4.17 4.42 9.92 6.24 12.11.4.48 1.13.48 1.53 0C14.58 18.92 19 13.17 19 9c0-3.87-3.13-7-7-7z"/></svg>
+      </div>
+      <div class="atlas-card-title">异物窒息</div>
+      <div class="atlas-card-desc">海姆立克 · 腹部冲击</div>
+    </button>
+  </div>
+
+  <div style="padding:0 20px;">
+    <button class="atlas-card-wide" onclick="alert('演示：AED使用图文')">
+      <div class="atlas-card-icon-wrap" style="background:rgba(245,158,11,0.15);color:#F59E0B;flex-shrink:0;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21z"/></svg>
+      </div>
+      <div style="flex:1;text-align:left;">
+        <div class="atlas-card-num">03 · 配合 CPR</div>
+        <div class="atlas-card-title" style="margin-bottom:2px;">AED 使用</div>
+        <div class="atlas-card-desc">体外除颤器 · 6 步快速操作</div>
+      </div>
+      <div style="font-size:18px;color:var(--ink-mute);">→</div>
+    </button>
+  </div>
+
+  <!-- 常见外伤 -->
+  <div style="padding:24px 20px 8px;">
+    <div class="section-label" style="margin-bottom:10px;">常见外伤 · 现场处理</div>
+  </div>
+  <div class="atlas-grid" style="padding-top:0;">
+    <button class="atlas-card" onclick="alert('演示：止血图文')">
+      <div class="atlas-card-num">04</div>
+      <div class="atlas-card-icon-wrap" style="background:#FEE2E2;color:#EF4444;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17h2v2H3v-2zm0-7h2v2H3v-2zm0-7h2v2H3V3zm4 0h14v2H7V3zm0 14h14v2H7v-2zm0-7h14v2H7v-2z"/></svg>
+      </div>
+      <div class="atlas-card-title">出血止血</div>
+      <div class="atlas-card-desc">伤口包扎 · 加压止血</div>
+    </button>
+    <button class="atlas-card" onclick="alert('演示：烫伤图文')">
+      <div class="atlas-card-num">05</div>
+      <div class="atlas-card-icon-wrap" style="background:#FEF3C7;color:#D97706;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 0.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg>
+      </div>
+      <div class="atlas-card-title">烫伤处理</div>
+      <div class="atlas-card-desc">冷水冲洗 · 创面保护</div>
+    </button>
+  </div>
+
+  <div style="padding:0 20px;">
+    <button class="atlas-card-wide" onclick="alert('演示：中暑图文')">
+      <div class="atlas-card-icon-wrap" style="background:#DBEAFE;color:#2563EB;flex-shrink:0;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2"/></svg>
+      </div>
+      <div style="flex:1;text-align:left;">
+        <div class="atlas-card-num">06</div>
+        <div class="atlas-card-title" style="margin-bottom:2px;">中暑急救</div>
+        <div class="atlas-card-desc">物理降温 · 补水 · 阴凉处</div>
+      </div>
+      <div style="font-size:18px;color:var(--ink-mute);">→</div>
+    </button>
+  </div>
+
+  <!-- 底部 -->
+  <div style="padding:20px;text-align:center;">
+    <a onclick="goPage('learn')" style="color:var(--rescue-red);font-size:13px;cursor:pointer;border-bottom:1px solid var(--rescue-red);padding-bottom:2px;">系统学习这些急救技能 →</a>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--                 学习训练中心                             -->
+<!-- ====================================================== -->
+<div class="page" id="learn">
+  <div class="app-bar">
+    <button class="back-btn" onclick="goPage('home')">‹</button>
+    <h1>学习训练</h1>
+  </div>
+
+  <!-- 顶部双 Tab：学知识 / 练手感 -->
+  <div style="padding:0 20px 16px;">
+    <div style="display:flex;background:var(--paper-warm);border-radius:14px;padding:4px;">
+      <button id="learn-tab-knowledge" onclick="switchLearnTab('knowledge')" class="learn-tab learn-tab-active">
+        <span style="font-family:var(--serif);font-weight:700;font-size:14px;">📖 学知识</span>
+        <span style="font-size:10px;opacity:0.7;">看视频 + 答题</span>
+      </button>
+      <button id="learn-tab-training" onclick="switchLearnTab('training')" class="learn-tab">
+        <span style="font-family:var(--serif);font-weight:700;font-size:14px;">💪 练手感</span>
+        <span style="font-size:10px;opacity:0.7;">真实动作 + 评分</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============== 学知识 Tab ============== -->
+  <div id="learn-content-knowledge">
+    <div class="learn-banner" style="margin:0 20px 16px;">
+      <div class="learn-banner-tag">本周推荐 · 限时</div>
+      <div class="learn-banner-title">儿童 CPR 专项<br>家长必看课程</div>
+      <div class="learn-banner-meta">5 节微课 · 完成可获 +200 积分</div>
+      <button class="learn-banner-btn" onclick="goPage('train')">立即学习 →</button>
+    </div>
+
+    <div class="lesson-list">
+      <button class="lesson-item" onclick="goPage('train')">
+        <div class="lesson-thumb">01</div>
+        <div class="lesson-info">
+          <div class="lesson-title">心肺复苏 · 基础按压</div>
+          <div class="lesson-meta">
+            <span>4:32</span><span>·</span><span>已学 12,438 人</span>
+          </div>
+        </div>
+        <div class="lesson-progress">✓</div>
+      </button>
+      <button class="lesson-item" onclick="goPage('train')">
+        <div class="lesson-thumb">02</div>
+        <div class="lesson-info">
+          <div class="lesson-title">AED 使用 · 6 步操作</div>
+          <div class="lesson-meta">
+            <span>5:18</span><span>·</span><span>已学 9,827 人</span>
+          </div>
+        </div>
+        <div class="lesson-progress">✓</div>
+      </button>
+      <button class="lesson-item" onclick="goPage('train')">
+        <div class="lesson-thumb">03</div>
+        <div class="lesson-info">
+          <div class="lesson-title">海姆立克手法 · 成人/儿童</div>
+          <div class="lesson-meta">
+            <span>3:46</span><span>·</span><span>已学 6,541 人</span>
+          </div>
+        </div>
+        <div class="lesson-progress todo">3</div>
+      </button>
+      <button class="lesson-item" onclick="goPage('train')">
+        <div class="lesson-thumb">04</div>
+        <div class="lesson-info">
+          <div class="lesson-title">大出血现场处理</div>
+          <div class="lesson-meta">
+            <span>6:02</span><span>·</span><span>已学 4,258 人</span>
+          </div>
+        </div>
+        <div class="lesson-progress todo">4</div>
+      </button>
+      <button class="lesson-item" onclick="goPage('train')">
+        <div class="lesson-thumb">05</div>
+        <div class="lesson-info">
+          <div class="lesson-title">儿童急救与差异</div>
+          <div class="lesson-meta">
+            <span>5:12</span><span>·</span><span>已学 3,629 人</span>
+          </div>
+        </div>
+        <div class="lesson-progress todo">5</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============== 练手感 Tab ============== -->
+  <div id="learn-content-training" style="display:none;">
+
+    <!-- 提示卡 -->
+    <div style="margin:0 20px 16px;background:linear-gradient(135deg,rgba(31,138,91,0.08),rgba(31,138,91,0.02));border:1px solid rgba(31,138,91,0.2);border-radius:14px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="width:36px;height:36px;background:var(--green);border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;flex-shrink:0;">💪</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-weight:700;font-size:14px;margin-bottom:4px;">真实动作训练</div>
+        <div style="font-size:11px;color:var(--ink-mute);line-height:1.5;">
+          知道还不够 · 手要真的会做。<br>
+          每周练 1 次 · 关键时刻才不会僵住。
+        </div>
+      </div>
+    </div>
+
+    <!-- 主推训练：CPR 节拍 -->
+    <div style="padding:0 20px 16px;">
+      <button onclick="goPage('cpr-rhythm')" style="width:100%;background:linear-gradient(135deg,var(--rescue-red),var(--rescue-red-deep));color:white;border:none;border-radius:18px;padding:22px;text-align:left;position:relative;overflow:hidden;box-shadow:0 8px 24px rgba(192,57,43,0.3);">
+        <div style="position:absolute;right:-20px;top:-20px;font-family:var(--serif);font-size:120px;font-weight:900;opacity:0.1;line-height:1;">❤</div>
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;opacity:0.85;margin-bottom:6px;">⭐ 最重要 · 必练</div>
+        <div style="font-family:var(--serif);font-size:22px;font-weight:900;margin-bottom:4px;">CPR 节拍训练</div>
+        <div style="font-size:12px;opacity:0.85;line-height:1.5;margin-bottom:14px;">
+          手指点屏幕模拟按压 · 系统检测您的节拍准不准
+        </div>
+        <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.2);backdrop-filter:blur(10px);padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;">
+          <span>开始训练</span><span>→</span>
+        </div>
+      </button>
+    </div>
+
+    <!-- 训练项目网格 -->
+    <div style="padding:0 20px;">
+      <div class="section-label" style="margin-bottom:12px;">其他训练项目</div>
+    </div>
+
+    <div style="padding:0 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <button onclick="goPage('train-cpr-flow')" style="background:white;border:1px solid var(--line);border-radius:16px;padding:16px;text-align:left;">
+        <div style="width:40px;height:40px;background:rgba(192,57,43,0.1);color:var(--rescue-red);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:20px;">🔁</div>
+        <div style="font-family:var(--serif);font-weight:700;font-size:14px;margin-bottom:2px;">CPR 全流程</div>
+        <div style="font-size:11px;color:var(--ink-mute);line-height:1.4;">5 阶段循环 · 模拟真实救援</div>
+        <div style="margin-top:10px;font-size:10px;color:var(--rescue-red);font-family:var(--mono);">约 8 分钟</div>
+      </button>
+
+      <button onclick="goPage('train-aed')" style="background:white;border:1px solid var(--line);border-radius:16px;padding:16px;text-align:left;">
+        <div style="width:40px;height:40px;background:rgba(245,158,11,0.1);color:#F59E0B;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:20px;">⚡</div>
+        <div style="font-family:var(--serif);font-weight:700;font-size:14px;margin-bottom:2px;">AED 操作</div>
+        <div style="font-size:11px;color:var(--ink-mute);line-height:1.4;">模拟设备 · 6 步操作</div>
+        <div style="margin-top:10px;font-size:10px;color:var(--rescue-red);font-family:var(--mono);">约 5 分钟</div>
+      </button>
+
+      <button onclick="goPage('train-heimlich')" style="background:white;border:1px solid var(--line);border-radius:16px;padding:16px;text-align:left;">
+        <div style="width:40px;height:40px;background:rgba(74,144,226,0.1);color:#4A90E2;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:20px;">🫁</div>
+        <div style="font-family:var(--serif);font-weight:700;font-size:14px;margin-bottom:2px;">海姆立克</div>
+        <div style="font-size:11px;color:var(--ink-mute);line-height:1.4;">异物窒息手法</div>
+        <div style="margin-top:10px;font-size:10px;color:var(--rescue-red);font-family:var(--mono);">约 4 分钟</div>
+      </button>
+
+      <button onclick="goPage('train-scenario')" style="background:white;border:1px solid var(--line);border-radius:16px;padding:16px;text-align:left;">
+        <div style="width:40px;height:40px;background:rgba(31,138,91,0.1);color:var(--green);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:20px;">🎬</div>
+        <div style="font-family:var(--serif);font-weight:700;font-size:14px;margin-bottom:2px;">情境模拟</div>
+        <div style="font-size:11px;color:var(--ink-mute);line-height:1.4;">真实案例 · 应变练习</div>
+        <div style="margin-top:10px;font-size:10px;color:var(--rescue-red);font-family:var(--mono);">约 6 分钟</div>
+      </button>
+    </div>
+
+    <!-- 训练记录 -->
+    <div style="padding:24px 20px 0;">
+      <div class="section-label" style="margin-bottom:12px;">您的训练记录</div>
+      <div style="background:white;border:1px solid var(--line);border-radius:14px;padding:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div>
+            <div style="font-family:var(--mono);font-size:24px;font-weight:700;color:var(--rescue-red);line-height:1;">14</div>
+            <div style="font-size:11px;color:var(--ink-mute);margin-top:4px;">本月训练次数</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:#1F8A5B;line-height:1;">A-</div>
+            <div style="font-size:11px;color:var(--ink-mute);margin-top:4px;">最近评分</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:#C8A656;line-height:1;">7</div>
+            <div style="font-size:11px;color:var(--ink-mute);margin-top:4px;">连续打卡</div>
+          </div>
+        </div>
+        <div style="height:1px;background:var(--line);margin-bottom:12px;"></div>
+        <div style="font-size:11px;color:var(--ink-mute);line-height:1.6;">
+          📅 最近训练：今天上午 · CPR 节拍训练 · <strong style="color:#1F8A5B;">A-（92 分）</strong><br>
+          💡 提示：建议本周再练 1 次 AED 操作，已经 8 天没练了
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--                  培训页                                  -->
+<!-- ====================================================== -->
+<div class="page" id="train">
+  <div class="app-bar">
+    <button class="back-btn" onclick="goPage('learn')">‹</button>
+    <h1>第 1 节 · 基础按压</h1>
+    <button onclick="alert('演示：收藏到我的课程')" style="background:none;border:none;color:var(--ink-mute);font-size:18px;padding:8px;">♡</button>
+  </div>
+
+  <!-- 视频区（更有质感） -->
+  <div style="position:relative;background:linear-gradient(135deg,#1A1A1A,#0A0A0A);height:220px;overflow:hidden;">
+    <div style="position:absolute;inset:0;background:radial-gradient(circle at 30% 50%,rgba(192,57,43,0.25) 0%,transparent 50%),radial-gradient(circle at 70% 50%,rgba(245,158,11,0.15) 0%,transparent 50%);"></div>
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+      <button onclick="alert('演示：开始播放教学视频')" style="width:72px;height:72px;background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--rescue-red);font-size:24px;box-shadow:0 8px 24px rgba(0,0,0,0.4);">▶</button>
+    </div>
+    <div style="position:absolute;top:16px;left:16px;display:flex;gap:8px;">
+      <span style="background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);color:white;padding:4px 10px;border-radius:14px;font-family:var(--mono);font-size:10px;letter-spacing:0.5px;">📹 4K</span>
+      <span style="background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);color:white;padding:4px 10px;border-radius:14px;font-family:var(--mono);font-size:10px;letter-spacing:0.5px;">字幕</span>
+    </div>
+    <div style="position:absolute;bottom:16px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;color:rgba(255,255,255,0.85);font-family:var(--mono);font-size:11px;">
+      <span>00:00 / 04:32</span>
+      <span>已学 12,438 人</span>
+    </div>
+  </div>
+
+  <div style="padding:20px;">
+    <!-- 标题区 -->
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="background:var(--rescue-red-soft);color:var(--rescue-red);padding:3px 10px;border-radius:12px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;">CPR · 基础</span>
+        <span style="font-size:11px;color:var(--ink-mute);">+200 积分</span>
+      </div>
+      <div style="font-family:var(--serif);font-size:24px;font-weight:900;line-height:1.2;margin-bottom:6px;">心肺复苏 · 基础按压</div>
+      <div style="font-size:13px;color:var(--ink-mute);line-height:1.5;">
+        从 0 学起 · 4 分 32 秒 · 看完答 3 题获得积分
+      </div>
+    </div>
+
+    <!-- 4 步要点 -->
+    <div class="section-label" style="margin-bottom:12px;">本节核心要点</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+      <div style="display:flex;gap:14px;align-items:flex-start;padding:14px 16px;background:white;border:1px solid var(--line);border-radius:14px;">
+        <div style="width:32px;height:32px;background:var(--rescue-red);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:14px;flex-shrink:0;">1</div>
+        <div style="flex:1;">
+          <div style="font-family:var(--serif);font-weight:700;font-size:14px;margin-bottom:2px;">判断意识</div>
+          <div style="font-size:12px;color:var(--ink-mute);line-height:1.5;">拍肩呼喊，确认无反应（约 5 秒）</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:flex-start;padding:14px 16px;background:white;border:1px solid var(--line);border-radius:14px;">
+        <div style="width:32px;height:32px;background:var(--rescue-red);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:14px;flex-shrink:0;">2</div>
+        <div style="flex:1;">
+          <div style="font-family:var(--serif);font-weight:700;font-size:14px;margin-bottom:2px;">立即呼救</div>
+          <div style="font-size:12px;color:var(--ink-mute);line-height:1.5;">指派路人打 120 + 让人去取附近 AED</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:flex-start;padding:14px 16px;background:white;border:1px solid var(--line);border-radius:14px;">
+        <div style="width:32px;height:32px;background:var(--rescue-red);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:14px;flex-shrink:0;">3</div>
+        <div style="flex:1;">
+          <div style="font-family:var(--serif);font-weight:700;font-size:14px;margin-bottom:2px;">按压位置</div>
+          <div style="font-size:12px;color:var(--ink-mute);line-height:1.5;">两乳头连线中点（胸骨中下段）· 双掌交叠</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:flex-start;padding:14px 16px;background:linear-gradient(135deg,rgba(192,57,43,0.06),rgba(192,57,43,0.02));border:1px solid rgba(192,57,43,0.25);border-radius:14px;">
+        <div style="width:32px;height:32px;background:var(--rescue-red);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:14px;flex-shrink:0;">4</div>
+        <div style="flex:1;">
+          <div style="font-family:var(--serif);font-weight:700;font-size:14px;margin-bottom:2px;">按压频率 <span style="color:var(--rescue-red);font-size:11px;font-family:var(--mono);">★ 关键</span></div>
+          <div style="font-size:12px;color:var(--ink-soft);line-height:1.5;">100-120 次/分钟 · 深度 5-6 厘米</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 训练入口 -->
+    <div style="background:linear-gradient(135deg,#1F8A5B,#147547);color:white;border-radius:16px;padding:18px 20px;margin-bottom:24px;display:flex;align-items:center;gap:14px;">
+      <div style="width:48px;height:48px;background:rgba(255,255,255,0.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">💪</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-size:15px;font-weight:700;margin-bottom:2px;">学完立即练习</div>
+        <div style="font-size:11px;opacity:0.85;">手指模拟按压 · 30 秒检验掌握程度</div>
+      </div>
+      <button onclick="goPage('cpr-rhythm')" style="background:white;color:#1F8A5B;border:none;padding:10px 16px;border-radius:20px;font-size:13px;font-weight:700;font-family:var(--serif);">去练习 →</button>
+    </div>
+
+    <!-- 课后测验 -->
+    <div class="section-label" style="margin-bottom:12px;">课后测验</div>
+    <div style="font-size:12px;color:var(--ink-mute);margin-bottom:14px;line-height:1.5;">
+      回答 3 题验证掌握 · 全对获得 +50 积分
+    </div>
+
+    <div class="quiz-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span class="quiz-num">问题 1 / 3</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--ink-mute);">+15 积分</span>
+      </div>
+      <div class="quiz-q">成人 CPR 推荐的按压频率是多少？</div>
+      <div class="quiz-options">
+        <button class="quiz-opt" onclick="quizAnswer(this, false)">
+          <span class="quiz-opt-letter">A</span>
+          <span>60-80 次/分钟</span>
+        </button>
+        <button class="quiz-opt" onclick="quizAnswer(this, false)">
+          <span class="quiz-opt-letter">B</span>
+          <span>80-100 次/分钟</span>
+        </button>
+        <button class="quiz-opt" onclick="quizAnswer(this, true)">
+          <span class="quiz-opt-letter">C</span>
+          <span>100-120 次/分钟</span>
+        </button>
+        <button class="quiz-opt" onclick="quizAnswer(this, false)">
+          <span class="quiz-opt-letter">D</span>
+          <span>140-160 次/分钟</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 下一节预告 -->
+    <button onclick="alert('演示：进入第 2 节')" style="width:100%;background:white;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:16px;display:flex;align-items:center;gap:12px;text-align:left;">
+      <div style="width:40px;height:40px;background:var(--paper-warm);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;color:var(--ink-soft);flex-shrink:0;">02</div>
+      <div style="flex:1;">
+        <div style="font-size:11px;color:var(--ink-mute);margin-bottom:2px;font-family:var(--mono);">下一节</div>
+        <div style="font-family:var(--serif);font-weight:700;font-size:14px;">AED 使用 · 6 步操作</div>
+      </div>
+      <span style="color:var(--ink-mute);font-size:18px;">→</span>
+    </button>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--           我的急救侠（合并证书+档案）                    -->
+<!-- ====================================================== -->
+<div class="page" id="cert">
+  <!-- 渐变头部 -->
+  <div class="profile-header" style="padding:32px 20px 90px;">
+    <div style="position:absolute;top:14px;left:14px;right:14px;display:flex;justify-content:space-between;align-items:center;">
+      <button class="back-btn" style="color:white;background:rgba(255,255,255,0.1);" onclick="goPage('home')">‹</button>
+      <button onclick="alert('演示：分享我的急救侠主页')" style="color:white;background:rgba(255,255,255,0.1);border:none;width:36px;height:36px;border-radius:50%;font-size:14px;display:flex;align-items:center;justify-content:center;">⌇</button>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;margin-top:8px;">
+      <div class="profile-avatar" style="margin-bottom:0;">王</div>
+      <div style="flex:1;">
+        <div class="profile-name" style="margin-bottom:2px;">王思远</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="cert-tier" style="margin:0;padding:3px 10px;font-size:10px;display:inline-flex;">
+            <span style="font-size:12px;">●</span>金级急救侠
+          </span>
+          <span class="profile-id">JJ-2024-7836-451</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-stats">
+      <div class="profile-stat">
+        <span class="profile-stat-num">3,420</span>
+        <span class="profile-stat-label">总积分</span>
+      </div>
+      <div class="profile-stat">
+        <span class="profile-stat-num">2</span>
+        <span class="profile-stat-label">救援次数</span>
+      </div>
+      <div class="profile-stat">
+        <span class="profile-stat-num">14</span>
+        <span class="profile-stat-label">训练次数</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 证书卡片（上浮） -->
+  <div class="cert-card" style="margin:-72px 20px 16px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;">
+      <div class="cert-tier">
+        <span style="font-size:14px;">●</span>
+        <span>GOLD · 金级</span>
+      </div>
+      <button onclick="alert('演示：扫码验真页')" style="background:none;border:1px solid var(--line);padding:5px 10px;border-radius:14px;font-size:11px;color:var(--ink-soft);font-family:var(--mono);">扫码验真 →</button>
+    </div>
+    <div class="cert-name" style="margin-bottom:6px;">CPR + AED 急救认证</div>
+    <div class="cert-issuer">深圳市红十字会 联合签发</div>
+
+    <div class="cert-meta">
+      <div class="cert-meta-item">
+        颁发日期
+        <span class="cert-meta-value">2024-08-12</span>
+      </div>
+      <div class="cert-meta-item">
+        有效期至
+        <span class="cert-meta-value">2026-08-12</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 升级进度条 -->
+  <div style="padding:0 20px 20px;">
+    <div style="background:white;border:1px solid var(--line);border-radius:14px;padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-family:var(--serif);font-weight:700;font-size:14px;">距钻石级 +1,580 积分</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--ink-mute);">3,420 / 5,000</div>
+      </div>
+      <div style="height:6px;background:var(--paper-warm);border-radius:3px;overflow:hidden;margin-bottom:10px;">
+        <div style="height:100%;width:68.4%;background:linear-gradient(90deg,#C8A656,#4A90E2);border-radius:3px;"></div>
+      </div>
+      <div style="font-size:11px;color:var(--ink-mute);line-height:1.5;">
+        完成 1 次成功救援可获 +500 积分 · <a onclick="goPage('learn')" style="color:var(--rescue-red);cursor:pointer;">参加进阶培训</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 徽章墙 -->
+  <div style="padding:0 20px 24px;">
+    <div class="section-label" style="margin-bottom:14px;">我的徽章</div>
+    <div style="display:flex;gap:12px;justify-content:space-between;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div class="medal medal-bronze">铜</div>
+        <div style="font-size:10px;color:var(--ink-mute);font-family:var(--mono);">已获得</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div class="medal medal-silver">银</div>
+        <div style="font-size:10px;color:var(--ink-mute);font-family:var(--mono);">已获得</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div class="medal medal-gold">金</div>
+        <div style="font-size:10px;color:var(--rescue-red);font-family:var(--mono);font-weight:700;">当前</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div class="medal medal-diamond medal-locked"></div>
+        <div style="font-size:10px;color:var(--ink-mute);font-family:var(--mono);">未解锁</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 排行榜入口 -->
+  <div style="padding:0 20px 16px;">
+    <button onclick="goPage('volunteer')" style="width:100%;background:white;border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;text-align:left;">
+      <div style="width:40px;height:40px;background:linear-gradient(135deg,var(--gold),#B8941A);border-radius:12px;display:flex;align-items:center;justify-content:center;color:white;font-family:var(--serif);font-weight:900;font-size:16px;flex-shrink:0;">榜</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-weight:700;font-size:14px;margin-bottom:2px;">深圳急救侠排行</div>
+        <div style="font-size:11px;color:var(--ink-mute);">本月第 12 名 · 距金级 TOP10 还差 580 分</div>
+      </div>
+      <span style="font-size:18px;color:var(--ink-mute);">→</span>
+    </button>
+  </div>
+
+  <!-- 救援足迹 -->
+  <div style="padding:0 20px;">
+    <div class="section-label" style="margin-bottom:12px;">救援足迹</div>
+    <div style="background:white;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="display:inline-block;width:6px;height:6px;background:var(--green);border-radius:50%;"></span>
+        <span style="font-family:var(--serif);font-weight:700;font-size:14px;">福田万象城 · 心脏骤停救援</span>
+      </div>
+      <div style="font-size:11px;color:var(--ink-mute);padding-left:16px;line-height:1.6;">
+        2024-09-15 · 患者已送医 · 状态稳定<br>
+        +500 积分 · +1 救援次数
+      </div>
+    </div>
+    <div style="background:white;border:1px solid var(--line);border-radius:14px;padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="display:inline-block;width:6px;height:6px;background:var(--green);border-radius:50%;"></span>
+        <span style="font-family:var(--serif);font-weight:700;font-size:14px;">深圳北站 · 异物窒息救援</span>
+      </div>
+      <div style="font-size:11px;color:var(--ink-mute);padding-left:16px;line-height:1.6;">
+        2024-06-22 · 海姆立克成功 · 患者无碍<br>
+        +300 积分
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--                 志愿者主页                               -->
+<!-- ====================================================== -->
+<div class="page" id="volunteer">
+  <div class="app-bar">
+    <button class="back-btn" onclick="goPage('cert')">‹</button>
+    <h1>急救侠档案</h1>
+  </div>
+
+  <div class="volunteer-header">
+    <div class="volunteer-rank">本月深圳排名 · TOP 12</div>
+    <div class="volunteer-score">3,420</div>
+    <div class="volunteer-score-label">当年积分 · 距金级 +580</div>
+  </div>
+
+  <div class="medals-row">
+    <div class="medal medal-bronze" title="铜级">铜</div>
+    <div class="medal medal-silver" title="银级">银</div>
+    <div class="medal medal-gold" title="金级">金</div>
+    <div class="medal medal-diamond medal-locked" title="钻石"></div>
+  </div>
+
+  <div class="leaderboard">
+    <div class="lb-tabs">
+      <button class="lb-tab active">本月</button>
+      <button class="lb-tab">本年</button>
+      <button class="lb-tab">总榜</button>
+    </div>
+
+    <div class="lb-item">
+      <div class="lb-rank top1">1</div>
+      <div class="lb-avatar">陈</div>
+      <div class="lb-info">
+        <div class="lb-name">陈医生</div>
+        <div class="lb-meta">救援 4 · 训练 28</div>
+      </div>
+      <div class="lb-score">8,420</div>
+    </div>
+    <div class="lb-item">
+      <div class="lb-rank top2">2</div>
+      <div class="lb-avatar">李</div>
+      <div class="lb-info">
+        <div class="lb-name">李护士</div>
+        <div class="lb-meta">救援 3 · 训练 24</div>
+      </div>
+      <div class="lb-score">6,890</div>
+    </div>
+    <div class="lb-item">
+      <div class="lb-rank top3">3</div>
+      <div class="lb-avatar">张</div>
+      <div class="lb-info">
+        <div class="lb-name">张消防</div>
+        <div class="lb-meta">救援 5 · 训练 12</div>
+      </div>
+      <div class="lb-score">5,640</div>
+    </div>
+    <div class="lb-item">
+      <div class="lb-rank">4</div>
+      <div class="lb-avatar">刘</div>
+      <div class="lb-info">
+        <div class="lb-name">刘老师</div>
+        <div class="lb-meta">救援 2 · 训练 18</div>
+      </div>
+      <div class="lb-score">4,220</div>
+    </div>
+    <div class="lb-item">
+      <div class="lb-rank">11</div>
+      <div class="lb-avatar">周</div>
+      <div class="lb-info">
+        <div class="lb-name">周白领</div>
+        <div class="lb-meta">救援 1 · 训练 22</div>
+      </div>
+      <div class="lb-score">3,580</div>
+    </div>
+
+    <div class="lb-item me">
+      <div class="lb-rank">12</div>
+      <div class="lb-avatar">王</div>
+      <div class="lb-info">
+        <div class="lb-name">王思远 (我)</div>
+        <div class="lb-meta">救援 2 · 训练 14</div>
+      </div>
+      <div class="lb-score">3,420</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--              路人协助页 (大屏二维码)                     -->
+<!-- ====================================================== -->
+<div class="page" id="helper" style="background:linear-gradient(180deg,#C0392B 0%,#8B2A1F 100%);color:white;">
+  <div class="app-bar transparent" style="background:transparent;">
+    <button class="back-btn" style="color:white;" onclick="goPage('rescue');showCPR();">‹</button>
+    <h1 style="color:white;">呼叫现场协助</h1>
+    <button onclick="alert('演示：开启屏幕常亮+音量最大')" style="color:white;background:rgba(255,255,255,0.15);border:none;padding:6px 12px;border-radius:14px;font-size:11px;font-family:var(--mono);">高亮模式</button>
+  </div>
+
+  <!-- 提示文案 -->
+  <div style="text-align:center;padding:8px 24px 16px;">
+    <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,0.2);padding:5px 12px;border-radius:20px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;margin-bottom:14px;">
+      <span style="display:inline-block;width:7px;height:7px;background:#FFEC8B;border-radius:50%;animation:blink 1s infinite;"></span>
+      SHOW TO PEOPLE NEAR YOU
+    </div>
+    <div style="font-family:var(--serif);font-size:30px;font-weight:900;line-height:1.2;margin-bottom:6px;">举起手机给路人看</div>
+    <div style="font-size:13px;opacity:0.85;">扫码即可加入现场协助</div>
+  </div>
+
+  <!-- 大二维码（占据视觉中心） -->
+  <div style="display:flex;justify-content:center;padding:0 20px 16px;">
+    <div style="background:white;width:300px;height:300px;border-radius:28px;padding:24px;box-shadow:0 16px 40px rgba(0,0,0,0.4);position:relative;">
+      <div style="width:100%;height:100%;background:repeating-linear-gradient(0deg,#1A1A1A 0 6px,transparent 6px 12px),repeating-linear-gradient(90deg,#1A1A1A 0 6px,transparent 6px 12px);background-size:12px 12px;position:relative;border-radius:8px;">
+        <div style="position:absolute;inset:38%;background:white;border-radius:10px;border:5px solid #1A1A1A;display:flex;align-items:center;justify-content:center;">
+          <div style="font-family:var(--serif);font-weight:900;font-size:26px;color:var(--rescue-red);">+</div>
+        </div>
+      </div>
+      <!-- 角落定位标记 -->
+      <div style="position:absolute;top:14px;left:14px;width:14px;height:14px;border-top:3px solid var(--rescue-red);border-left:3px solid var(--rescue-red);border-radius:2px;"></div>
+      <div style="position:absolute;top:14px;right:14px;width:14px;height:14px;border-top:3px solid var(--rescue-red);border-right:3px solid var(--rescue-red);border-radius:2px;"></div>
+      <div style="position:absolute;bottom:14px;left:14px;width:14px;height:14px;border-bottom:3px solid var(--rescue-red);border-left:3px solid var(--rescue-red);border-radius:2px;"></div>
+      <div style="position:absolute;bottom:14px;right:14px;width:14px;height:14px;border-bottom:3px solid var(--rescue-red);border-right:3px solid var(--rescue-red);border-radius:2px;"></div>
+    </div>
+  </div>
+
+  <!-- 操作引导 -->
+  <div style="text-align:center;padding:0 20px 16px;">
+    <div style="font-family:var(--mono);font-size:32px;font-weight:700;letter-spacing:6px;margin-bottom:4px;">扫 我</div>
+    <div style="opacity:0.7;font-size:11px;font-family:var(--mono);">微信扫一扫 · 或长按识别</div>
+  </div>
+
+  <!-- 扫码后能做什么 -->
+  <div style="margin:0 20px 16px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:14px 16px;">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;opacity:0.7;margin-bottom:10px;">SCAN → 路人可以</div>
+    <div style="display:flex;gap:10px;margin-bottom:8px;align-items:center;">
+      <div style="width:32px;height:32px;background:rgba(255,255,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">❤</div>
+      <div style="font-size:13px;flex:1;"><strong>接力按压</strong> · 让您休息恢复体力</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:8px;align-items:center;">
+      <div style="width:32px;height:32px;background:rgba(255,255,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">📞</div>
+      <div style="font-size:13px;flex:1;"><strong>视频指路</strong> · 给赶来的志愿者引路</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div style="width:32px;height:32px;background:rgba(255,255,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">⚡</div>
+      <div style="font-size:13px;flex:1;"><strong>取 AED</strong> · 导航到最近设备</div>
+    </div>
+  </div>
+
+  <!-- 返回按钮 -->
+  <div style="padding:0 20px 24px;">
+    <button onclick="goPage('rescue');showCPR();" style="width:100%;background:rgba(0,0,0,0.2);color:white;border:1px solid rgba(255,255,255,0.2);padding:14px;border-radius:14px;font-weight:700;font-size:14px;font-family:var(--serif);">回到 CPR 节拍 →</button>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--          CPR 节拍训练页（核心训练）                       -->
+<!-- ====================================================== -->
+<div class="page" id="cpr-rhythm" style="background:linear-gradient(180deg,#1A0907 0%,#2A0F0C 100%);color:white;min-height:100vh;padding-bottom:0;">
+  <div class="app-bar transparent" style="background:transparent;">
+    <button class="back-btn" style="color:white;" onclick="stopRhythmTraining();goPage('learn')">‹</button>
+    <h1 style="color:white;">CPR 节拍训练</h1>
+    <button onclick="alert('训练说明:\\n\\n• 用手指持续点击红色圆圈模拟按压\\n• 系统会检测您的节拍频率\\n• 标准频率: 100-120 次/分钟\\n• 数到 30 完成一组，给出评分')" style="color:white;background:rgba(255,255,255,0.1);border:none;width:36px;height:36px;border-radius:50%;font-size:14px;">?</button>
+  </div>
+
+  <!-- 训练状态条 -->
+  <div id="rhythm-state-ready" style="padding:20px;text-align:center;">
+    <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(31,138,91,0.15);border:1px solid rgba(31,138,91,0.4);padding:5px 12px;border-radius:20px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#34D277;margin-bottom:24px;">
+      <span style="display:inline-block;width:7px;height:7px;background:#34D277;border-radius:50%;"></span>
+      READY · 准备开始
+    </div>
+    <div style="font-family:var(--serif);font-size:28px;font-weight:900;line-height:1.2;margin-bottom:8px;">用手指模拟按压</div>
+    <div style="font-size:14px;opacity:0.75;line-height:1.6;margin-bottom:0;">
+      持续点击下方圆圈 30 次<br>
+      系统会检测您的节奏是否准确
+    </div>
+  </div>
+
+  <!-- 训练中实时反馈 -->
+  <div id="rhythm-state-active" style="display:none;padding:0 20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:rgba(255,255,255,0.06);border-radius:14px;margin-bottom:16px;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">当前 BPM</div>
+        <div style="font-family:var(--mono);font-size:22px;font-weight:700;" id="rhythm-bpm">--</div>
+      </div>
+      <div style="width:1px;height:32px;background:rgba(255,255,255,0.1);"></div>
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">已按压</div>
+        <div style="font-family:var(--mono);font-size:22px;font-weight:700;"><span id="rhythm-count">0</span><span style="opacity:0.5;font-size:14px;">/30</span></div>
+      </div>
+      <div style="width:1px;height:32px;background:rgba(255,255,255,0.1);"></div>
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">节奏评价</div>
+        <div style="font-family:var(--mono);font-size:18px;font-weight:700;" id="rhythm-eval">--</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 中央"按压"圆圈 -->
+  <div style="display:flex;flex-direction:column;align-items:center;padding:8px 20px 20px;">
+    <div id="rhythm-target" onclick="onRhythmPress()" style="width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(192,57,43,0.5),rgba(192,57,43,0.2));border:3px solid rgba(255,107,91,0.6);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:transform 0.05s;position:relative;">
+      <div id="rhythm-target-pulse" style="position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(255,107,91,0.4);opacity:0;"></div>
+      <div style="font-family:var(--serif);font-size:22px;font-weight:900;color:white;margin-bottom:6px;" id="rhythm-target-text">点这里开始</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.7);" id="rhythm-target-sub">用手指持续点击</div>
+    </div>
+
+    <!-- 节奏可视化条 -->
+    <div id="rhythm-meter" style="display:none;width:280px;margin-top:24px;">
+      <div style="font-size:11px;color:rgba(255,255,255,0.6);text-align:center;margin-bottom:8px;font-family:var(--mono);">100 ─────── 110 ─────── 120</div>
+      <div style="position:relative;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:visible;">
+        <div style="position:absolute;left:25%;right:25%;top:0;bottom:0;background:rgba(31,138,91,0.3);border-radius:4px;"></div>
+        <div id="rhythm-indicator" style="position:absolute;left:50%;top:-6px;width:4px;height:20px;background:white;border-radius:2px;transform:translateX(-50%);transition:left 0.3s;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:10px;font-family:var(--mono);">
+        <span style="color:#F59E0B;">太慢</span>
+        <span style="color:#34D277;">理想</span>
+        <span style="color:#F59E0B;">太快</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 实时提示 -->
+  <div id="rhythm-feedback" style="text-align:center;padding:0 20px;height:40px;">
+    <div id="rhythm-tip" style="font-family:var(--serif);font-size:18px;font-weight:700;color:rgba(255,255,255,0.6);"></div>
+  </div>
+
+  <!-- 底部操作 -->
+  <div id="rhythm-bottom-ready" style="padding:20px;">
+    <button onclick="startRhythmTraining()" style="width:100%;background:var(--rescue-red);color:white;border:none;padding:18px;border-radius:16px;font-family:var(--serif);font-size:17px;font-weight:700;box-shadow:0 8px 24px rgba(192,57,43,0.4);">
+      开始训练
+    </button>
+    <div style="text-align:center;margin-top:12px;font-size:11px;color:rgba(255,255,255,0.5);font-family:var(--mono);">建议每周 3 次 · 关键时刻肌肉记忆才到位</div>
+  </div>
+
+  <div id="rhythm-bottom-active" style="display:none;padding:20px;">
+    <button onclick="stopRhythmTraining(true)" style="width:100%;background:rgba(255,255,255,0.06);color:white;border:1.5px solid rgba(255,255,255,0.2);padding:14px;border-radius:14px;font-size:14px;">
+      放弃本次训练
+    </button>
+  </div>
+
+  <!-- 训练结果（完成后显示） -->
+  <div id="rhythm-state-result" style="display:none;padding:20px;text-align:center;">
+    <div id="rhythm-result-grade" style="font-family:var(--serif);font-size:80px;font-weight:900;line-height:1;margin-bottom:12px;color:#34D277;">A</div>
+    <div id="rhythm-result-title" style="font-family:var(--serif);font-size:22px;font-weight:700;margin-bottom:8px;">非常棒！节奏稳定</div>
+    <div id="rhythm-result-detail" style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:24px;line-height:1.6;">
+      平均频率 110 BPM · 节奏稳定性 92%<br>
+      关键时刻您的手能救命
+    </div>
+
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;margin-bottom:20px;text-align:left;">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,0.5);margin-bottom:10px;">本次训练数据</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;">
+        <span style="opacity:0.7;">平均 BPM</span>
+        <span style="font-family:var(--mono);font-weight:700;" id="rhythm-result-bpm">110</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;">
+        <span style="opacity:0.7;">节奏稳定性</span>
+        <span style="font-family:var(--mono);font-weight:700;" id="rhythm-result-stability">92%</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;">
+        <span style="opacity:0.7;">完成 30 次用时</span>
+        <span style="font-family:var(--mono);font-weight:700;" id="rhythm-result-time">16.4 秒</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;">
+      <button onclick="startRhythmTraining()" style="flex:1;background:rgba(255,255,255,0.06);color:white;border:1.5px solid rgba(255,255,255,0.2);padding:14px;border-radius:14px;font-size:14px;font-weight:600;">
+        再练一次
+      </button>
+      <button onclick="goPage('learn');switchLearnTab('training')" style="flex:1;background:var(--rescue-red);color:white;border:none;padding:14px;border-radius:14px;font-size:14px;font-weight:700;">
+        +30 积分 · 完成
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--          CPR 全流程训练（模拟真实救援）                   -->
+<!-- ====================================================== -->
+<div class="page" id="train-cpr-flow" style="background:linear-gradient(180deg,#1A0907 0%,#2A0F0C 100%);color:white;">
+  <div class="app-bar transparent" style="background:transparent;">
+    <button class="back-btn" style="color:white;" onclick="goPage('learn');switchLearnTab('training')">‹</button>
+    <h1 style="color:white;">CPR 全流程训练</h1>
+  </div>
+
+  <div style="padding:8px 20px 0;text-align:center;">
+    <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(31,138,91,0.15);border:1px solid rgba(31,138,91,0.4);padding:5px 12px;border-radius:20px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#34D277;margin-bottom:20px;">
+      <span style="display:inline-block;width:7px;height:7px;background:#34D277;border-radius:50%;"></span>
+      TRAINING MODE · 训练模式
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:0 24px 24px;">
+    <div style="font-family:var(--serif);font-size:26px;font-weight:900;line-height:1.2;margin-bottom:8px;">完整跑一遍救护流程</div>
+    <div style="font-size:14px;opacity:0.8;line-height:1.6;">
+      和真实救护一样 · 但不会触发求救信号<br>
+      重复练习直到形成肌肉记忆
+    </div>
+  </div>
+
+  <!-- 流程预览 -->
+  <div style="padding:0 20px 24px;">
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;opacity:0.6;margin-bottom:12px;">您将依次练习</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;gap:12px;align-items:center;">
+          <div style="width:28px;height:28px;background:rgba(245,158,11,0.2);color:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:12px;flex-shrink:0;">1</div>
+          <div style="font-size:13px;flex:1;">呼救 · 指派路人打 120</div>
+          <span style="font-family:var(--mono);font-size:10px;opacity:0.6;">7 秒</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <div style="width:28px;height:28px;background:rgba(245,158,11,0.2);color:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:12px;flex-shrink:0;">2</div>
+          <div style="font-size:13px;flex:1;">判断意识 · 拍肩呼喊</div>
+          <span style="font-family:var(--mono);font-size:10px;opacity:0.6;">5 秒</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <div style="width:28px;height:28px;background:rgba(245,158,11,0.2);color:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:12px;flex-shrink:0;">3</div>
+          <div style="font-size:13px;flex:1;">判断呼吸 · 数 1001-1007</div>
+          <span style="font-family:var(--mono);font-size:10px;opacity:0.6;">7 秒</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <div style="width:28px;height:28px;background:rgba(192,57,43,0.3);color:#FF6B5B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:12px;flex-shrink:0;">4</div>
+          <div style="font-size:13px;flex:1;font-weight:600;">30 次胸外按压（手指模拟）</div>
+          <span style="font-family:var(--mono);font-size:10px;opacity:0.6;">17 秒</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <div style="width:28px;height:28px;background:rgba(31,138,91,0.2);color:#34D277;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:12px;flex-shrink:0;">5</div>
+          <div style="font-size:13px;flex:1;">2 次人工通气</div>
+          <span style="font-family:var(--mono);font-size:10px;opacity:0.6;">7 秒</span>
+        </div>
+      </div>
+      <div style="height:1px;background:rgba(255,255,255,0.1);margin:14px 0 12px;"></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;">
+        <span style="opacity:0.7;">建议循环次数</span>
+        <span style="font-family:var(--mono);font-weight:700;">3 轮（约 8 分钟）</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提示 -->
+  <div style="margin:0 20px 16px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.5;">
+    <span style="flex-shrink:0;color:#F59E0B;">⚠</span>
+    <span style="opacity:0.9;"><strong>训练模式</strong>下，不会真的拨打 120、不会通知志愿者、不会派 AED。系统只用来引导您练习。</span>
+  </div>
+
+  <!-- 开始按钮 -->
+  <div style="padding:0 20px 24px;">
+    <button onclick="goPage('rescue');setTimeout(()=>startRescueFlow(), 200);" style="width:100%;background:var(--rescue-red);color:white;border:none;padding:18px;border-radius:16px;font-family:var(--serif);font-size:17px;font-weight:700;box-shadow:0 8px 24px rgba(192,57,43,0.4);">
+      开始训练 →
+    </button>
+    <div style="text-align:center;margin-top:12px;font-size:11px;color:rgba(255,255,255,0.5);font-family:var(--mono);">
+      上次训练：3 天前 · A 级（94 分）
+    </div>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--          AED 操作训练（模拟设备）                          -->
+<!-- ====================================================== -->
+<div class="page" id="train-aed" style="background:linear-gradient(180deg,#1A0907 0%,#2A0F0C 100%);color:white;">
+  <div class="app-bar transparent" style="background:transparent;">
+    <button class="back-btn" style="color:white;" onclick="goPage('learn');switchLearnTab('training')">‹</button>
+    <h1 style="color:white;">AED 操作训练</h1>
+  </div>
+
+  <div style="text-align:center;padding:8px 24px 16px;">
+    <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);padding:5px 12px;border-radius:20px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#F59E0B;margin-bottom:14px;">
+      <span style="display:inline-block;width:7px;height:7px;background:#F59E0B;border-radius:50%;"></span>
+      MODE · 模拟设备
+    </div>
+    <div style="font-family:var(--serif);font-size:24px;font-weight:900;line-height:1.2;margin-bottom:6px;">练习 AED 6 步操作</div>
+    <div style="font-size:13px;opacity:0.8;">真机界面模拟 · 跟着语音步步操作</div>
+  </div>
+
+  <!-- 模拟 AED 设备 -->
+  <div style="margin:0 20px 20px;background:linear-gradient(180deg,#FFF8DC,#F5DEB3);border-radius:24px;padding:20px;color:#1A1A1A;position:relative;box-shadow:0 12px 40px rgba(0,0,0,0.4);">
+    <!-- AED 顶部 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <div style="width:14px;height:14px;background:#1F8A5B;border-radius:50%;box-shadow:0 0 8px #34D277;"></div>
+      <span style="font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:1px;">AED · ZOLL Plus</span>
+    </div>
+    <!-- AED 屏幕 -->
+    <div style="background:#1A1A1A;color:#34D277;border-radius:12px;padding:18px;font-family:var(--mono);margin-bottom:16px;min-height:120px;">
+      <div style="font-size:11px;opacity:0.7;margin-bottom:8px;">▶ 系统就绪</div>
+      <div style="font-size:18px;font-weight:700;line-height:1.4;">请将电极片<br>贴在患者裸露胸部</div>
+      <div style="height:1px;background:rgba(52,210,119,0.3);margin:12px 0;"></div>
+      <div style="font-size:10px;opacity:0.6;">step 1 of 6</div>
+    </div>
+    <!-- AED 按钮 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <button onclick="alert('演示：贴电极片步骤')" style="background:#1A1A1A;color:white;border:none;padding:14px;border-radius:10px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1px;">📍 PADS</button>
+      <button onclick="alert('演示：电击键（橙色按钮，会闪烁）')" style="background:#FF6B00;color:white;border:none;padding:14px;border-radius:10px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1px;animation:pulse 1.4s infinite;">⚡ SHOCK</button>
+    </div>
+  </div>
+
+  <!-- 6 步操作清单 -->
+  <div style="padding:0 20px 24px;">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;opacity:0.6;margin-bottom:10px;">您将练习</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;gap:10px;align-items:center;font-size:12px;"><span style="font-family:var(--mono);color:#F59E0B;font-weight:700;width:16px;">1</span><span>开盖自动开机 · 听机器语音</span></div>
+      <div style="display:flex;gap:10px;align-items:center;font-size:12px;"><span style="font-family:var(--mono);color:#F59E0B;font-weight:700;width:16px;">2</span><span>撕开患者衣服 · 露出胸部</span></div>
+      <div style="display:flex;gap:10px;align-items:center;font-size:12px;"><span style="font-family:var(--mono);color:#F59E0B;font-weight:700;width:16px;">3</span><span>贴电极片：右胸上方 + 左侧腋下</span></div>
+      <div style="display:flex;gap:10px;align-items:center;font-size:12px;"><span style="font-family:var(--mono);color:#F59E0B;font-weight:700;width:16px;">4</span><span>分析心律时喊"离开！"</span></div>
+      <div style="display:flex;gap:10px;align-items:center;font-size:12px;"><span style="font-family:var(--mono);color:#F59E0B;font-weight:700;width:16px;">5</span><span>建议电击 · 按下闪烁的橙色键</span></div>
+      <div style="display:flex;gap:10px;align-items:center;font-size:12px;"><span style="font-family:var(--mono);color:#F59E0B;font-weight:700;width:16px;">6</span><span>立即恢复按压 · 不要等心跳</span></div>
+    </div>
+  </div>
+
+  <div style="padding:0 20px 24px;">
+    <button onclick="alert('演示：开始 AED 模拟训练 · 跟随屏幕语音操作六步骤')" style="width:100%;background:var(--rescue-red);color:white;border:none;padding:18px;border-radius:16px;font-family:var(--serif);font-size:17px;font-weight:700;box-shadow:0 8px 24px rgba(192,57,43,0.4);">
+      开始模拟训练 →
+    </button>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--          海姆立克训练                                     -->
+<!-- ====================================================== -->
+<div class="page" id="train-heimlich" style="background:linear-gradient(180deg,#1A0907 0%,#2A0F0C 100%);color:white;">
+  <div class="app-bar transparent" style="background:transparent;">
+    <button class="back-btn" style="color:white;" onclick="goPage('learn');switchLearnTab('training')">‹</button>
+    <h1 style="color:white;">海姆立克训练</h1>
+  </div>
+
+  <div style="text-align:center;padding:8px 24px 24px;">
+    <div style="font-family:var(--serif);font-size:26px;font-weight:900;line-height:1.2;margin-bottom:8px;">异物窒息急救手法</div>
+    <div style="font-size:13px;opacity:0.8;line-height:1.6;">
+      成人 · 儿童 · 婴儿 · 自救<br>
+      四种场景手法不同，分别练习
+    </div>
+  </div>
+
+  <!-- 4 个场景选择 -->
+  <div style="padding:0 20px;display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
+    <button onclick="alert('演示：成人海姆立克训练 - 站在患者背后，拳头放在肚脐上方两横指，向上向内冲击')" style="background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;display:flex;gap:14px;align-items:center;text-align:left;color:white;">
+      <div style="width:48px;height:48px;background:rgba(74,144,226,0.25);color:#4A90E2;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">🧍</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-weight:700;font-size:15px;margin-bottom:2px;">成人</div>
+        <div style="font-size:11px;opacity:0.7;">站姿 · 腹部冲击 · 5 次为一组</div>
+      </div>
+      <span style="opacity:0.5;font-size:18px;">→</span>
+    </button>
+
+    <button onclick="alert('演示：儿童海姆立克训练 - 力度减半，蹲下与孩子高度持平')" style="background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;display:flex;gap:14px;align-items:center;text-align:left;color:white;">
+      <div style="width:48px;height:48px;background:rgba(31,138,91,0.25);color:#34D277;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">🧒</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-weight:700;font-size:15px;margin-bottom:2px;">儿童（1 岁以上）</div>
+        <div style="font-size:11px;opacity:0.7;">力度减半 · 同样手法</div>
+      </div>
+      <span style="opacity:0.5;font-size:18px;">→</span>
+    </button>
+
+    <button onclick="alert('演示：婴儿海姆立克训练 - 倒持婴儿，背部拍击5次+胸部按压5次循环')" style="background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;display:flex;gap:14px;align-items:center;text-align:left;color:white;">
+      <div style="width:48px;height:48px;background:rgba(192,57,43,0.25);color:#FF8B5B;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">👶</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-weight:700;font-size:15px;margin-bottom:2px;">婴儿（1 岁以下）</div>
+        <div style="font-size:11px;opacity:0.7;">手法完全不同 · 倒持拍背 + 按压</div>
+      </div>
+      <span style="opacity:0.5;font-size:18px;">→</span>
+    </button>
+
+    <button onclick="alert('演示：自救练习 - 利用椅背冲击腹部，自己一个人也能救自己')" style="background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;display:flex;gap:14px;align-items:center;text-align:left;color:white;">
+      <div style="width:48px;height:48px;background:rgba(245,158,11,0.25);color:#F59E0B;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">🪑</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-weight:700;font-size:15px;margin-bottom:2px;">自救</div>
+        <div style="font-size:11px;opacity:0.7;">没人在身边 · 用椅背冲击</div>
+      </div>
+      <span style="opacity:0.5;font-size:18px;">→</span>
+    </button>
+  </div>
+
+  <!-- 关键提示 -->
+  <div style="margin:0 20px 24px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:14px;font-size:12px;line-height:1.6;">
+    <strong style="color:#F59E0B;">★ 关键</strong>：判断窒息——患者无法说话、无法咳嗽、皮肤发紫，双手抓喉。<br>
+    <span style="opacity:0.85;">这时不要拍背！直接做海姆立克。</span>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--          情境模拟训练                                     -->
+<!-- ====================================================== -->
+<div class="page" id="train-scenario" style="background:linear-gradient(180deg,#1A0907 0%,#2A0F0C 100%);color:white;">
+  <div class="app-bar transparent" style="background:transparent;">
+    <button class="back-btn" style="color:white;" onclick="goPage('learn');switchLearnTab('training')">‹</button>
+    <h1 style="color:white;">情境模拟</h1>
+  </div>
+
+  <div style="text-align:center;padding:8px 24px 24px;">
+    <div style="font-family:var(--serif);font-size:26px;font-weight:900;line-height:1.2;margin-bottom:8px;">真实场景应变练习</div>
+    <div style="font-size:13px;opacity:0.8;line-height:1.6;">
+      给您一个场景 · 看您怎么反应<br>
+      关键时刻不慌乱
+    </div>
+  </div>
+
+  <!-- 场景列表 -->
+  <div style="padding:0 20px 16px;">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;opacity:0.6;margin-bottom:10px;">案例库 · 12 个</div>
+
+    <button onclick="alert('演示：地铁站心脏骤停 - 拥挤场景下如何快速处置')" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;display:flex;gap:14px;align-items:flex-start;text-align:left;color:white;width:100%;margin-bottom:10px;">
+      <div style="width:48px;height:48px;background:rgba(192,57,43,0.25);color:#FF6B5B;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🚇</div>
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-family:var(--serif);font-weight:700;font-size:14px;">地铁站心脏骤停</span>
+          <span style="background:rgba(192,57,43,0.3);color:#FF8B5B;padding:1px 6px;border-radius:6px;font-family:var(--mono);font-size:10px;">高难</span>
+        </div>
+        <div style="font-size:11px;opacity:0.7;line-height:1.5;">
+          人群拥挤 · 路人不敢动手 · AED 在 200m 外
+        </div>
+      </div>
+      <span style="opacity:0.5;font-size:18px;align-self:center;">→</span>
+    </button>
+
+    <button onclick="alert('演示：餐厅儿童噎食')" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;display:flex;gap:14px;align-items:flex-start;text-align:left;color:white;width:100%;margin-bottom:10px;">
+      <div style="width:48px;height:48px;background:rgba(245,158,11,0.25);color:#F59E0B;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🍜</div>
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-family:var(--serif);font-weight:700;font-size:14px;">餐厅儿童噎食</span>
+          <span style="background:rgba(245,158,11,0.3);color:#F59E0B;padding:1px 6px;border-radius:6px;font-family:var(--mono);font-size:10px;">中等</span>
+        </div>
+        <div style="font-size:11px;opacity:0.7;line-height:1.5;">
+          5 岁儿童被果冻噎住 · 父母慌乱 · 您是邻桌
+        </div>
+      </div>
+      <span style="opacity:0.5;font-size:18px;align-self:center;">→</span>
+    </button>
+
+    <button onclick="alert('演示：办公室同事昏倒')" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;display:flex;gap:14px;align-items:flex-start;text-align:left;color:white;width:100%;margin-bottom:10px;">
+      <div style="width:48px;height:48px;background:rgba(74,144,226,0.25);color:#4A90E2;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏢</div>
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-family:var(--serif);font-weight:700;font-size:14px;">办公室同事昏倒</span>
+          <span style="background:rgba(31,138,91,0.3);color:#34D277;padding:1px 6px;border-radius:6px;font-family:var(--mono);font-size:10px;">入门</span>
+        </div>
+        <div style="font-size:11px;opacity:0.7;line-height:1.5;">
+          会议中突然倒地 · 楼下有 AED · 同事 3 人在场
+        </div>
+      </div>
+      <span style="opacity:0.5;font-size:18px;align-self:center;">→</span>
+    </button>
+
+    <button onclick="alert('演示：户外跑步晕倒')" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;display:flex;gap:14px;align-items:flex-start;text-align:left;color:white;width:100%;margin-bottom:10px;">
+      <div style="width:48px;height:48px;background:rgba(31,138,91,0.25);color:#34D277;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏃</div>
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-family:var(--serif);font-weight:700;font-size:14px;">公园跑步晕倒</span>
+          <span style="background:rgba(192,57,43,0.3);color:#FF8B5B;padding:1px 6px;border-radius:6px;font-family:var(--mono);font-size:10px;">高难</span>
+        </div>
+        <div style="font-size:11px;opacity:0.7;line-height:1.5;">
+          清晨公园 · 周围无人 · 信号弱 · AED 在 1km 外
+        </div>
+      </div>
+      <span style="opacity:0.5;font-size:18px;align-self:center;">→</span>
+    </button>
+  </div>
+
+  <div style="padding:0 20px 24px;text-align:center;">
+    <a onclick="alert('演示：查看完整 12 个案例库')" style="color:#FF8B5B;font-size:13px;cursor:pointer;font-family:var(--serif);">查看全部 12 个案例 →</a>
+  </div>
+</div>
+
+<div class="page" id="aed-mission" style="background:linear-gradient(180deg,#1A0907 0%,#2A0F0C 100%);color:white;">
+  <div class="app-bar transparent" style="background:transparent;">
+    <button class="back-btn" style="color:white;" onclick="goPage('home')">‹</button>
+    <h1 style="color:white;">紧急任务</h1>
+  </div>
+
+  <!-- 顶部紧急标识 -->
+  <div style="text-align:center;padding:8px 20px 0;">
+    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(192,57,43,0.2);border:1px solid rgba(192,57,43,0.5);padding:6px 14px;border-radius:20px;font-family:var(--mono);font-size:11px;letter-spacing:2px;color:#FF8B5B;">
+      <span style="display:inline-block;width:8px;height:8px;background:#FF6B5B;border-radius:50%;animation:blink 1s infinite;"></span>
+      MISSION · 紧急 · 倒计时 23s
+    </div>
+  </div>
+
+  <!-- 主任务卡 -->
+  <div style="margin:16px 20px 0;background:linear-gradient(135deg,rgba(192,57,43,0.25),rgba(139,42,31,0.2));border:1.5px solid rgba(192,57,43,0.5);border-radius:20px;padding:20px;text-align:center;">
+    <div style="font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.7);letter-spacing:2px;margin-bottom:8px;">系统派单</div>
+    <div style="font-family:var(--serif);font-size:26px;font-weight:900;line-height:1.3;margin-bottom:8px;">取 AED 送到现场</div>
+    <div style="font-size:13px;opacity:0.85;line-height:1.6;">
+      80m 外 · 写字楼1F<br>
+      送到 280m 外的求救现场
+    </div>
+  </div>
+
+  <!-- 任务地图示意 -->
+  <div style="margin:16px 20px;background:linear-gradient(135deg,#2A2A2A,#1A1A1A);height:180px;border-radius:16px;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,0.1);">
+    <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.05) 1px,transparent 1px);background-size:30px 30px;"></div>
+
+    <!-- 我的位置 -->
+    <div style="position:absolute;left:12%;top:55%;width:32px;height:32px;background:#34D277;border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:700;">你</div>
+
+    <!-- AED -->
+    <div style="position:absolute;left:42%;top:30%;width:32px;height:32px;background:#F59E0B;border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:700;">⚡</div>
+
+    <!-- 求救现场 -->
+    <div style="position:absolute;right:8%;top:60%;width:32px;height:32px;background:#C0392B;border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:14px;font-weight:700;animation:pulse 1.4s infinite;">SOS</div>
+
+    <!-- 路径线 -->
+    <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <line x1="14" y1="58" x2="44" y2="33" stroke="#34D277" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+      <line x1="44" y1="33" x2="90" y2="62" stroke="#F59E0B" stroke-width="0.6" stroke-dasharray="2,1.5"/>
+    </svg>
+
+    <!-- 时间标签 -->
+    <div style="position:absolute;left:25%;top:42%;background:rgba(0,0,0,0.6);padding:2px 6px;border-radius:6px;font-family:var(--mono);font-size:9px;">1分</div>
+    <div style="position:absolute;left:60%;top:42%;background:rgba(0,0,0,0.6);padding:2px 6px;border-radius:6px;font-family:var(--mono);font-size:9px;">2.5分</div>
+  </div>
+
+  <!-- 路径分解 -->
+  <div style="padding:0 20px;">
+    <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;margin-bottom:10px;">
+      <div style="width:36px;height:36px;background:#34D277;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">1</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-size:14px;font-weight:700;margin-bottom:2px;">前往 AED 设备</div>
+        <div style="font-size:11px;opacity:0.75;">福华大厦 1F 物管台 · 80m · 约 1 分钟</div>
+      </div>
+      <div style="font-size:18px;color:#34D277;">→</div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;margin-bottom:10px;">
+      <div style="width:36px;height:36px;background:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">2</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-size:14px;font-weight:700;margin-bottom:2px;">扫码取出 AED</div>
+        <div style="font-size:11px;opacity:0.75;">系统已远程开柜 · 您直接取走即可</div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;margin-bottom:10px;">
+      <div style="width:36px;height:36px;background:#C0392B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">3</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-size:14px;font-weight:700;margin-bottom:2px;">送到求救现场</div>
+        <div style="font-size:11px;opacity:0.75;">280m · 约 2.5 分钟 · 现场求救者位置已发您</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 现场情况摘要 -->
+  <div style="margin:16px 20px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px 16px;">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,0.5);margin-bottom:10px;">现场情况</div>
+    <div style="font-size:13px;line-height:1.7;opacity:0.9;">
+      <div>👤 求救者：男，约60岁</div>
+      <div>❤ 状态：心脏骤停，正在 CPR</div>
+      <div>👥 现场已 2 人按压 · 1 人指挥</div>
+      <div>📞 120 已派车 · 预计 8 分钟到达</div>
+    </div>
+  </div>
+
+  <!-- 操作按钮 -->
+  <div style="padding:0 20px 24px;display:flex;flex-direction:column;gap:12px;">
+    <button onclick="acceptAedMission()" style="width:100%;padding:18px;background:#C0392B;color:white;border:2px solid #C0392B;border-radius:16px;font-family:var(--serif);font-size:17px;font-weight:700;box-shadow:0 8px 24px rgba(192,57,43,0.4);">
+      接受任务 · 立即出发
+    </button>
+    <button onclick="goPage('home')" style="width:100%;padding:14px;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.8);border:1.5px solid rgba(255,255,255,0.15);border-radius:14px;font-size:14px;">
+      我无法前往 · 转给其他志愿者
+    </button>
+  </div>
+
+  <!-- 信息条 -->
+  <div style="text-align:center;padding:0 20px 20px;font-size:11px;opacity:0.5;font-family:var(--mono);">
+    任务 #JJ-2026-0501-3782 · 系统将自动跟踪您的轨迹 · +500 救援积分
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--          志愿者执行任务页（跑动中的指导）                 -->
+<!-- ====================================================== -->
+<div class="page" id="aed-running" style="background:linear-gradient(180deg,#1A0907 0%,#2A0F0C 100%);color:white;">
+  <div class="app-bar transparent" style="background:transparent;">
+    <button class="back-btn" style="color:white;" onclick="goPage('home')">‹</button>
+    <h1 style="color:white;">任务执行中</h1>
+    <button class="back-btn" style="color:white;font-size:18px;">⚙</button>
+  </div>
+
+  <!-- 顶部状态条 -->
+  <div style="padding:0 20px 12px;">
+    <div style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
+      <div style="width:10px;height:10px;background:#F59E0B;border-radius:50%;animation:blink 1s infinite;"></div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;">已取到 AED · 跑步前往现场</div>
+        <div style="font-size:11px;opacity:0.75;font-family:var(--mono);">距离 180m · 预计 1 分 40 秒到达</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 大字提示 - 当前要做的 -->
+  <div style="padding:8px 20px 24px;text-align:center;">
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:2px;color:rgba(255,255,255,0.6);margin-bottom:8px;">系统正在语音指导您</div>
+    <div style="font-family:var(--serif);font-size:32px;font-weight:900;line-height:1.2;color:#FF8B5B;margin-bottom:6px;">边跑边听</div>
+    <div style="font-size:14px;opacity:0.85;">不用看屏幕 · 到现场就会用</div>
+  </div>
+
+  <!-- 跑动中的提示卡片(模拟语音内容) -->
+  <div style="padding:0 20px 20px;">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:rgba(255,255,255,0.5);margin-bottom:10px;">系统语音播报内容</div>
+
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="font-family:var(--mono);font-size:11px;color:#34D277;flex-shrink:0;width:30px;">0:00</div>
+      <div style="font-size:13px;line-height:1.6;flex:1;">
+        <strong>"请保持步伐"</strong>，<br>距离现场 200 米
+      </div>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="font-family:var(--mono);font-size:11px;color:#34D277;flex-shrink:0;width:30px;">0:20</div>
+      <div style="font-size:13px;line-height:1.6;flex:1;">
+        <strong>"AED 的开机方式</strong> · 揭开盖子<strong>自动开机</strong>，您只需要听语音"
+      </div>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="font-family:var(--mono);font-size:11px;color:#34D277;flex-shrink:0;width:30px;">0:40</div>
+      <div style="font-size:13px;line-height:1.6;flex:1;">
+        <strong>"贴电极片的位置</strong>"——一片贴<strong>右胸上方</strong>，一片贴<strong>左侧腋下</strong>，AED 上有图示，跟着图贴"
+      </div>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="font-family:var(--mono);font-size:11px;color:#F59E0B;flex-shrink:0;width:30px;">1:00</div>
+      <div style="font-size:13px;line-height:1.6;flex:1;">
+        <strong>"到现场后，告诉按压者：</strong><br><strong style="color:#FF8B5B;">'继续按压，不要停！'</strong><br>您来贴电极片"
+      </div>
+    </div>
+
+    <div style="background:linear-gradient(135deg,rgba(192,57,43,0.2),rgba(139,42,31,0.2));border:1px solid rgba(192,57,43,0.4);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="font-family:var(--mono);font-size:11px;color:#FF6B5B;flex-shrink:0;width:30px;">1:20</div>
+      <div style="font-size:13px;line-height:1.6;flex:1;">
+        <strong>"AED 分析心律时</strong> · 喊'<strong style="color:#FF8B5B;">所有人离开患者！</strong>'<br>停止按压，等待提示"
+      </div>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;">
+      <div style="font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.5);flex-shrink:0;width:30px;">1:40</div>
+      <div style="font-size:13px;line-height:1.6;flex:1;opacity:0.7;">
+        <strong>"建议电击时</strong> · 再喊'<strong>离开！</strong>'<br>按下闪烁按钮 · 立即继续按压"
+      </div>
+    </div>
+  </div>
+
+  <!-- 现场状态实时同步 -->
+  <div style="margin:0 20px 16px;background:rgba(31,138,91,0.1);border:1px solid rgba(31,138,91,0.3);border-radius:14px;padding:14px 16px;">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#34D277;margin-bottom:10px;">现场实时</div>
+    <div style="font-size:13px;line-height:1.8;">
+      <div>👥 现场 2 人在按压 · <strong>已 6 分 12 秒</strong></div>
+      <div>📞 120 已派车 · 还有 5 分钟到</div>
+      <div>⚡ 您是<strong style="color:#34D277;">第 1 个</strong>到场的志愿者</div>
+    </div>
+  </div>
+
+  <!-- 模拟时间快进按钮 -->
+  <div style="padding:0 20px 24px;">
+    <button onclick="goPage('aed-arrived')" style="width:100%;padding:18px;background:#C0392B;color:white;border:2px solid #C0392B;border-radius:16px;font-family:var(--serif);font-size:17px;font-weight:700;box-shadow:0 8px 24px rgba(192,57,43,0.4);">
+      已到达现场 ›
+    </button>
+    <div style="text-align:center;font-size:11px;opacity:0.5;font-family:var(--mono);margin-top:10px;">演示用 · 实际由 GPS 自动判定到达</div>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--          志愿者到达接管页                                 -->
+<!-- ====================================================== -->
+<div class="page" id="aed-arrived" style="background:linear-gradient(180deg,#1A0907 0%,#2A0F0C 100%);color:white;">
+  <div class="app-bar transparent" style="background:transparent;">
+    <button class="back-btn" style="color:white;" onclick="goPage('aed-running')">‹</button>
+    <h1 style="color:white;">已到达现场</h1>
+  </div>
+
+  <!-- 紧急 CTA -->
+  <div style="padding:8px 20px 0;text-align:center;">
+    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(31,138,91,0.2);border:1px solid rgba(31,138,91,0.5);padding:6px 14px;border-radius:20px;font-family:var(--mono);font-size:11px;letter-spacing:2px;color:#34D277;">
+      <span style="display:inline-block;width:8px;height:8px;background:#34D277;border-radius:50%;"></span>
+      ARRIVED · 接管中
+    </div>
+  </div>
+
+  <div style="padding:24px 20px;text-align:center;">
+    <div style="font-family:var(--serif);font-size:28px;font-weight:900;line-height:1.2;margin-bottom:6px;color:#FF8B5B;">立即接管按压者</div>
+    <div style="font-size:14px;opacity:0.85;">您已经知道怎么用 AED 了，开始操作</div>
+  </div>
+
+  <!-- 立即操作步骤 -->
+  <div style="padding:0 20px;">
+    <div style="background:linear-gradient(135deg,rgba(192,57,43,0.2),rgba(139,42,31,0.15));border:1.5px solid rgba(192,57,43,0.5);border-radius:18px;padding:20px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
+        <div style="width:44px;height:44px;background:#C0392B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:900;font-size:22px;flex-shrink:0;">1</div>
+        <div style="flex:1;">
+          <div style="font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.3;">大声告诉按压者</div>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;font-family:var(--serif);font-size:20px;font-weight:700;text-align:center;color:#FF8B5B;">
+        "继续按压！<br>不要停！"
+      </div>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;">
+      <div style="width:40px;height:40px;background:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:900;font-size:20px;flex-shrink:0;">2</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-size:15px;font-weight:700;margin-bottom:2px;">打开 AED 盖子</div>
+        <div style="font-size:11px;opacity:0.75;">自动开机 · 跟随机器语音</div>
+      </div>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;">
+      <div style="width:40px;height:40px;background:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:900;font-size:20px;flex-shrink:0;">3</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-size:15px;font-weight:700;margin-bottom:2px;">撕开患者衣服 · 贴电极片</div>
+        <div style="font-size:11px;opacity:0.75;">右胸上方 · 左侧腋下 · AED上有图</div>
+      </div>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;">
+      <div style="width:40px;height:40px;background:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:900;font-size:20px;flex-shrink:0;">4</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-size:15px;font-weight:700;margin-bottom:2px;">分析心律时喊"离开！"</div>
+        <div style="font-size:11px;opacity:0.75;">所有人不能接触患者</div>
+      </div>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;margin-bottom:20px;display:flex;align-items:center;gap:14px;">
+      <div style="width:40px;height:40px;background:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:900;font-size:20px;flex-shrink:0;">5</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-size:15px;font-weight:700;margin-bottom:2px;">按下电击键 · 立即继续按压</div>
+        <div style="font-size:11px;opacity:0.75;">2 分钟后 AED 会再次分析</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 完成按钮 -->
+  <div style="padding:0 20px 24px;">
+    <button onclick="alert('演示完成！\\n\\n实际场景：\\n• 系统记录全程救援轨迹\\n• 救活后 24 小时内拿到 +500 主救援积分\\n• 30 天后患者存活再追加 +500 积分\\n• 救援证书 + 红会联合签名')" style="width:100%;padding:18px;background:rgba(255,255,255,0.06);color:white;border:2px solid rgba(255,255,255,0.2);border-radius:16px;font-family:var(--serif);font-size:16px;font-weight:700;">
+      已完成 AED 操作
+    </button>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--                 底部导航                                 -->
+<!-- ====================================================== -->
+<div class="tabbar" id="tabbar">
+  <button class="tab active" data-page="home" onclick="goPage('home')">
+    <div class="tab-icon">⌂</div>
+    <span>首页</span>
+  </button>
+  <button class="tab" data-page="aed" onclick="goPage('aed')">
+    <div class="tab-icon">⚡</div>
+    <span>AED</span>
+  </button>
+  <button class="tab" data-page="learn" onclick="goPage('learn')">
+    <div class="tab-icon">📚</div>
+    <span>学习</span>
+  </button>
+  <button class="tab" data-page="cert" onclick="goPage('cert')">
+    <div class="tab-icon">👤</div>
+    <span>我的</span>
+  </button>
+</div>
+
+<script>
+// ============ 学习训练 tab 切换 ============
+function switchLearnTab(tab) {
+  const knowledgeContent = document.getElementById('learn-content-knowledge');
+  const trainingContent = document.getElementById('learn-content-training');
+  const knowledgeTab = document.getElementById('learn-tab-knowledge');
+  const trainingTab = document.getElementById('learn-tab-training');
+
+  if (tab === 'knowledge') {
+    knowledgeContent.style.display = '';
+    trainingContent.style.display = 'none';
+    knowledgeTab.classList.add('learn-tab-active');
+    trainingTab.classList.remove('learn-tab-active');
+  } else {
+    knowledgeContent.style.display = 'none';
+    trainingContent.style.display = '';
+    knowledgeTab.classList.remove('learn-tab-active');
+    trainingTab.classList.add('learn-tab-active');
+  }
+}
+
+// ============ CPR 节拍训练 ============
+let rhythmActive = false;
+let rhythmCount = 0;
+let rhythmTimestamps = [];  // 每次按压的时间戳
+let rhythmStartTime = 0;
+
+function startRhythmTraining() {
+  initAudio();
+  rhythmActive = true;
+  rhythmCount = 0;
+  rhythmTimestamps = [];
+  rhythmStartTime = Date.now();
+
+  // 切换UI
+  document.getElementById('rhythm-state-ready').style.display = 'none';
+  document.getElementById('rhythm-state-active').style.display = '';
+  document.getElementById('rhythm-state-result').style.display = 'none';
+  document.getElementById('rhythm-bottom-ready').style.display = 'none';
+  document.getElementById('rhythm-bottom-active').style.display = '';
+  document.getElementById('rhythm-meter').style.display = '';
+
+  // 圆圈文字变化
+  document.getElementById('rhythm-target-text').textContent = '按这里';
+  document.getElementById('rhythm-target-sub').textContent = '110 BPM 节奏';
+
+  // 重置数据
+  document.getElementById('rhythm-count').textContent = '0';
+  document.getElementById('rhythm-bpm').textContent = '--';
+  document.getElementById('rhythm-eval').textContent = '--';
+  document.getElementById('rhythm-tip').textContent = '';
+
+  speak('开始训练，跟着 110 BPM 节奏按压', { rate: 1.1 });
+}
+
+function onRhythmPress() {
+  // 圆圈"按下"动画
+  const target = document.getElementById('rhythm-target');
+  target.style.transform = 'scale(0.94)';
+  setTimeout(() => target.style.transform = '', 80);
+
+  // 振动+音效
+  if (navigator.vibrate) navigator.vibrate(20);
+  playClick();
+
+  // 还没开始训练？只是预演
+  if (!rhythmActive) {
+    return;
+  }
+
+  rhythmCount++;
+  const now = Date.now();
+  rhythmTimestamps.push(now);
+  document.getElementById('rhythm-count').textContent = rhythmCount;
+
+  // 计算瞬时 BPM（用最近 3 次按压间隔）
+  if (rhythmTimestamps.length >= 4) {
+    const recent = rhythmTimestamps.slice(-4);
+    const totalGap = recent[3] - recent[0];
+    const avgGap = totalGap / 3;
+    const bpm = Math.round(60000 / avgGap);
+    document.getElementById('rhythm-bpm').textContent = bpm;
+
+    // 节奏指示器位置（100-120 范围内 0%-100%）
+    const indicatorEl = document.getElementById('rhythm-indicator');
+    let pct = ((bpm - 90) / 40) * 100;
+    pct = Math.max(0, Math.min(100, pct));
+    indicatorEl.style.left = pct + '%';
+
+    // 节奏评价
+    const evalEl = document.getElementById('rhythm-eval');
+    const tipEl = document.getElementById('rhythm-tip');
+    if (bpm >= 100 && bpm <= 120) {
+      evalEl.textContent = '👍 棒';
+      evalEl.style.color = '#34D277';
+      tipEl.textContent = '节奏很好，保持';
+      tipEl.style.color = '#34D277';
+    } else if (bpm >= 90 && bpm < 100) {
+      evalEl.textContent = '快点';
+      evalEl.style.color = '#F59E0B';
+      tipEl.textContent = '稍微快一点';
+      tipEl.style.color = '#F59E0B';
+    } else if (bpm > 120 && bpm <= 130) {
+      evalEl.textContent = '慢点';
+      evalEl.style.color = '#F59E0B';
+      tipEl.textContent = '稍微慢一点';
+      tipEl.style.color = '#F59E0B';
+    } else if (bpm < 90) {
+      evalEl.textContent = '太慢';
+      evalEl.style.color = '#FF6B5B';
+      tipEl.textContent = '加快节奏！100-120';
+      tipEl.style.color = '#FF6B5B';
+    } else {
+      evalEl.textContent = '太快';
+      evalEl.style.color = '#FF6B5B';
+      tipEl.textContent = '慢一点！100-120';
+      tipEl.style.color = '#FF6B5B';
+    }
+  }
+
+  // 完成 30 次
+  if (rhythmCount >= 30) {
+    finishRhythmTraining();
+  }
+}
+
+function finishRhythmTraining() {
+  rhythmActive = false;
+  const totalTime = (Date.now() - rhythmStartTime) / 1000;
+
+  // 计算各项数据
+  const intervals = [];
+  for (let i = 1; i < rhythmTimestamps.length; i++) {
+    intervals.push(rhythmTimestamps[i] - rhythmTimestamps[i-1]);
+  }
+  const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+  const avgBpm = Math.round(60000 / avgInterval);
+
+  // 稳定性：标准差越小越稳定
+  const variance = intervals.reduce((sum, i) => sum + Math.pow(i - avgInterval, 2), 0) / intervals.length;
+  const stdDev = Math.sqrt(variance);
+  const stability = Math.max(0, Math.round(100 - (stdDev / avgInterval * 100 * 2)));
+
+  // 评分逻辑
+  let grade = 'C';
+  let title = '继续努力';
+  let color = '#F59E0B';
+  const bpmInRange = (avgBpm >= 100 && avgBpm <= 120);
+
+  if (bpmInRange && stability >= 90) {
+    grade = 'A';
+    title = '非常棒！节奏稳定';
+    color = '#34D277';
+  } else if (bpmInRange && stability >= 75) {
+    grade = 'A-';
+    title = '很好，节奏基本稳定';
+    color = '#34D277';
+  } else if (bpmInRange) {
+    grade = 'B';
+    title = '频率达标，再练稳定性';
+    color = '#C8A656';
+  } else if (Math.abs(avgBpm - 110) <= 15) {
+    grade = 'B-';
+    title = '接近标准，再练频率';
+    color = '#C8A656';
+  } else {
+    grade = 'C';
+    title = '还需多练';
+    color = '#F59E0B';
+  }
+
+  // 切换UI到结果页
+  document.getElementById('rhythm-state-active').style.display = 'none';
+  document.getElementById('rhythm-state-result').style.display = '';
+  document.getElementById('rhythm-bottom-active').style.display = 'none';
+  document.getElementById('rhythm-meter').style.display = 'none';
+  document.getElementById('rhythm-feedback').style.display = 'none';
+  // 隐藏圆圈
+  document.getElementById('rhythm-target').style.display = 'none';
+
+  document.getElementById('rhythm-result-grade').textContent = grade;
+  document.getElementById('rhythm-result-grade').style.color = color;
+  document.getElementById('rhythm-result-title').textContent = title;
+  document.getElementById('rhythm-result-bpm').textContent = avgBpm + ' BPM';
+  document.getElementById('rhythm-result-stability').textContent = stability + '%';
+  document.getElementById('rhythm-result-time').textContent = totalTime.toFixed(1) + ' 秒';
+
+  speak('训练完成', { rate: 1.1 });
+}
+
+function stopRhythmTraining(showConfirm) {
+  if (showConfirm && rhythmActive && rhythmCount > 0) {
+    if (!confirm('确定要放弃本次训练吗？已完成 ' + rhythmCount + ' 次按压')) {
+      return;
+    }
+  }
+  rhythmActive = false;
+  rhythmCount = 0;
+  rhythmTimestamps = [];
+
+  // 重置 UI
+  document.getElementById('rhythm-state-ready').style.display = '';
+  document.getElementById('rhythm-state-active').style.display = 'none';
+  document.getElementById('rhythm-state-result').style.display = 'none';
+  document.getElementById('rhythm-bottom-ready').style.display = '';
+  document.getElementById('rhythm-bottom-active').style.display = 'none';
+  document.getElementById('rhythm-meter').style.display = 'none';
+  document.getElementById('rhythm-feedback').style.display = '';
+  document.getElementById('rhythm-target').style.display = '';
+  document.getElementById('rhythm-target-text').textContent = '点这里开始';
+  document.getElementById('rhythm-target-sub').textContent = '用手指持续点击';
+  document.getElementById('rhythm-tip').textContent = '';
+}
+
+// ============ 页面导航 ============
+let currentPage = 'home';
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  currentPage = id;
+  window.scrollTo(0, 0);
+
+  // 更新底部 tab 高亮
+  const pageToTab = { home: 'home', aed: 'aed', learn: 'learn', cert: 'cert', train: 'learn', volunteer: 'cert', atlas: 'home' };
+  const activeTab = pageToTab[id];
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.page === activeTab);
+  });
+
+  // 紧急救援/路人协助/志愿者任务 页隐藏底部导航
+  const tabbar = document.getElementById('tabbar');
+  const hiddenPages = ['rescue', 'helper', 'aed-mission', 'aed-running', 'aed-arrived', 'cpr-rhythm', 'train-cpr-flow', 'train-aed', 'train-heimlich', 'train-scenario'];
+  tabbar.style.display = hiddenPages.includes(id) ? 'none' : 'flex';
+
+  // 重置紧急页阶段
+  if (id === 'rescue') {
+    document.querySelectorAll('.rescue-stage').forEach(s => s.classList.remove('active'));
+    document.getElementById('rescue-decision').classList.add('active');
+    flowAborted = true;
+    stopCPR();
+    flowAborted = false;
+  }
+}
+
+// ============ 紧急页阶段切换 ============
+function showCPR() {
+  document.getElementById('rescue-decision').classList.remove('active');
+  document.getElementById('rescue-cpr').classList.add('active');
+  startCPR();
+}
+function backToDecision() {
+  document.getElementById('rescue-cpr').classList.remove('active');
+  document.getElementById('rescue-decision').classList.add('active');
+  stopCPR();
+}
+
+// ============ CPR 多阶段流程 ============
+let cprInterval = null;
+let cprCount = 0;
+let cprRounds = 0;
+let cprTotalSeconds = 0;
+let cprTotalTimer = null;
+let breathTimer = null;
+let consciousTimer = null;
+let helpTimer = null;
+let loopTimer = null;
+let ventTimer = null;
+let aedTimer = null;
+let audioCtx = null;
+let currentStep = 0;
+let ventStep = 0;
+let ventRound = 1;
+let flowAborted = false;
+
+function initAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch(e) {}
+}
+
+function playClick() {
+  try {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'square';
+    gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.04);
+  } catch(e) {}
+}
+
+// ============ 语音系统 V2 ============
+let bestVoice = null;
+let voicesReady = false;
+
+// 选择最好的中文女声（按优先级排序）
+function pickBestVoice() {
+  if (!window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  // 优先级（从高到低）
+  const priorities = [
+    // iOS Siri 中文女声
+    v => v.name === 'Tingting' || v.name === '婷婷',
+    v => v.name === 'Sinji' || v.lang === 'yue-CN',
+    // 高质量神经网络声音（macOS/Windows 11）
+    v => /Microsoft.*Xiaoxiao|Microsoft.*Xiaoyi/i.test(v.name),
+    v => /Microsoft.*HuiHui|Microsoft.*Yaoyao/i.test(v.name),
+    v => /Google.*Chinese|Google.*中文/i.test(v.name),
+    // 任何中文女声
+    v => v.lang === 'zh-CN' && /female|woman|女/i.test(v.name),
+    // 任何中文声音
+    v => v.lang === 'zh-CN',
+    v => v.lang === 'zh-TW',
+    v => v.lang.startsWith('zh'),
+    // 兜底：第一个声音
+    v => true,
+  ];
+
+  for (const matcher of priorities) {
+    const found = voices.find(matcher);
+    if (found) {
+      return found;
+    }
+  }
+  return voices[0];
+}
+
+function loadVoices() {
+  if (!window.speechSynthesis) return;
+  bestVoice = pickBestVoice();
+  voicesReady = true;
+}
+
+// 浏览器加载语音列表是异步的
+if (window.speechSynthesis) {
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+  // 兜底：500ms 后再次尝试
+  setTimeout(loadVoices, 500);
+  setTimeout(loadVoices, 1500);
+}
+
+// 核心 speak 函数 V2
+function speak(text, opts = {}) {
+  try {
+    if (!window.speechSynthesis) return;
+    if (!voicesReady) loadVoices();
+
+    const u = new SpeechSynthesisUtterance(text);
+    u.voice = bestVoice;
+    u.lang = 'zh-CN';
+    u.rate = opts.rate || 1.05;       // 略快于默认
+    u.pitch = opts.pitch || 1.0;
+    u.volume = opts.volume || 1.0;
+    if (opts.onstart) u.onstart = opts.onstart;
+    if (opts.onend) u.onend = opts.onend;
+    window.speechSynthesis.speak(u);
+    return u;
+  } catch(e) {
+    // silent
+  }
+}
+
+// 紧急语气：加快+加强
+function speakUrgent(text) {
+  return speak(text, { rate: 1.2, pitch: 1.05 });
+}
+
+// 安抚语气：稍慢+柔和
+function speakCalm(text) {
+  return speak(text, { rate: 0.95, pitch: 0.95 });
+}
+
+// 报数语气：极快、清晰
+function speakNumber(n) {
+  // 数字用阿拉伯数字让 TTS 自动读，加快语速
+  const text = (n <= 10)
+    ? ['零','一','二','三','四','五','六','七','八','九','十'][n]
+    : String(n);
+  return speak(text, { rate: 1.6 });
+}
+
+// 多句连续播报（带自然停顿）
+function speakSequence(phrases, callback) {
+  if (!phrases || phrases.length === 0) {
+    if (callback) callback();
+    return;
+  }
+  const [first, ...rest] = phrases;
+  const text = typeof first === 'string' ? first : first.text;
+  const opts = typeof first === 'object' ? first : {};
+  const u = speak(text, opts);
+  if (u) {
+    u.onend = () => {
+      // 自然停顿
+      const pause = opts.pause || 250;
+      setTimeout(() => speakSequence(rest, callback), pause);
+    };
+  } else {
+    if (callback) callback();
+  }
+}
+
+function startTotalTimer() {
+  if (cprTotalTimer) return;
+  cprTotalTimer = setInterval(() => {
+    cprTotalSeconds++;
+    const min = Math.floor(cprTotalSeconds / 60).toString().padStart(2, '0');
+    const sec = (cprTotalSeconds % 60).toString().padStart(2, '0');
+    const el = document.getElementById('cpr-time');
+    if (el) el.textContent = `${min}:${sec}`;
+  }, 1000);
+}
+
+// 启动救护流程：从呼救开始
+function startRescueFlow() {
+  initAudio();
+  flowAborted = false;
+  cprCount = 0;
+  cprRounds = 0;
+  cprTotalSeconds = 0;
+
+  // 切到 CPR 阶段
+  document.getElementById('rescue-decision').classList.remove('active');
+  document.getElementById('rescue-cpr').classList.add('active');
+
+  goStep(1);
+}
+
+function abortFlow(reason) {
+  flowAborted = true;
+  stopAllTimers();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  alert(`已暂停流程：${reason}\n\n实际场景下：\n• "有反应"→ 安抚患者+继续观察\n• "有正常呼吸"→ 转为侧卧位+持续监测\n• 始终保持联系 120`);
+}
+
+function goStep(n) {
+  if (flowAborted) return;
+  initAudio();
+
+  document.querySelectorAll('.cpr-step').forEach(el => el.style.display = 'none');
+  if (n === 'loop') {
+    document.getElementById('step-loop').style.display = 'block';
+    const el = document.getElementById('loop-rounds');
+    if (el) el.textContent = cprRounds;
+  } else {
+    const el = document.getElementById(`step-${n}`);
+    if (el) el.style.display = 'block';
+  }
+  currentStep = n;
+
+  updateStepProgress(n);
+  updateStepTitle(n);
+
+  stopAllTimers();
+  if (n === 1) startHelpStep();
+  if (n === 2) startConsciousStep();
+  if (n === 3) startBreathStep();
+  if (n === 4) startCompression();
+  if (n === 5) startVentilation();
+  if (n === 'loop') startLoopStep();
+
+  if (n === 4 && !cprTotalTimer) startTotalTimer();
+
+  document.getElementById('rescue').scrollTop = 0;
+  window.scrollTo(0, 0);
+}
+
+function updateStepProgress(n) {
+  const num = (typeof n === 'number') ? n : 5;
+  document.querySelectorAll('.step-pill').forEach(p => {
+    const s = parseInt(p.dataset.step);
+    p.classList.remove('active', 'done');
+    if (s < num) p.classList.add('done');
+    else if (s === num) p.classList.add('active');
+  });
+  document.querySelectorAll('.step-line').forEach((l, i) => {
+    l.classList.toggle('done', (i+1) < num);
+  });
+}
+
+function updateStepTitle(n) {
+  const titles = {
+    1: '第 1 步 · 呼救',
+    2: '第 2 步 · 判断意识',
+    3: '第 3 步 · 判断呼吸',
+    4: '第 4 步 · 胸外按压',
+    5: '第 5 步 · 人工通气',
+    'loop': '循环 · 持续救护'
+  };
+  const el = document.getElementById('cpr-stage-title');
+  if (el) el.textContent = titles[n] || 'CPR 进行中';
+}
+
+function stopAllTimers() {
+  if (cprInterval) { clearInterval(cprInterval); cprInterval = null; }
+  if (breathTimer) { clearInterval(breathTimer); breathTimer = null; }
+  if (consciousTimer) { clearInterval(consciousTimer); consciousTimer = null; }
+  if (helpTimer) { clearInterval(helpTimer); helpTimer = null; }
+  if (loopTimer) { clearInterval(loopTimer); loopTimer = null; }
+  if (ventTimer) { clearInterval(ventTimer); ventTimer = null; }
+  if (aedTimer) { clearInterval(aedTimer); aedTimer = null; }
+}
+
+// 步骤 1：呼救（5 秒后自动进下一步）
+function startHelpStep() {
+  // 用紧迫语气连续播报
+  speakSequence([
+    { text: '请这位先生', rate: 1.15, pause: 100 },
+    { text: '立即拨打120！', rate: 1.25, pitch: 1.1, pause: 600 },
+    { text: '系统已派志愿者', rate: 1.1, pause: 100 },
+    { text: '带 A E D 过来', rate: 1.1, pause: 500 },
+    { text: '您不用自己去找', rate: 1.0, pause: 400 },
+    { text: '准备开始按压', rate: 1.1, pitch: 1.05 },
+  ]);
+
+  let t = 0;
+  const fill = document.getElementById('timer-1');
+  if (fill) fill.style.width = '0%';
+  helpTimer = setInterval(() => {
+    if (flowAborted) { clearInterval(helpTimer); return; }
+    t += 0.1;
+    const pct = Math.min(t / 7 * 100, 100);
+    if (fill) fill.style.width = pct + '%';
+    if (t >= 7) {
+      clearInterval(helpTimer);
+      goStep(2);
+    }
+  }, 100);
+}
+
+// 步骤 2：5 秒判断意识 → 自动进下一步
+function startConsciousStep() {
+  speakSequence([
+    { text: '轻拍患者双肩', rate: 1.1, pause: 300 },
+    { text: '在耳边大声呼喊', rate: 1.1, pause: 400 },
+    { text: '大爷！', rate: 1.3, pitch: 1.15, pause: 200 },
+    { text: '你怎么啦！', rate: 1.3, pitch: 1.15 },
+  ]);
+
+  let t = 0;
+  const fill = document.getElementById('timer-2');
+  if (fill) fill.style.width = '0%';
+  consciousTimer = setInterval(() => {
+    if (flowAborted) { clearInterval(consciousTimer); return; }
+    t += 0.1;
+    const pct = Math.min(t / 5 * 100, 100);
+    if (fill) fill.style.width = pct + '%';
+    if (t >= 5) {
+      clearInterval(consciousTimer);
+      goStep(3);
+    }
+  }, 100);
+}
+
+// 步骤 3：7 秒判断呼吸 → 自动进按压
+function startBreathStep() {
+  speakSequence([
+    { text: '把脸贴近患者口鼻', rate: 1.1, pause: 300 },
+    { text: '同时看胸口起伏', rate: 1.1, pause: 200 },
+    { text: '听呼吸声', rate: 1.1, pause: 400 },
+    { text: '跟我一起数', rate: 1.15 },
+  ]);
+
+  let count = 1001;
+  const counter = document.getElementById('breath-counter');
+  const fill = document.getElementById('timer-3');
+  if (fill) fill.style.width = '0%';
+  if (counter) counter.textContent = count;
+
+  let elapsed = 0;
+  let lastShown = 1000;
+  let breathSpeaking = false;
+
+  // 5.5 秒后开始报数（让前面的语音播完）
+  setTimeout(() => {
+    breathTimer = setInterval(() => {
+      if (flowAborted) { clearInterval(breathTimer); return; }
+      elapsed += 0.1;
+
+      const newCount = 1001 + Math.floor(elapsed);
+      if (newCount <= 1007 && newCount !== lastShown) {
+        if (counter) counter.textContent = newCount;
+        lastShown = newCount;
+
+        // 语音只在不忙时说
+        if (!breathSpeaking && window.speechSynthesis) {
+          try {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(String(newCount));
+            u.voice = bestVoice;
+            u.lang = 'zh-CN';
+            u.rate = 1.5;
+            u.onstart = () => { breathSpeaking = true; };
+            u.onend = () => { breathSpeaking = false; };
+            u.onerror = () => { breathSpeaking = false; };
+            window.speechSynthesis.speak(u);
+          } catch(e) {}
+        }
+      }
+
+      if (elapsed >= 7) {
+        clearInterval(breathTimer);
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        setTimeout(() => goStep(4), 300);
+      }
+    }, 100);
+  }, 5500);
+
+  // 进度条单独走
+  let totalT = 0;
+  const totalTimer = setInterval(() => {
+    if (flowAborted) { clearInterval(totalTimer); return; }
+    totalT += 0.1;
+    const pct = Math.min(totalT / 12.5 * 100, 100);
+    if (fill) fill.style.width = pct + '%';
+    if (totalT >= 12.5) clearInterval(totalTimer);
+  }, 100);
+}
+
+// 步骤 4：30 次按压 + 人声报数
+function startCompression() {
+  cprCount = 0;
+  document.getElementById('cpr-count').textContent = '0';
+  document.getElementById('press-num').textContent = '准备';
+  document.getElementById('cpr-rounds').textContent = cprRounds;
+
+  // 第一组先讲解，后续组直接开始
+  if (cprRounds === 0) {
+    setTimeout(() => speak('开始胸外按压'), 200);
+    setTimeout(() => speak('双掌交叠，按在胸骨中下段'), 2000);
+    setTimeout(() => speak('用力下压5到6厘米，跟我数'), 4500);
+
+    setTimeout(() => startPressLoop(), 7500);
+  } else {
+    setTimeout(() => speak('继续按压，跟我数'), 200);
+    setTimeout(() => startPressLoop(), 1800);
+  }
+}
+
+function startPressLoop() {
+  cprCount = 0;
+  let isSpeaking = false;  // 跟踪 TTS 是否正在说话
+
+  function tick() {
+    if (flowAborted) return;
+    cprCount++;
+
+    if (cprCount > 30) {
+      clearInterval(cprInterval);
+      cprInterval = null;
+      // 取消所有未播完的 TTS 队列
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      setTimeout(() => speak('完成30次，准备通气'), 200);
+      setTimeout(() => goStep(5), 1800);
+      return;
+    }
+
+    // 屏幕数字 + 节拍音 + 振动 - 这三个永远准时
+    document.getElementById('cpr-count').textContent = cprCount;
+    document.getElementById('press-num').textContent = cprCount;
+    playClick();
+    if (navigator.vibrate) navigator.vibrate(30);
+
+    // TTS 报数 - 关键策略：
+    // 1. 只在不忙的时候报
+    // 2. 关键节点（5, 10, 15, 20, 25, 30）必报
+    // 3. 数字 1-9 用单字（一二三..），10+ 太长就跳过
+    if (!isSpeaking) {
+      const isMilestone = (cprCount % 5 === 0);
+      const isShortNumber = cprCount <= 9;
+
+      if (isMilestone || isShortNumber) {
+        try {
+          if (window.speechSynthesis) {
+            // 清空队列避免堆积
+            window.speechSynthesis.cancel();
+
+            const word = numberToChinese(cprCount);
+            const u = new SpeechSynthesisUtterance(word);
+            u.lang = 'zh-CN';
+            u.rate = 1.7;  // 加快语速避免拖延
+            u.volume = 1.0;
+            u.onstart = () => { isSpeaking = true; };
+            u.onend = () => { isSpeaking = false; };
+            u.onerror = () => { isSpeaking = false; };
+            window.speechSynthesis.speak(u);
+          }
+        } catch(e) {}
+      }
+    }
+  }
+
+  // 立即触发第一次
+  tick();
+  cprInterval = setInterval(tick, 545); // 110 BPM
+}
+
+// 数字转中文短读法（避免TTS引擎"二十三"拖太长）
+function numberToChinese(n) {
+  if (n <= 10) {
+    return ['零','一','二','三','四','五','六','七','八','九','十'][n];
+  }
+  // 11-30 用阿拉伯数字让 TTS 自动读，但用更短的形式
+  // 实测 TTS 读 "23" 比 "二十三" 短
+  return String(n);
+}
+
+// 步骤 5：通气（2 次自动推进）
+function startVentilation() {
+  ventStep = 0;
+  ventRound = 1;
+  document.getElementById('vent-counter').textContent = '第 1 次';
+  const numEl = document.getElementById('vent-counter-num');
+  if (numEl) numEl.textContent = '1';
+  document.querySelectorAll('.vent-item').forEach(el => el.classList.remove('active', 'done'));
+
+  // 第一组才详细讲解，后续直接进入
+  if (cprRounds === 0) {
+    setTimeout(() => speak('开始人工通气，仰头抬下巴'), 200);
+    setTimeout(() => speak('清理口腔异物'), 2200);
+    setTimeout(() => speak('捏住鼻子，吹一口气'), 4200);
+    setTimeout(() => runVentRound(), 6200);
+  } else {
+    setTimeout(() => speak('通气 2 次'), 200);
+    setTimeout(() => runVentRound(), 1500);
+  }
+}
+
+// 单次通气的倒计时（每次约 4 秒）
+function runVentRound() {
+  if (flowAborted) return;
+
+  document.getElementById('vent-counter').textContent = `第 ${ventRound} 次`;
+  const numEl = document.getElementById('vent-counter-num');
+  if (numEl) numEl.textContent = ventRound;
+  document.getElementById('vent-timer-label').textContent =
+    ventRound === 1 ? '吹气中... 看到胸部鼓起' : '第 2 次吹气...';
+
+  // 高亮"吹一口气"步骤
+  document.querySelectorAll('.vent-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('vent-4').classList.add('active');
+
+  // 语音引导
+  if (ventRound === 1 && cprRounds > 0) {
+    speak('吹气');
+  } else if (ventRound === 2) {
+    speak('再吹一次');
+  }
+
+  let t = 0;
+  const fill = document.getElementById('timer-vent');
+  if (fill) fill.style.width = '0%';
+  const total = 3.5;  // 每次通气 3.5 秒（吹气 1 秒+恢复 2.5 秒）
+
+  if (ventTimer) clearInterval(ventTimer);
+  ventTimer = setInterval(() => {
+    if (flowAborted) { clearInterval(ventTimer); return; }
+    t += 0.1;
+    const pct = Math.min(t / total * 100, 100);
+    if (fill) fill.style.width = pct + '%';
+
+    if (t >= total) {
+      clearInterval(ventTimer);
+      ventTimer = null;
+      // 标记本次通气完成
+      document.getElementById('vent-4').classList.remove('active');
+      document.getElementById('vent-4').classList.add('done');
+
+      ventRound++;
+      if (ventRound <= 2) {
+        // 自动开始第 2 次
+        setTimeout(() => runVentRound(), 600);
+      } else {
+        // 完成 2 次通气，进入循环
+        cprRounds++;
+        speak('完成一组循环');
+        setTimeout(() => goStep('loop'), 1200);
+      }
+    }
+  }, 100);
+}
+
+// 兼容旧函数（已不再使用按钮触发）
+function completeVent() {
+  // 留空 - 现在由 runVentRound 自动推进
+}
+
+// 重置当前按压计数（点击圆圈触发）
+let lastResetTime = 0;
+function resetCprCount() {
+  // 防止误触：500ms 内多次点击只算一次
+  const now = Date.now();
+  if (now - lastResetTime < 500) return;
+  lastResetTime = now;
+
+  // 短振动反馈
+  if (navigator.vibrate) navigator.vibrate(80);
+
+  // 停掉当前节拍循环
+  if (cprInterval) {
+    clearInterval(cprInterval);
+    cprInterval = null;
+  }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+  // 重置计数
+  cprCount = 0;
+  document.getElementById('cpr-count').textContent = '0';
+  document.getElementById('press-num').textContent = '0';
+  document.getElementById('press-label').textContent = '已重置 · 即将重新开始';
+
+  // 语音提示
+  speak('已重置，从 1 开始', { rate: 1.15 });
+
+  // 1.5 秒后重新开始
+  setTimeout(() => {
+    if (flowAborted) return;
+    document.getElementById('press-label').textContent = '跟屏幕数字按压';
+    startPressLoop();
+  }, 1500);
+}
+
+// AED 介入流程（暂停按压 + 引导分析/电击）
+let aedStage = 0; // 0=分析中 1=建议电击 2=电击后恢复
+
+function startAedInterrupt() {
+  if (cprInterval) {
+    clearInterval(cprInterval);
+    cprInterval = null;
+  }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (aedTimer) { clearInterval(aedTimer); aedTimer = null; }
+
+  // 隐藏按压页 + 显示AED介入页
+  document.getElementById('step-4').style.display = 'none';
+  document.getElementById('step-aed').style.display = 'block';
+  aedStage = 0;
+  runAedStage();
+}
+
+function runAedStage() {
+  if (flowAborted) return;
+  const labelEl = document.getElementById('aed-stage-label');
+  const quoteEl = document.getElementById('aed-stage-quote');
+  const detailEl = document.getElementById('aed-stage-detail');
+  const timerLabelEl = document.getElementById('aed-timer-label');
+  const fill = document.getElementById('timer-aed');
+
+  if (aedStage === 0) {
+    // 阶段 0：分析心律（10 秒）
+    labelEl.textContent = 'AED 分析中 · 停止按压';
+    quoteEl.textContent = '所有人离开患者！';
+    detailEl.innerHTML = 'AED 正在<strong style="color:#F59E0B;">分析心律</strong>，请离开患者，不要触碰。<br>机器会告诉您下一步怎么做。';
+    timerLabelEl.textContent = '分析中... 约 10 秒';
+
+    speakSequence([
+      { text: '所有人离开患者！', rate: 1.25, pitch: 1.1, pause: 400 },
+      { text: 'A E D 正在分析心律', rate: 1.05, pause: 400 },
+      { text: '不要触碰患者', rate: 1.1 },
+    ]);
+
+    runAedTimer(10, () => {
+      aedStage = 1;
+      runAedStage();
+    });
+  } else if (aedStage === 1) {
+    // 阶段 1：建议电击（3 秒等待按下）
+    labelEl.textContent = 'AED 建议电击 · 再次离开';
+    quoteEl.textContent = '"离开！按下电击键！"';
+    detailEl.innerHTML = '机器闪烁<strong style="color:#FF6B5B;">电击按钮</strong>，再次确认所有人离开患者。<br>按下闪烁的按钮 · 立即继续按压。';
+    timerLabelEl.textContent = '准备电击... 5 秒';
+    if (fill) fill.style.width = '0%';
+
+    speakSequence([
+      { text: '再次离开！', rate: 1.3, pitch: 1.15, pause: 300 },
+      { text: '按下电击按钮', rate: 1.2, pitch: 1.1 },
+    ]);
+
+    runAedTimer(5, () => {
+      aedStage = 2;
+      runAedStage();
+    });
+  } else if (aedStage === 2) {
+    // 阶段 2：电击完成，立即恢复按压（重置计数）
+    labelEl.textContent = '电击完成 · 立即恢复按压';
+    quoteEl.textContent = '"立即按压！"';
+    detailEl.innerHTML = '电击已完成。<br><strong style="color:#FF8B5B;">不要等待心跳</strong>，立即从 1 开始重新按压 30 次。';
+    timerLabelEl.textContent = '即将自动开始按压';
+    if (fill) fill.style.width = '0%';
+
+    speak('立即恢复按压，从 1 开始', { rate: 1.2 });
+
+    runAedTimer(2.5, () => {
+      // 恢复到按压页 + 重置计数
+      document.getElementById('step-aed').style.display = 'none';
+      document.getElementById('step-4').style.display = 'block';
+      cprCount = 0;
+      document.getElementById('cpr-count').textContent = '0';
+      document.getElementById('press-num').textContent = '0';
+      document.getElementById('press-label').textContent = '电击后 · 重新开始';
+      setTimeout(() => {
+        if (flowAborted) return;
+        document.getElementById('press-label').textContent = '跟屏幕数字按压';
+        startPressLoop();
+      }, 800);
+    });
+  }
+}
+
+function runAedTimer(seconds, callback) {
+  let t = 0;
+  const fill = document.getElementById('timer-aed');
+  if (fill) fill.style.width = '0%';
+  if (aedTimer) clearInterval(aedTimer);
+  aedTimer = setInterval(() => {
+    if (flowAborted) { clearInterval(aedTimer); return; }
+    t += 0.1;
+    const pct = Math.min(t / seconds * 100, 100);
+    if (fill) fill.style.width = pct + '%';
+    if (t >= seconds) {
+      clearInterval(aedTimer);
+      aedTimer = null;
+      callback();
+    }
+  }, 100);
+}
+
+function cancelAedInterrupt() {
+  if (aedTimer) { clearInterval(aedTimer); aedTimer = null; }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  document.getElementById('step-aed').style.display = 'none';
+  document.getElementById('step-4').style.display = 'block';
+  // 重置计数（因为按压已经中断了几秒）
+  cprCount = 0;
+  document.getElementById('cpr-count').textContent = '0';
+  document.getElementById('press-num').textContent = '0';
+  document.getElementById('press-label').textContent = '从 1 重新开始';
+  setTimeout(() => {
+    if (flowAborted) return;
+    document.getElementById('press-label').textContent = '跟屏幕数字按压';
+    startPressLoop();
+  }, 800);
+}
+
+// 志愿者接受 AED 任务
+function acceptAedMission() {
+  goPage('aed-running');
+  startAedRunningGuide();
+}
+
+// 跑动中的语音引导
+function startAedRunningGuide() {
+  initAudio();
+  speakSequence([
+    { text: '已接受任务', rate: 1.05, pause: 200 },
+    { text: '请保持步伐', rate: 1.1, pitch: 1.05, pause: 800 },
+    { text: '现在边跑边听', rate: 1.05, pause: 400 },
+    { text: '我会告诉您 A E D 怎么用', rate: 1.05, pause: 1200 },
+    { text: '揭开盖子', rate: 1.1, pause: 200 },
+    { text: 'A E D 自动开机', rate: 1.1, pause: 800 },
+    { text: '电极片', rate: 1.1, pause: 100 },
+    { text: '一片贴右胸上方', rate: 1.05, pause: 200 },
+    { text: '一片贴左侧腋下', rate: 1.05, pause: 1000 },
+    { text: '到现场后', rate: 1.05, pause: 200 },
+    { text: '告诉按压者', rate: 1.05, pause: 200 },
+    { text: '继续按压不要停！', rate: 1.2, pitch: 1.1, pause: 800 },
+    { text: '您来贴电极片', rate: 1.05 },
+  ]);
+}
+
+// 循环页：3 秒后自动开始下一组
+function startLoopStep() {
+  speak('继续按压，不要停', { rate: 1.2 });
+
+  let t = 0;
+  const fill = document.getElementById('timer-loop');
+  if (fill) fill.style.width = '0%';
+  loopTimer = setInterval(() => {
+    if (flowAborted) { clearInterval(loopTimer); return; }
+    t += 0.1;
+    const pct = Math.min(t / 3 * 100, 100);
+    if (fill) fill.style.width = pct + '%';
+    if (t >= 3) {
+      clearInterval(loopTimer);
+      goStep(4);
+    }
+  }, 100);
+}
+
+// 兼容旧函数名
+function showCPR() { startRescueFlow(); }
+
+function stopCPR() {
+  flowAborted = true;
+  stopAllTimers();
+  if (cprTotalTimer) { clearInterval(cprTotalTimer); cprTotalTimer = null; }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  cprCount = 0;
+  cprRounds = 0;
+  cprTotalSeconds = 0;
+}
+
+// ============ 测验答题 ============
+function quizAnswer(btn, isCorrect) {
+  const all = btn.parentElement.querySelectorAll('.quiz-opt');
+  all.forEach(o => o.style.pointerEvents = 'none');
+  btn.classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) {
+    // 也显示正确答案
+    all.forEach(o => {
+      if (o.onclick.toString().includes('true')) {
+        o.classList.add('correct');
+      }
+    });
+  }
+  setTimeout(() => {
+    if (isCorrect) {
+      alert('答对了！+10 积分');
+    } else {
+      alert('答错了，看上面绿色为正确答案');
+    }
+  }, 400);
+}
+
+// 入口动画 - 数字滚动
+function animateNumber(el, target, duration = 1200) {
+  const start = 0;
+  const startTime = Date.now();
+  const update = () => {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.floor(start + (target - start) * eased);
+    el.textContent = current.toLocaleString();
+    if (progress < 1) requestAnimationFrame(update);
+    else el.textContent = target.toLocaleString();
+  };
+  update();
+}
+
+window.addEventListener('load', () => {
+  document.querySelectorAll('.home-stat-num').forEach((el, i) => {
+    const target = parseInt(el.textContent.replace(/,/g, ''));
+    el.textContent = '0';
+    setTimeout(() => animateNumber(el, target), 200 + i * 150);
+  });
+
+  // 紧急任务 banner 倒计时
+  const countdownEl = document.getElementById('mission-countdown');
+  if (countdownEl) {
+    let secs = 23;
+    setInterval(() => {
+      secs = secs > 0 ? secs - 1 : 23;
+      countdownEl.textContent = secs + 's';
+    }, 1000);
+  }
+});
+</script>
+
+</body>
+</html>
