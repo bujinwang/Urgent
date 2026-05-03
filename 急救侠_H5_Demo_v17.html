@@ -2312,6 +2312,353 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   margin-top: 10px;
 }
 
+/* ============ 救援动态页 ============ */
+.news-page-header {
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+  z-index: 100;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.news-page-header h1 {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.news-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.news-tab {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  color: var(--ink-mute);
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.news-tab.active {
+  background: var(--rescue-red);
+  color: white;
+  border-color: var(--rescue-red);
+}
+
+.news-list {
+  padding: 16px 20px;
+}
+
+.news-card-full {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 12px;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.news-card-full:active {
+  transform: scale(0.98);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+.news-card-full.featured {
+  background: linear-gradient(135deg, #C0392B 0%, #8B2A1F 100%);
+  color: white;
+  border-color: var(--rescue-red);
+}
+.news-card-full.featured .news-meta,
+.news-card-full.featured .news-excerpt {
+  color: rgba(255,255,255,0.85);
+}
+
+.news-card-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+.news-card-tag.live {
+  background: rgba(192,57,43,0.1);
+  color: var(--rescue-red);
+  border: 1px solid rgba(192,57,43,0.3);
+}
+.news-card-tag.live::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--rescue-red);
+  margin-right: 6px;
+  animation: blink 1s infinite;
+}
+.news-card-tag.case {
+  background: rgba(31,138,91,0.1);
+  color: var(--green);
+  border: 1px solid rgba(31,138,91,0.3);
+}
+.news-card-tag.news {
+  background: rgba(74,144,226,0.1);
+  color: var(--diamond);
+  border: 1px solid rgba(74,144,226,0.3);
+}
+.news-card-full.featured .news-card-tag {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border-color: rgba(255,255,255,0.3);
+}
+
+.news-card-title {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.news-card-full.featured .news-card-title {
+  font-size: 18px;
+}
+
+.news-excerpt {
+  font-size: 13px;
+  color: var(--ink-mute);
+  line-height: 1.6;
+  margin-bottom: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.news-card-full.featured .news-excerpt {
+  -webkit-line-clamp: 3;
+}
+
+.news-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--ink-mute);
+  font-family: var(--mono);
+}
+.news-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.news-image {
+  width: 100%;
+  height: 180px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  object-fit: cover;
+  background: linear-gradient(135deg, #E8EBE5, #D4DBD3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+}
+
+.news-stats {
+  display: flex;
+  gap: 16px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+}
+.news-card-full.featured .news-stats {
+  border-top-color: rgba(255,255,255,0.2);
+}
+.news-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ink-mute);
+}
+.news-card-full.featured .news-stat {
+  color: rgba(255,255,255,0.7);
+}
+
+/* 救援案例详情页 */
+.case-detail-header {
+  position: relative;
+  padding: 24px 20px;
+  background: linear-gradient(165deg, #C0392B 0%, #8B2A1F 100%);
+  color: white;
+  border-radius: 0 0 24px 24px;
+}
+.case-detail-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.15);
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-family: var(--mono);
+  margin-bottom: 12px;
+}
+.case-detail-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+.case-detail-meta {
+  font-size: 12px;
+  opacity: 0.8;
+  display: flex;
+  gap: 16px;
+}
+.case-detail-body {
+  padding: 20px;
+}
+.case-section {
+  margin-bottom: 24px;
+}
+.case-section-title {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.case-section-title::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background: var(--rescue-red);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.case-timeline {
+  position: relative;
+  padding-left: 28px;
+}
+.case-timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--line);
+}
+.case-timeline-item {
+  position: relative;
+  padding-bottom: 20px;
+}
+.case-timeline-item:last-child {
+  padding-bottom: 0;
+}
+.case-timeline-dot {
+  position: absolute;
+  left: -28px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--rescue-red);
+  border: 3px solid var(--paper);
+  box-shadow: 0 0 0 2px var(--rescue-red);
+}
+.case-timeline-time {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  margin-bottom: 4px;
+}
+.case-timeline-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.case-result {
+  background: var(--green-soft);
+  border: 1px solid rgba(31,138,91,0.3);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.case-result-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--green);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.case-result-text {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--green);
+}
+.case-heroes {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.case-heroes::-webkit-scrollbar {
+  display: none;
+}
+.case-hero {
+  flex-shrink: 0;
+  width: 80px;
+  text-align: center;
+}
+.case-hero-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin: 0 auto 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 20px;
+  color: white;
+}
+.case-hero-name {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.case-hero-role {
+  font-size: 10px;
+  color: var(--ink-mute);
+  font-family: var(--mono);
+}
+
 /* ============ 通用工具 ============ */
 .spacer-sm { height: 12px; }
 .spacer { height: 24px; }
@@ -3238,7 +3585,7 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
           <span class="home-tier-badge">金牌</span>
           <span style="font-family:var(--mono);font-size:9px;color:var(--rescue-red);font-weight:700;background:var(--rescue-red-soft);padding:1px 5px;border-radius:4px;margin-left:4px;">SZ-012</span>
         </div>
-        <div class="home-user-sub">2,340 积分 · 深圳
+        <div class="home-user-sub">2,340 积分 · 深圳</div>
       </div>
     </div>
     <div class="home-logo">
@@ -3312,72 +3659,80 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
 
   <!-- 功能模块（横向滑动） -->
   <div class="home-section-header">功能</div>
-  <div class="home-modules-scroll">
-    <button class="home-module-btn" onclick="goPage('aed')">
-      <div class="home-module-icon" style="background:#FFE8E5;">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#C0392B"><path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21z"/></svg>
-      </div>
-      <div class="home-module-name">附近 AED</div>
-    </button>
-    <button class="home-module-btn" onclick="goPage('rescue')">
-      <div class="home-module-icon" style="background:#FFEAEA;">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#C0392B"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
-      </div>
-      <div class="home-module-name">CPR 引导</div>
-    </button>
-    <button class="home-module-btn" onclick="goPage('atlas')">
-      <div class="home-module-icon" style="background:#FFF8E0;">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#C8A656"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14h-4v-2h4v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-      </div>
-      <div class="home-module-name">急救图谱</div>
-    </button>
-    <button class="home-module-btn" onclick="goPage('learn')">
-      <div class="home-module-icon" style="background:#E8F5EF;">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#1F8A5B"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/></svg>
-      </div>
-      <div class="home-module-name">学习训练</div>
-    </button>
-    <button class="home-module-btn" onclick="goPage('cert')">
-      <div class="home-module-icon" style="background:#EEF2FF;">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#4A90E2"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-      </div>
-      <div class="home-module-name">我的徽章</div>
-    </button>
-    <button class="home-module-btn" onclick="goPage('volunteer')">
-      <div class="home-module-icon" style="background:#FEF3C7;">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#D97706"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-      </div>
-      <div class="home-module-name">排行榜</div>
-    </button>
-  </div>
+    <div class="home-modules-scroll">
+      <button class="home-module-btn" onclick="goPage('aed')">
+        <div class="home-module-icon" style="background:#FFE8E5;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#C0392B"><path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21z"/></svg>
+        </div>
+        <div class="home-module-name">附近 AED</div>
+      </button>
+      <button class="home-module-btn" onclick="goPage('rescue')">
+        <div class="home-module-icon" style="background:#FFEAEA;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#C0392B"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+        </div>
+        <div class="home-module-name">CPR 引导</div>
+      </button>
+      <button class="home-module-btn" onclick="goPage('atlas')">
+        <div class="home-module-icon" style="background:#FFF8E0;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#C8A656"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14h-4v-2h4v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        </div>
+        <div class="home-module-name">急救图谱</div>
+      </button>
+      <button class="home-module-btn" onclick="goPage('learn')">
+        <div class="home-module-icon" style="background:#E8F5EF;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#1F8A5B"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/></svg>
+        </div>
+        <div class="home-module-name">学习训练</div>
+      </button>
+      <button class="home-module-btn" onclick="goPage('cert')">
+        <div class="home-module-icon" style="background:#EEF2FF;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#4A90E2"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+        </div>
+        <div class="home-module-name">我的徽章</div>
+      </button>
+      <button class="home-module-btn" onclick="goPage('volunteer')">
+        <div class="home-module-icon" style="background:#FEF3C7;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#D97706"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        </div>
+        <div class="home-module-name">排行榜</div>
+      </button>
+      <button class="home-module-btn" onclick="goPage(\'news\')">
+        <div class="home-module-icon" style="background:#FFE8E5;">📰</div>
+        <div class="home-module-name">救援动态</div>
+      </button>
+    </div>
 
-  <!-- 最近动态 -->
-  <div class="home-section-header">最近动态</div>
-  <div class="home-activity-list">
-    <div class="home-activity-item">
-      <div class="home-activity-icon" style="background:#FFE8E5;">📡</div>
-      <div class="home-activity-body">
-        <div class="home-activity-title">深圳福田区新增 12 台联网 AED</div>
-        <div class="home-activity-meta">2 小时前 · 系统消息</div>
+    <!-- 最近动态 -->
+    <div class="home-section-header">最近动态</div>
+    <div class="home-activity-list">
+      <div class="home-activity-item">
+        <div class="home-activity-icon" style="background:#FFE8E5;">📡</div>
+        <div class="home-activity-body">
+          <div class="home-activity-title">深圳福田区新增 12 台联网 AED</div>
+          <div class="home-activity-meta">2 小时前 · 系统消息</div>
+        </div>
       </div>
-    </div>
-    <div class="home-activity-item">
-      <div class="home-activity-icon" style="background:#E8F5EF;">❤️</div>
-      <div class="home-activity-body">
-        <div class="home-activity-title">本周成功救援 4 例 · 全部已送医</div>
-        <div class="home-activity-meta">本周 · 救援网络</div>
+      <div class="home-activity-item">
+        <div class="home-activity-icon" style="background:#E8F5EF;">❤️</div>
+        <div class="home-activity-body">
+          <div class="home-activity-title">本周成功救援 4 例 · 全部已送医</div>
+          <div class="home-activity-meta">本周 · 救援网络</div>
+        </div>
       </div>
-    </div>
-    <div class="home-activity-item">
-      <div class="home-activity-icon" style="background:#EEF2FF;">🎓</div>
-      <div class="home-activity-body">
-        <div class="home-activity-title">您的 CPR 认证将于 30 天后到期</div>
-        <div class="home-activity-meta">提醒 · 前往复训</div>
+      <div class="home-activity-item">
+        <div class="home-activity-icon" style="background:#EEF2FF;">🎓</div>
+        <div class="home-activity-body">
+          <div class="home-activity-title">您的 CPR 认证将于 30 天后到期</div>
+          <div class="home-activity-meta">提醒 · 前往复训</div>
+        </div>
       </div>
+     </div>
+
+    <!-- 查看全部救援动态 -->
+    <div style="text-align:center;padding:8px 0 16px;">
+      <a href="javascript:void(0);" onclick="goPage(\'news\');" style="color:var(--rescue-red);font-size:13px;cursor:pointer;font-family:var(--serif);font-weight:700;">查看全部救援动态 →</a>
     </div>
   </div>
-
-</div>
 
 <!-- ====================================================== -->
 <!--                  紧急救援页                              -->
@@ -4225,6 +4580,295 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--                 救援动态页                              -->
+<!-- ====================================================== -->
+<div class="page" id="news">
+  <div class="news-page-header">
+    <button class="back-btn" onclick="goPage('home')">‹</button>
+    <h1>救援动态</h1>
+  </div>
+
+  <div class="news-tabs">
+    <button class="news-tab active" onclick="switchNewsTab('all', this)">全部</button>
+    <button class="news-tab" onclick="switchNewsTab('live', this)">进行中</button>
+    <button class="news-tab" onclick="switchNewsTab('case', this)">成功案例</button>
+    <button class="news-tab" onclick="switchNewsTab('news', this)">新闻资讯</button>
+  </div>
+
+  <div class="news-list" id="news-list-all">
+
+    <!-- 置顶：正在进行 -->
+    <button class="news-card-full featured" onclick="goPage('case-detail')">
+      <div class="news-card-tag live">● 正在救援</div>
+      <div class="news-card-title">深圳湾公园 · 心脏骤停紧急救援</div>
+      <div class="news-excerpt">3名志愿者已响应，AED已就位，持续CPR中…</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📍 深圳湾公园南门</span>
+        <span class="news-meta-item">🕐 2分钟前</span>
+      </div>
+      <div class="news-stats">
+        <span class="news-stat">👥 3人响应</span>
+        <span class="news-stat">⏱ 已持续 6分钟</span>
+        <span class="news-stat">💚 状态稳定</span>
+      </div>
+    </button>
+
+    <!-- 救援新闻 -->
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">深圳120与急救侠联动，救援响应时间缩短40%</div>
+      <div class="news-excerpt">自急救侠网络上线以来，深圳市院外心脏骤停平均救援响应时间从8.2分钟缩短至4.9分钟...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-05-02</span>
+        <span class="news-meta-item">👁 2,340阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">福田CBD · 午休时刻的生死救援</div>
+      <div class="news-excerpt">白领李先生用餐时突然倒地，同楼急救侠王女士5秒内响应，成功挽回生命...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-05-01</span>
+        <span class="news-meta-item">👁 1,892阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">龙岗商场 · 老人晕倒，多名志愿者协作救援</div>
+      <div class="news-excerpt">72岁老人逛商场时突然晕倒，3名急救侠同时响应，AED电击后恢复心跳...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-28</span>
+        <span class="news-meta-item">👁 3,451阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">急救侠APP获深圳市卫健委官方推荐</div>
+      <div class="news-excerpt">深圳市卫健委发文推荐急救侠网络，鼓励市民参与急救培训，共建5分钟救援圈...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-25</span>
+        <span class="news-meta-item">👁 5,678阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">南山科技园 · 程序员心脏骤停，同事成功施救</div>
+      <div class="news-excerpt">加班期间突发心脏骤停，同组同事立即启动急救流程，AED及时到达...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-22</span>
+        <span class="news-meta-item">👁 2,156阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">全市AED联网数量突破5,000台，覆盖率达92%</div>
+      <div class="news-excerpt">深圳市AED设备联网项目持续推进，预计年底实现6分钟救援圈全覆盖...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-20</span>
+        <span class="news-meta-item">👁 4,321阅读</span>
+      </div>
+    </button>
+
+  </div>
+
+  <!-- 进行中筛选 -->
+  <div class="news-list" id="news-list-live" style="display:none;">
+    <button class="news-card-full featured" onclick="goPage('case-detail')">
+      <div class="news-card-tag live">● 正在救援</div>
+      <div class="news-card-title">深圳湾公园 · 心脏骤停紧急救援</div>
+      <div class="news-excerpt">3名志愿者已响应，AED已就位，持续CPR中…</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📍 深圳湾公园南门</span>
+        <span class="news-meta-item">🕐 2分钟前</span>
+      </div>
+      <div class="news-stats">
+        <span class="news-stat">👥 3人响应</span>
+        <span class="news-stat">⏱ 已持续 6分钟</span>
+        <span class="news-stat">💚 状态稳定</span>
+      </div>
+    </button>
+  </div>
+
+  <!-- 成功案例筛选 -->
+  <div class="news-list" id="news-list-case" style="display:none;">
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">福田CBD · 午休时刻的生死救援</div>
+      <div class="news-excerpt">白领李先生用餐时突然倒地，同楼急救侠王女士5秒内响应，成功挽回生命...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-05-01</span>
+        <span class="news-meta-item">👁 1,892阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">龙岗商场 · 老人晕倒，多名志愿者协作救援</div>
+      <div class="news-excerpt">72岁老人逛商场时突然晕倒，3名急救侠同时响应，AED电击后恢复心跳...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-28</span>
+        <span class="news-meta-item">👁 3,451阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">南山科技园 · 程序员心脏骤停，同事成功施救</div>
+      <div class="news-excerpt">加班期间突发心脏骤停，同组同事立即启动急救流程，AED及时到达...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-22</span>
+        <span class="news-meta-item">👁 2,156阅读</span>
+      </div>
+    </button>
+  </div>
+
+  <!-- 新闻资讯筛选 -->
+  <div class="news-list" id="news-list-news" style="display:none;">
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">深圳120与急救侠联动，救援响应时间缩短40%</div>
+      <div class="news-excerpt">自急救侠网络上线以来，深圳市院外心脏骤停平均救援响应时间从8.2分钟缩短至4.9分钟...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-05-02</span>
+        <span class="news-meta-item">👁 2,340阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">急救侠APP获深圳市卫健委官方推荐</div>
+      <div class="news-excerpt">深圳市卫健委发文推荐急救侠网络，鼓励市民参与急救培训，共建5分钟救援圈...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-25</span>
+        <span class="news-meta-item">👁 5,678阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="goPage('case-detail')">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">全市AED联网数量突破5,000台，覆盖率达92%</div>
+      <div class="news-excerpt">深圳市AED设备联网项目持续推进，预计年底实现6分钟救援圈全覆盖...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-20</span>
+        <span class="news-meta-item">👁 4,321阅读</span>
+      </div>
+    </button>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!--                 案例详情页                              -->
+<!-- ====================================================== -->
+<div class="page" id="case-detail">
+  <div class="case-detail-header">
+    <button class="back-btn" style="color:white;" onclick="goPage(\'news\')">‹</button>
+    <div style="padding: 16px 0 0;">
+      <div class="case-detail-tag">✓ 成功案例</div>
+      <div class="case-detail-title">深圳湾公园 · 心脏骤停紧急救援</div>
+      <div class="case-detail-meta">
+        <span>📅 2026-05-03</span>
+        <span>📍 深圳湾公园南门</span>
+        <span>⏱ 救援时长 8分钟</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="case-detail-body">
+
+    <!-- 救援结果 -->
+    <div class="case-result">
+      <div class="case-result-icon">💚</div>
+      <div class="case-result-text">
+        <strong>救援成功！</strong>患者已恢复自主心跳，送医后生命体征稳定，正在康复中。
+      </div>
+    </div>
+
+    <!-- 事件经过 -->
+    <div class="case-section">
+      <div class="case-section-title">事件经过</div>
+      <div class="case-timeline">
+        <div class="case-timeline-item">
+          <div class="case-timeline-dot"></div>
+          <div class="case-timeline-time">14:32</div>
+          <div class="case-timeline-text">患者张先生（45岁）在深圳湾公园慢跑时突然倒地，周围路人立即注意到异常。</div>
+        </div>
+        <div class="case-timeline-item">
+          <div class="case-timeline-dot"></div>
+          <div class="case-timeline-time">14:32</div>
+          <div class="case-timeline-text">路人李女士（急救侠编号SZ-023）5秒内响应，确认患者无意识无呼吸，立即启动CPR。</div>
+        </div>
+        <div class="case-timeline-item">
+          <div class="case-timeline-dot"></div>
+          <div class="case-timeline-time">14:33</div>
+          <div class="case-timeline-text">系统自动呼叫120，并调度3名志愿者携带AED赶赴现场。最近的AED距离仅120米。</div>
+        </div>
+        <div class="case-timeline-item">
+          <div class="case-timeline-dot"></div>
+          <div class="case-timeline-time">14:35</div>
+          <div class="case-timeline-text">第1名志愿者到达，接替按压。AED到达现场，分析心律建议电击。</div>
+        </div>
+        <div class="case-timeline-item">
+          <div class="case-timeline-dot"></div>
+          <div class="case-timeline-time">14:36</div>
+          <div class="case-timeline-text">AED电击1次后，患者恢复自主心律。继续CPR维持循环。</div>
+        </div>
+        <div class="case-timeline-item">
+          <div class="case-timeline-dot" style="background: var(--green);"></div>
+          <div class="case-timeline-time">14:40</div>
+          <div class="case-timeline-text">120救护车到达，患者已恢复意识，生命体征稳定，送往北大深圳医院继续治疗。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 参与志愿者 -->
+    <div class="case-section">
+      <div class="case-section-title">参与志愿者</div>
+      <div class="case-heroes">
+        <div class="case-hero">
+          <div class="case-hero-avatar" style="background: linear-gradient(135deg, #C0392B, #8B2A1F);">李</div>
+          <div class="case-hero-name">李女士</div>
+          <div class="case-hero-role">SZ-023 · 按压手</div>
+        </div>
+        <div class="case-hero">
+          <div class="case-hero-avatar" style="background: linear-gradient(135deg, #1F8A5B, #147547);">王</div>
+          <div class="case-hero-name">王先生</div>
+          <div class="case-hero-role">SZ-045 · AED手</div>
+        </div>
+        <div class="case-hero">
+          <div class="case-hero-avatar" style="background: linear-gradient(135deg, #4A90E2, #2563EB);">张</div>
+          <div class="case-hero-name">张护士</div>
+          <div class="case-hero-role">SZ-002 · 记录员</div>
+        </div>
+        <div class="case-hero">
+          <div class="case-hero-avatar" style="background: linear-gradient(135deg, #C8A656, #B8941A);">陈</div>
+          <div class="case-hero-name">陈医生</div>
+          <div class="case-hero-role">SZ-001 · 指导</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 经验总结 -->
+    <div class="case-section">
+      <div class="case-section-title">经验总结</div>
+      <div style="background: white; border: 1px solid var(--line); border-radius: 14px; padding: 16px;">
+        <div style="font-size: 14px; line-height: 1.8; color: var(--ink-soft);">
+          <p style="margin-bottom: 12px;">✓ <strong>响应速度关键</strong>：路人李女士5秒内识别并启动急救流程，为后续救援赢得宝贵时间。</p>
+          <p style="margin-bottom: 12px;">✓ <strong>团队协作高效</strong>：3人小队分工明确，按压-AED-记录各司其职，救援井然有序。</p>
+          <p style="margin-bottom: 12px;">✓ <strong>AED及时到位</strong>：120米内AED快速取用，1次电击即恢复心律。</p>
+          <p>✓ <strong>持续按压不断</strong>：志愿者轮替按压，保证按压质量，维持循环稳定。</p>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -6005,7 +6649,7 @@ function goPage(id) {
 
   // 紧急救援/路人协助/志愿者任务 页隐藏底部导航
   const tabbar = document.getElementById('tabbar');
-  const hiddenPages = ['rescue', 'helper', 'aed-contact', 'aed-mission', 'aed-running', 'aed-arrived', 'cpr-rhythm', 'train-cpr-flow', 'train-aed', 'train-heimlich', 'train-scenario'];
+  const hiddenPages = ['rescue', 'helper', 'aed-contact', 'aed-mission', 'aed-running', 'aed-arrived', 'cpr-rhythm', 'train-cpr-flow', 'train-aed', 'train-heimlich', 'train-scenario', 'news', 'case-detail'];
   tabbar.style.display = hiddenPages.includes(id) ? 'none' : 'flex';
 
   // 停止地图模拟
@@ -7200,12 +7844,42 @@ function startAedContactFlow() {
 
     // 0.4s 后显示沟通气泡
     setTimeout(() => {
-      chatArea.style.opacity = '1';
-      ownerStatusText.textContent = '已前往设备柜，30 秒内到位';
-    }, 400);
+    chatArea.style.opacity = '1';
+    ownerStatusText.textContent = '已前往设备柜，30 秒内到位';
+  }, 400);
   }, 1800);
 }
-</script>
 
+// ============ 救援动态页 Tab 切换 ============
+function switchNewsTab(tab, btn) {
+  // 更新 tab 按钮状态
+  document.querySelectorAll('.news-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  // 隐藏所有列表
+  const lists = ['all', 'live', 'case', 'news'];
+  lists.forEach(t => {
+    const el = document.getElementById('news-list-' + t);
+    if (el) el.style.display = 'none';
+  });
+
+  // 显示当前列表
+  const currentList = document.getElementById('news-list-' + tab);
+  if (currentList) currentList.style.display = 'block';
+}
+
+// ============ 初始化：给首页动态添加救援动态入口 ============
+window.addEventListener('load', () => {
+  // 给首页动态区域添加"查看更多"链接
+  const homeActivity = document.querySelector('.home-activity-list');
+  if (homeActivity) {
+    const moreBtn = document.createElement('div');
+    moreBtn.style.cssText = 'text-align:center;padding:8px 0 16px;';
+    moreBtn.innerHTML = '<a href="javascript:void(0);" onclick="goPage(\'news\');return false;" style="color:var(--rescue-red);font-size:13px;cursor:pointer;font-family:var(--serif);font-weight:700;">查看全部救援动态 →</a>';
+    homeActivity.after(moreBtn);
+  }
+});
+
+</script>
 </body>
 </html>

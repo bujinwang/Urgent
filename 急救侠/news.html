@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#C0392B">
+  <title>救援动态 · 急救侠</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="page active" id="news">
+  <div class="news-page-header">
+    <button class="back-btn" onclick="location.href='index.html'">‹</button>
+    <h1>救援动态</h1>
+  </div>
+
+  <div class="news-tabs">
+    <button class="news-tab active" onclick="switchNewsTab('all', this)">全部</button>
+    <button class="news-tab" onclick="switchNewsTab('live', this)">进行中</button>
+    <button class="news-tab" onclick="switchNewsTab('case', this)">成功案例</button>
+    <button class="news-tab" onclick="switchNewsTab('news', this)">新闻资讯</button>
+  </div>
+
+  <div class="news-list" id="news-list-all">
+
+    <!-- 置顶：正在进行 -->
+    <button class="news-card-full featured" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag live">● 正在救援</div>
+      <div class="news-card-title">深圳湾公园 · 心脏骤停紧急救援</div>
+      <div class="news-excerpt">3名志愿者已响应，AED已就位，持续CPR中…</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📍 深圳湾公园南门</span>
+        <span class="news-meta-item">🕐 2分钟前</span>
+      </div>
+      <div class="news-stats">
+        <span class="news-stat">👥 3人响应</span>
+        <span class="news-stat">⏱ 已持续 6分钟</span>
+        <span class="news-stat">💚 状态稳定</span>
+      </div>
+    </button>
+
+    <!-- 救援新闻 -->
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">深圳120与急救侠联动，救援响应时间缩短40%</div>
+      <div class="news-excerpt">自急救侠网络上线以来，深圳市院外心脏骤停平均救援响应时间从8.2分钟缩短至4.9分钟...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-05-02</span>
+        <span class="news-meta-item">👁 2,340阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">福田CBD · 午休时刻的生死救援</div>
+      <div class="news-excerpt">白领李先生用餐时突然倒地，同楼急救侠王女士5秒内响应，成功挽回生命...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-05-01</span>
+        <span class="news-meta-item">👁 1,892阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">龙岗商场 · 老人晕倒，多名志愿者协作救援</div>
+      <div class="news-excerpt">72岁老人逛商场时突然晕倒，3名急救侠同时响应，AED电击后恢复心跳...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-28</span>
+        <span class="news-meta-item">👁 3,451阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">急救侠APP获深圳市卫健委官方推荐</div>
+      <div class="news-excerpt">深圳市卫健委发文推荐急救侠网络，鼓励市民参与急救培训，共建5分钟救援圈...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-25</span>
+        <span class="news-meta-item">👁 5,678阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">南山科技园 · 程序员心脏骤停，同事成功施救</div>
+      <div class="news-excerpt">加班期间突发心脏骤停，同组同事立即启动急救流程，AED及时到达...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-22</span>
+        <span class="news-meta-item">👁 2,156阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">全市AED联网数量突破5,000台，覆盖率达92%</div>
+      <div class="news-excerpt">深圳市AED设备联网项目持续推进，预计年底实现6分钟救援圈全覆盖...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-20</span>
+        <span class="news-meta-item">👁 4,321阅读</span>
+      </div>
+    </button>
+
+  </div>
+
+  <!-- 进行中筛选 -->
+  <div class="news-list" id="news-list-live" style="display:none;">
+    <button class="news-card-full featured" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag live">● 正在救援</div>
+      <div class="news-card-title">深圳湾公园 · 心脏骤停紧急救援</div>
+      <div class="news-excerpt">3名志愿者已响应，AED已就位，持续CPR中…</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📍 深圳湾公园南门</span>
+        <span class="news-meta-item">🕐 2分钟前</span>
+      </div>
+      <div class="news-stats">
+        <span class="news-stat">👥 3人响应</span>
+        <span class="news-stat">⏱ 已持续 6分钟</span>
+        <span class="news-stat">💚 状态稳定</span>
+      </div>
+    </button>
+  </div>
+
+  <!-- 成功案例筛选 -->
+  <div class="news-list" id="news-list-case" style="display:none;">
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">福田CBD · 午休时刻的生死救援</div>
+      <div class="news-excerpt">白领李先生用餐时突然倒地，同楼急救侠王女士5秒内响应，成功挽回生命...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-05-01</span>
+        <span class="news-meta-item">👁 1,892阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">龙岗商场 · 老人晕倒，多名志愿者协作救援</div>
+      <div class="news-excerpt">72岁老人逛商场时突然晕倒，3名急救侠同时响应，AED电击后恢复心跳...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-28</span>
+        <span class="news-meta-item">👁 3,451阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag case">成功案例</div>
+      <div class="news-card-title">南山科技园 · 程序员心脏骤停，同事成功施救</div>
+      <div class="news-excerpt">加班期间突发心脏骤停，同组同事立即启动急救流程，AED及时到达...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-22</span>
+        <span class="news-meta-item">👁 2,156阅读</span>
+      </div>
+    </button>
+  </div>
+
+  <!-- 新闻资讯筛选 -->
+  <div class="news-list" id="news-list-news" style="display:none;">
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">深圳120与急救侠联动，救援响应时间缩短40%</div>
+      <div class="news-excerpt">自急救侠网络上线以来，深圳市院外心脏骤停平均救援响应时间从8.2分钟缩短至4.9分钟...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-05-02</span>
+        <span class="news-meta-item">👁 2,340阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">急救侠APP获深圳市卫健委官方推荐</div>
+      <div class="news-excerpt">深圳市卫健委发文推荐急救侠网络，鼓励市民参与急救培训，共建5分钟救援圈...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-25</span>
+        <span class="news-meta-item">👁 5,678阅读</span>
+      </div>
+    </button>
+
+    <button class="news-card-full" onclick="location.href='case-detail.html'">
+      <div class="news-card-tag news">资讯</div>
+      <div class="news-card-title">全市AED联网数量突破5,000台，覆盖率达92%</div>
+      <div class="news-excerpt">深圳市AED设备联网项目持续推进，预计年底实现6分钟救援圈全覆盖...</div>
+      <div class="news-meta">
+        <span class="news-meta-item">📅 2026-04-20</span>
+        <span class="news-meta-item">👁 4,321阅读</span>
+      </div>
+    </button>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
