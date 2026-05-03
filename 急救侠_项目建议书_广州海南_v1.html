@@ -1,0 +1,1792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>急救侠 · 公共急救网络建设合作建议书</title>
+<style>
+/* ============================================================
+   BASE & VARIABLES
+   ============================================================ */
+:root {
+  --red:        #C0392B;
+  --red-deep:   #8B2A1F;
+  --red-light:  #F9ECEB;
+  --red-mid:    #E8A09A;
+  --ink:        #1A1A1A;
+  --ink-soft:   #3D3D3D;
+  --ink-mute:   #777777;
+  --paper:      #FAFAF8;
+  --paper-warm: #F3F0EA;
+  --line:       #DDD9D3;
+  --line-light: #ECEAE5;
+  --white:      #FFFFFF;
+  --green:      #1B7A4E;
+  --green-bg:   #EDF6F1;
+  --blue:       #1A4F8A;
+  --blue-bg:    #EAF0F8;
+  --gold:       #B8921E;
+  --gold-bg:    #FBF5E6;
+
+  --serif: 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', Georgia, serif;
+  --sans:  'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Source Han Sans CN', sans-serif;
+
+  --page-w: 800px;
+  --margin: 72px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--ink);
+  background: #E8E4DC;
+}
+
+body {
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   PAGE WRAPPER
+   ============================================================ */
+.document {
+  max-width: var(--page-w);
+  margin: 40px auto;
+  background: var(--white);
+  box-shadow: 0 4px 32px rgba(0,0,0,0.15), 0 1px 6px rgba(0,0,0,0.08);
+}
+
+/* ============================================================
+   COVER PAGE
+   ============================================================ */
+.cover {
+  height: 1131px; /* A4 ratio at 800px width */
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+}
+
+.cover-top-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, var(--red-deep) 0%, var(--red) 60%, #E8735A 100%);
+}
+
+.cover-bottom-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--line);
+}
+
+/* Watermark cross pattern */
+.cover-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 560px;
+  height: 560px;
+  opacity: 0.035;
+  pointer-events: none;
+}
+
+.cover-watermark::before,
+.cover-watermark::after {
+  content: '';
+  position: absolute;
+  background: var(--red);
+  border-radius: 4px;
+}
+.cover-watermark::before {
+  /* vertical bar */
+  width: 80px;
+  height: 560px;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.cover-watermark::after {
+  /* horizontal bar */
+  width: 560px;
+  height: 80px;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.cover-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  z-index: 1;
+  padding: 0 80px;
+}
+
+.cover-logo-mark {
+  width: 80px;
+  height: 80px;
+  position: relative;
+  margin-bottom: 36px;
+}
+
+.cover-logo-mark::before,
+.cover-logo-mark::after {
+  content: '';
+  position: absolute;
+  background: var(--red);
+  border-radius: 3px;
+}
+.cover-logo-mark::before {
+  width: 20px;
+  height: 80px;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.cover-logo-mark::after {
+  width: 80px;
+  height: 20px;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.cover-app-name {
+  font-family: var(--serif);
+  font-size: 52px;
+  font-weight: 900;
+  color: var(--red);
+  letter-spacing: 8px;
+  line-height: 1.1;
+  margin-bottom: 16px;
+}
+
+.cover-tagline {
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--ink-soft);
+  letter-spacing: 4px;
+  margin-bottom: 52px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.cover-divider {
+  width: 48px;
+  height: 2px;
+  background: var(--red);
+  margin: 0 auto 48px;
+}
+
+.cover-subtitle {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 2px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.cover-subtitle-en {
+  font-size: 13px;
+  color: var(--ink-mute);
+  letter-spacing: 1px;
+  margin-bottom: 64px;
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+
+.cover-meta {
+  font-size: 14px;
+  color: var(--ink-mute);
+  letter-spacing: 2px;
+  line-height: 2.2;
+}
+
+.cover-meta span {
+  display: block;
+}
+
+.cover-confidential {
+  position: absolute;
+  bottom: 36px;
+  right: 48px;
+  font-size: 11px;
+  color: var(--ink-mute);
+  letter-spacing: 1px;
+  border: 1px solid var(--line);
+  padding: 4px 10px;
+  border-radius: 2px;
+}
+
+/* ============================================================
+   CONTENT SECTIONS
+   ============================================================ */
+.section {
+  padding: var(--margin);
+  border-bottom: 1px solid var(--line-light);
+  page-break-inside: avoid;
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+/* Section label above heading */
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: var(--red);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  font-family: var(--sans);
+}
+
+.section-number {
+  font-size: 11px;
+  color: var(--red-mid);
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+
+.section-title {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.3;
+  margin-bottom: 28px;
+  letter-spacing: 1px;
+}
+
+.section-title-line {
+  width: 40px;
+  height: 3px;
+  background: var(--red);
+  margin-bottom: 28px;
+  margin-top: -20px;
+}
+
+/* Body text */
+p {
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--ink-soft);
+  margin-bottom: 16px;
+}
+
+p:last-child { margin-bottom: 0; }
+
+strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Sub-headings */
+h3 {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 28px 0 12px;
+  letter-spacing: 0.5px;
+}
+
+h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin: 20px 0 8px;
+  letter-spacing: 1px;
+  text-transform: none;
+}
+
+/* ============================================================
+   EXECUTIVE SUMMARY CALLOUT
+   ============================================================ */
+.exec-summary {
+  background: var(--red-light);
+  border-left: 4px solid var(--red);
+  padding: 28px 32px;
+  margin-bottom: 28px;
+  border-radius: 0 4px 4px 0;
+}
+
+.exec-summary p {
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--ink-soft);
+  margin-bottom: 0;
+}
+
+/* ============================================================
+   STAT BOXES — CSS-only visualization
+   ============================================================ */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 32px 0;
+}
+
+.stat-box {
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--red);
+  padding: 20px 16px;
+  text-align: center;
+  background: var(--paper);
+}
+
+.stat-box.green { border-top-color: var(--green); }
+.stat-box.blue  { border-top-color: var(--blue); }
+.stat-box.gold  { border-top-color: var(--gold); }
+
+.stat-value {
+  font-family: Georgia, serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--red);
+  line-height: 1.1;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.stat-box.green .stat-value { color: var(--green); }
+.stat-box.blue  .stat-value { color: var(--blue); }
+.stat-box.gold  .stat-value { color: var(--gold); }
+
+.stat-label {
+  font-size: 13px;
+  color: var(--ink-mute);
+  line-height: 1.4;
+  display: block;
+}
+
+/* ============================================================
+   COMPARISON BAR CHART
+   ============================================================ */
+.bar-chart {
+  margin: 28px 0;
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+
+.bar-label {
+  font-size: 13px;
+  color: var(--ink-soft);
+  min-width: 100px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.bar-track {
+  flex: 1;
+  height: 28px;
+  background: var(--line-light);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  padding-left: 10px;
+  transition: width 0s;
+}
+
+.bar-fill.red   { background: var(--red); }
+.bar-fill.green { background: var(--green); }
+.bar-fill.blue  { background: var(--blue); }
+.bar-fill.gold  { background: var(--gold); }
+
+.bar-fill-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   THREE-LAYER MODEL
+   ============================================================ */
+.layer-stack {
+  margin: 28px 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.layer-item {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line-light);
+}
+
+.layer-item:last-child {
+  border-bottom: none;
+}
+
+.layer-num {
+  width: 56px;
+  background: var(--red);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, serif;
+  font-size: 22px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.layer-item:nth-child(2) .layer-num {
+  background: #A0312A;
+}
+
+.layer-item:nth-child(3) .layer-num {
+  background: var(--red-deep);
+}
+
+.layer-body {
+  padding: 20px 24px;
+  flex: 1;
+}
+
+.layer-title {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.layer-desc {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  margin: 0;
+}
+
+.layer-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--red);
+  background: var(--red-light);
+  border: 1px solid var(--red-mid);
+  border-radius: 2px;
+  padding: 2px 8px;
+  display: inline-block;
+  margin-top: 8px;
+  letter-spacing: 1px;
+}
+
+/* ============================================================
+   FEATURE CARDS
+   ============================================================ */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin: 28px 0;
+}
+
+.feature-card {
+  border: 1px solid var(--line);
+  padding: 20px;
+  background: var(--paper);
+  border-radius: 3px;
+}
+
+.feature-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--red-light);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  font-size: 18px;
+  position: relative;
+}
+
+/* CSS cross icon */
+.icon-cross::before,
+.icon-cross::after {
+  content: '';
+  position: absolute;
+  background: var(--red);
+  border-radius: 1px;
+}
+.icon-cross::before { width: 3px; height: 16px; }
+.icon-cross::after  { width: 16px; height: 3px; }
+
+.feature-name {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.feature-desc {
+  font-size: 13px;
+  color: var(--ink-mute);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ============================================================
+   PILOT CITY PANELS
+   ============================================================ */
+.city-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 28px 0;
+}
+
+.city-panel {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.city-panel-header {
+  background: var(--red);
+  color: #fff;
+  padding: 16px 20px;
+}
+
+.city-panel-header.blue-header {
+  background: var(--blue);
+}
+
+.city-panel-name {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+
+.city-panel-sub {
+  font-size: 12px;
+  opacity: 0.8;
+  letter-spacing: 1px;
+}
+
+.city-panel-body {
+  padding: 20px;
+  background: var(--paper);
+}
+
+.city-item {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  align-items: flex-start;
+}
+
+.city-item:last-child { margin-bottom: 0; }
+
+.city-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+
+.city-panel.blue-panel .city-dot {
+  background: var(--blue);
+}
+
+.city-text {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ============================================================
+   PARTNERSHIP TABLE
+   ============================================================ */
+.partner-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 24px 0;
+  font-size: 14px;
+}
+
+.partner-table th {
+  background: var(--red);
+  color: #fff;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  letter-spacing: 1px;
+  font-size: 13px;
+}
+
+.partner-table th:first-child {
+  width: 40%;
+}
+
+.partner-table td {
+  padding: 12px 16px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line-light);
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+
+.partner-table tr:nth-child(even) td {
+  background: var(--paper);
+}
+
+.partner-table td:first-child {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ============================================================
+   AED SYSTEM HIGHLIGHT
+   ============================================================ */
+.aed-highlight {
+  background: var(--gold-bg);
+  border: 1px solid #E5C96A;
+  border-left: 4px solid var(--gold);
+  padding: 24px 28px;
+  margin: 24px 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.aed-highlight-title {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+
+.aed-highlight p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+/* ============================================================
+   TIMELINE
+   ============================================================ */
+.timeline {
+  margin: 28px 0;
+  position: relative;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 23px;
+  top: 24px;
+  bottom: 24px;
+  width: 2px;
+  background: var(--line);
+}
+
+.timeline-item {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 28px;
+  position: relative;
+}
+
+.timeline-item:last-child { margin-bottom: 0; }
+
+.timeline-marker {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--red);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, serif;
+  font-size: 18px;
+  font-weight: 700;
+  flex-shrink: 0;
+  z-index: 1;
+  position: relative;
+}
+
+.timeline-item:nth-child(2) .timeline-marker { background: #A0312A; }
+.timeline-item:nth-child(3) .timeline-marker { background: var(--red-deep); }
+
+.timeline-body {
+  padding-top: 10px;
+  flex: 1;
+}
+
+.timeline-phase {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--red);
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.timeline-title {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+
+.timeline-items {
+  list-style: none;
+  padding: 0;
+}
+
+.timeline-items li {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--line-light);
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.timeline-items li:last-child { border-bottom: none; }
+
+.timeline-items li::before {
+  content: '—';
+  color: var(--red-mid);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ============================================================
+   PROJECTION TABLE
+   ============================================================ */
+.projection-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 24px 0;
+  font-size: 14px;
+}
+
+.projection-table thead th {
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 16px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+.projection-table thead th:first-child {
+  text-align: left;
+  background: var(--red);
+}
+
+.projection-table tbody td {
+  padding: 12px 16px;
+  text-align: center;
+  border-bottom: 1px solid var(--line-light);
+  color: var(--ink-soft);
+  vertical-align: middle;
+}
+
+.projection-table tbody td:first-child {
+  text-align: left;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.projection-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.projection-table tfoot td {
+  padding: 10px 16px;
+  font-size: 12px;
+  color: var(--ink-mute);
+  font-style: italic;
+  border-top: 2px solid var(--line);
+}
+
+/* ============================================================
+   LEGAL BADGES
+   ============================================================ */
+.legal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.legal-item {
+  border: 1px solid var(--line);
+  padding: 18px 20px;
+  background: var(--paper);
+  border-radius: 3px;
+  border-left: 3px solid var(--red);
+}
+
+.legal-law {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--red);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.legal-desc {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ============================================================
+   CONTACT SECTION
+   ============================================================ */
+.contact-box {
+  background: var(--paper-warm);
+  border: 1px solid var(--line);
+  padding: 32px 40px;
+  text-align: center;
+  margin: 28px 0 0;
+  border-radius: 3px;
+}
+
+.contact-title {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+.contact-subtitle {
+  font-size: 14px;
+  color: var(--ink-mute);
+  margin-bottom: 28px;
+}
+
+.contact-row {
+  display: flex;
+  justify-content: center;
+  gap: 48px;
+  flex-wrap: wrap;
+}
+
+.contact-item-label {
+  font-size: 12px;
+  color: var(--ink-mute);
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.contact-item-value {
+  font-size: 15px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.contact-note {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-top: 24px;
+  font-style: italic;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.doc-footer {
+  padding: 24px var(--margin);
+  border-top: 3px solid var(--red);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--paper);
+}
+
+.footer-brand {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--red);
+  letter-spacing: 2px;
+}
+
+.footer-meta {
+  font-size: 12px;
+  color: var(--ink-mute);
+  letter-spacing: 1px;
+  text-align: right;
+}
+
+/* ============================================================
+   CALLOUT / INFO BOX
+   ============================================================ */
+.callout {
+  background: var(--blue-bg);
+  border-left: 4px solid var(--blue);
+  padding: 18px 24px;
+  margin: 20px 0;
+  border-radius: 0 3px 3px 0;
+}
+
+.callout p {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.8;
+  margin: 0;
+}
+
+.callout strong {
+  color: var(--blue);
+}
+
+/* ============================================================
+   SECTION SEPARATOR
+   ============================================================ */
+.sep {
+  height: 1px;
+  background: linear-gradient(90deg, var(--red) 0%, var(--line-light) 100%);
+  margin: 36px 0;
+  border: none;
+}
+
+/* Numbered list */
+.num-list {
+  counter-reset: num-list;
+  padding: 0;
+  margin: 16px 0;
+}
+
+.num-list li {
+  counter-increment: num-list;
+  list-style: none;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  font-size: 14.5px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+
+.num-list li::before {
+  content: counter(num-list);
+  min-width: 24px;
+  height: 24px;
+  background: var(--red);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ============================================================
+   PRINT STYLES
+   ============================================================ */
+@media print {
+  html {
+    background: #fff;
+    font-size: 12pt;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  .document {
+    margin: 0;
+    box-shadow: none;
+    max-width: 100%;
+  }
+
+  .cover {
+    height: 100vh;
+    page-break-after: always;
+  }
+
+  .section {
+    page-break-inside: avoid;
+  }
+
+  .city-panels,
+  .stat-grid,
+  .feature-grid,
+  .legal-grid {
+    page-break-inside: avoid;
+  }
+}
+
+@page {
+  margin: 15mm;
+  size: A4;
+}
+</style>
+</head>
+<body>
+<div class="document">
+
+<!-- ============================================================
+     COVER PAGE
+     ============================================================ -->
+<div class="cover">
+  <div class="cover-top-bar"></div>
+  <div class="cover-watermark"></div>
+
+  <div class="cover-content">
+    <div class="cover-logo-mark"></div>
+
+    <div class="cover-app-name">急救侠</div>
+    <div class="cover-tagline">
+      遇见倒下的人 · 你也能伸手
+    </div>
+
+    <div class="cover-divider"></div>
+
+    <div class="cover-subtitle">
+      公共急救网络建设<br>
+      政府合作建议书
+    </div>
+    <div class="cover-subtitle-en">
+      Public Emergency Rescue Network<br>
+      Government Partnership Proposal
+    </div>
+
+    <div class="cover-meta">
+      <span>CPR + AED 社会急救响应平台</span>
+      <span>编制日期：2026年5月</span>
+      <span>文件版本：V1.0</span>
+    </div>
+  </div>
+
+  <div class="cover-confidential">仅供政府评估使用 · CONFIDENTIAL</div>
+  <div class="cover-bottom-bar"></div>
+</div>
+
+
+<!-- ============================================================
+     01  执行摘要
+     ============================================================ -->
+<div class="section">
+  <div class="section-number">Section 01</div>
+  <div class="section-label">Executive Summary</div>
+  <div class="section-title">执行摘要</div>
+  <div class="section-title-line"></div>
+
+  <div class="exec-summary">
+    <p>
+      中国院外心脏骤停患者的存活率约为 <strong>1–3%</strong>，显著低于发达国家的 10–20%。
+      差距的根源不仅在于设备数量，更在于<strong>经过培训、能在"黄金4分钟"内采取行动的现场施救者严重不足</strong>。
+      急救侠通过构建公民志愿者急救网络，在专业救援抵达之前弥补这段时间差，从根本上提升社会急救能力。
+    </p>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-box">
+      <span class="stat-value">1–3%</span>
+      <span class="stat-label">中国院外心脏骤停<br>存活率</span>
+    </div>
+    <div class="stat-box green">
+      <span class="stat-value">10–20%</span>
+      <span class="stat-label">发达国家院外心脏骤停<br>平均存活率</span>
+    </div>
+    <div class="stat-box blue">
+      <span class="stat-value">4 分钟</span>
+      <span class="stat-label">心脏骤停后脑损伤<br>开始发生的关键窗口</span>
+    </div>
+  </div>
+
+  <p>
+    急救侠是一款 CPR + AED 社会急救响应平台。任何人遭遇紧急情况，可一键触发 SOS，系统实时呼叫附近持证急救志愿者，并同步联动 AED 设备责任人，实现设备解锁与现场指引的无缝衔接。平台同时整合语音引导 CPR、急救培训认证与志愿者激励体系，覆盖"发现—呼救—施救—AED—120到达"完整链条。
+  </p>
+
+  <p>
+    本建议书介绍急救侠平台的核心能力与合作模式，并附<strong>超大城市</strong>与<strong>旅游城市</strong>两类典型参考方案，供有关部门结合本地实际评估合作意向。
+  </p>
+</div>
+
+
+<!-- ============================================================
+     02  问题背景
+     ============================================================ -->
+<div class="section">
+  <div class="section-number">Section 02</div>
+  <div class="section-label">Problem Background</div>
+  <div class="section-title">问题背景</div>
+  <div class="section-title-line"></div>
+
+  <h3>心脏骤停：分秒必争的生死博弈</h3>
+  <p>
+    中国每年因心脏骤停死亡人数超过 <strong>54 万人</strong>，平均每分钟约有 1 人倒下。心脏骤停发生后，每延误 1 分钟，患者生存率下降约 7–10%。若在 4 分钟内实施高质量 CPR 并使用 AED，存活率可提升至 40–60%。然而，目前中国约 80% 的心脏骤停事件发生在医院外，公众自救互救能力极为薄弱。
+  </p>
+
+  <h3>AED 部署与使用率之间的鸿沟</h3>
+
+  <div class="bar-chart">
+    <div style="font-size:13px;color:var(--ink-mute);margin-bottom:14px;letter-spacing:1px;">每10万人 AED 配置密度（台）</div>
+    <div class="bar-row">
+      <div class="bar-label">日本</div>
+      <div class="bar-track">
+        <div class="bar-fill red" style="width:100%;">
+          <span class="bar-fill-label">555 台 / 10万人</span>
+        </div>
+      </div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">美国</div>
+      <div class="bar-track">
+        <div class="bar-fill blue" style="width:32%;">
+          <span class="bar-fill-label">~180 台</span>
+        </div>
+      </div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">德国</div>
+      <div class="bar-track">
+        <div class="bar-fill green" style="width:18%;">
+          <span class="bar-fill-label">~100 台</span>
+        </div>
+      </div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">中国</div>
+      <div class="bar-track">
+        <div class="bar-fill gold" style="width:0.6%;">
+          <span class="bar-fill-label" style="color:var(--ink-soft);margin-left:8px;position:absolute;">0.2 台（估计）</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p>
+    更严峻的是，即使 AED 已部署，<strong>实际使用率依然极低</strong>。设备锁闭在柜内，公众不知位置、不敢操作，责任人制度形同虚设——紧急时刻无法在现场迅速取得设备。急救侠"AED 责任人联动"系统正是针对这一断层的关键创新。
+  </p>
+
+  <h3>政策背景：健康中国 2030 的战略要求</h3>
+  <div class="callout">
+    <p>
+      <strong>《健康中国 2030 规划纲要》</strong>明确提出"加强全民急救知识技能普及，提高公众自救互救能力"；
+      <strong>《基本医疗卫生与健康促进法》</strong>及地方 AED 管理法规均强调设备责任人制度与公众急救教育。
+      急救侠平台的实施路径与上述政策框架高度契合，具有充分的政策合法性与政府推广基础。
+    </p>
+  </div>
+
+  <h3>"最后一公里"问题：有设备、无施救者</h3>
+  <p>
+    城市中大量 AED 分布在地铁站、机场、商场等公共场所，但在心脏骤停发生时，<strong>没有人知道附近有 AED，没有人知道如何使用，也没有人知道该联系谁打开设备柜</strong>。急救侠通过志愿者网络 + AED 责任人实时联动，从根本上解决这三个问题。
+  </p>
+</div>
+
+
+<!-- ============================================================
+     03  解决方案：急救侠平台
+     ============================================================ -->
+<div class="section">
+  <div class="section-number">Section 03</div>
+  <div class="section-label">Solution Overview</div>
+  <div class="section-title">解决方案：急救侠平台</div>
+  <div class="section-title-line"></div>
+
+  <p>
+    急救侠构建了一套<strong>三层递进式社会急救响应模型</strong>，覆盖从事件发生到专业救援抵达的完整时间窗口：
+  </p>
+
+  <div class="layer-stack">
+    <div class="layer-item">
+      <div class="layer-num">1</div>
+      <div class="layer-body">
+        <div class="layer-title">公众呼救层 — 任何人都能求助</div>
+        <p class="layer-desc">
+          任何人发现心脏骤停伤者，可一键触发 SOS 紧急按钮。系统自动拨打 120，同时启动语音引导 CPR 指令，手把手协助旁观者实施初步急救，无需任何专业背景。位置信息同步推送至志愿者网络。
+        </p>
+        <span class="layer-tag">面向所有公众</span>
+      </div>
+    </div>
+    <div class="layer-item">
+      <div class="layer-num">2</div>
+      <div class="layer-body">
+        <div class="layer-title">志愿者响应层 — 持证急救侠实时接单</div>
+        <p class="layer-desc">
+          通过平台认证的持证急救志愿者（急救侠）在后台保持待命状态。当其 1 公里范围内发生 SOS 事件，系统推送任务通知，志愿者接受任务后可查看导航路线、伤者信息及 AED 位置。任务全程有时间戳记录与法律免责确认。
+        </p>
+        <span class="layer-tag">面向认证志愿者</span>
+      </div>
+    </div>
+    <div class="layer-item">
+      <div class="layer-num">3</div>
+      <div class="layer-body">
+        <div class="layer-title">AED 责任人联动层 — 设备秒级激活</div>
+        <p class="layer-desc">
+          当志愿者点击"前往取 AED"，系统自动通知对应 AED 设备责任人。责任人可远程解锁设备柜并前往现场接应志愿者，实现设备与施救者的精准对接。这是全国首个将 AED 责任人制度真正融入急救响应链路的系统创新。
+        </p>
+        <span class="layer-tag">独家创新 · 首创联动</span>
+      </div>
+    </div>
+  </div>
+
+  <p style="margin-top:24px;">
+    三层模型环环相扣，每一层都能独立发挥作用，同时叠加使用可将救活概率最大化。即使志愿者暂时无人响应，SOS 呼救与语音 CPR 指引依然运作，确保伤者不被遗弃。
+  </p>
+</div>
+
+
+<!-- ============================================================
+     04  核心功能概览
+     ============================================================ -->
+<div class="section">
+  <div class="section-number">Section 04</div>
+  <div class="section-label">Core Features</div>
+  <div class="section-title">核心功能概览</div>
+  <div class="section-title-line"></div>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon icon-cross"></div>
+      <div class="feature-name">SOS 紧急呼救</div>
+      <p class="feature-desc">
+        一键触发，自动定位，同步拨打 120 并启动语音 CPR 指引。任何人均可使用，无需注册。
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon icon-cross"></div>
+      <div class="feature-name">志愿者任务系统</div>
+      <p class="feature-desc">
+        实时推送附近 SOS 任务，提供导航路线、事件详情。内置任务记录与法律免责确认流程，保护志愿者权益。
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon icon-cross"></div>
+      <div class="feature-name">AED 实时地图</div>
+      <p class="feature-desc">
+        精确显示周边 AED 位置与开放状态。"前往取 AED"一键触发责任人联动与导航，彻底解决设备取用难题。
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon icon-cross"></div>
+      <div class="feature-name">急救培训认证</div>
+      <p class="feature-desc">
+        CPR 视频课程、AED 操作实训、海姆立克急救法、情景模拟演练。完成认证后获得电子证书，可成为平台急救侠。
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon icon-cross"></div>
+      <div class="feature-name">志愿者激励体系</div>
+      <p class="feature-desc">
+        积分制度、铜/银/金/钻石勋章等级、排行榜与公益证书。以荣誉驱动持续参与，构建自我造血的志愿者社区。
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon icon-cross"></div>
+      <div class="feature-name">法律保障与合规</div>
+      <p class="feature-desc">
+        每次任务前内置《民法典》第 184 条（好撒玛利亚人保护）确认。反滥用机制防止虚假 SOS，维护系统公信力。
+      </p>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:8px;">
+    <p>
+      <strong>数据透明承诺：</strong>所有任务数据、响应时间、志愿者覆盖率均可通过政府数据报告面板实时查看，支持政府部门对试点效果进行独立评估与监管。
+    </p>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     05  试点城市方案
+     ============================================================ -->
+<div class="section">
+  <div class="section-number">Section 05</div>
+  <div class="section-label">Reference City Plans</div>
+  <div class="section-title">典型城市参考方案</div>
+  <div class="section-title-line"></div>
+
+  <p>
+    急救侠的试点方案可根据城市特征差异化定制。以下展示两类典型场景的参考框架，供评估时参考。实际方案将在合作意向确认后，结合贵城市的具体情况共同制定。
+  </p>
+
+  <div class="city-panels">
+    <div class="city-panel">
+      <div class="city-panel-header">
+        <div class="city-panel-name">超大城市方案</div>
+        <div class="city-panel-sub">高密度人口 · 成熟地铁网络 · 完善医疗体系</div>
+      </div>
+      <div class="city-panel-body">
+        <div class="city-item">
+          <div class="city-dot"></div>
+          <p class="city-text"><strong>重点区域：</strong>以核心商圈、地铁密集区与高校聚集地为首批切入点，优先覆盖人流量最大的公共空间</p>
+        </div>
+        <div class="city-item">
+          <div class="city-dot"></div>
+          <p class="city-text"><strong>AED 整合：</strong>与城市地铁 AED 网络数据对接，将现有设备纳入平台实时地图与责任人联动体系</p>
+        </div>
+        <div class="city-item">
+          <div class="city-dot"></div>
+          <p class="city-text"><strong>认证合作：</strong>与市级三甲医院合作，提供标准化 CPR/AED 培训认证背书，建立本地化认证体系</p>
+        </div>
+        <div class="city-item">
+          <div class="city-dot"></div>
+          <p class="city-text"><strong>第一年目标：</strong>培训认证急救侠志愿者 5,000 人，覆盖半径 500 米响应点位 300 个以上</p>
+        </div>
+        <div class="city-item">
+          <div class="city-dot"></div>
+          <p class="city-text"><strong>社区推广：</strong>依托街道办与社区居委会开展入户宣传与现场培训活动，提升公众 SOS 使用意识</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="city-panel blue-panel">
+      <div class="city-panel-header blue-header">
+        <div class="city-panel-name">旅游城市方案</div>
+        <div class="city-panel-sub">国际游客密集 · 语言多元化场景 · 季节性人流</div>
+      </div>
+      <div class="city-panel-body">
+        <div class="city-item">
+          <div class="city-dot"></div>
+          <p class="city-text"><strong>重点场所：</strong>机场、热门景区、免税购物区、度假酒店集群，优先覆盖外来游客高密度区域</p>
+        </div>
+        <div class="city-item">
+          <div class="city-dot"></div>
+          <p class="city-text"><strong>数字健康整合：</strong>与省级卫健委数据平台互通，支持与智慧城市基础设施对接</p>
+        </div>
+        <div class="city-item">
+          <div class="city-dot"></div>
+          <p class="city-text"><strong>国际旅客安全：</strong>平台支持中英双语界面，SOS 呼救全程无需语言沟通，解决语言障碍下的急救盲区</p>
+        </div>
+        <div class="city-item">
+          <div class="city-dot"></div>
+          <p class="city-text"><strong>AED 整合：</strong>接入机场、景区与大型酒店现有 AED 设备，纳入责任人联动体系，提升旅游场景急救覆盖率</p>
+        </div>
+        <div class="city-item">
+          <div class="city-dot"></div>
+          <p class="city-text"><strong>示范效应：</strong>旅游城市急救网络建设可作为对外展示城市安全治理水平的重要窗口，同时契合"健康城市"政策目标</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p style="margin-top:8px;">
+     两套方案并非互斥——超大城市试点经验将为旅游城市提供可复制的运营模版，而旅游城市的场景数据将反哺平台的国际化急救能力建设。建议两类试点城市可同步启动，互为参照。
+  </p>
+</div>
+
+
+<!-- ============================================================
+     06  政府合作模式
+     ============================================================ -->
+<div class="section">
+  <div class="section-number">Section 06</div>
+  <div class="section-label">Partnership Model</div>
+  <div class="section-title">政府合作模式</div>
+  <div class="section-title-line"></div>
+
+  <p>
+    急救侠寻求与政府建立<strong>公私合作（PPP）框架</strong>，以政府公信力与资源背书平台，以平台技术与运营能力执行落地，双方各尽其职，共享社会效益。
+  </p>
+
+  <table class="partner-table">
+    <thead>
+      <tr>
+        <th>合作事项</th>
+        <th>政府方职责</th>
+        <th>急救侠平台职责</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>AED 数据</td>
+        <td>提供已备案 AED 设备数据库及责任人联系方式，授权平台接入</td>
+        <td>维护实时地图数据，向政府回传设备使用记录与异常预警</td>
+      </tr>
+      <tr>
+        <td>认证背书</td>
+        <td>提供官方急救认证资质背书，可联合医疗机构授权签发证书</td>
+        <td>开发标准化培训课程，执行认证考核，管理志愿者档案</td>
+      </tr>
+      <tr>
+        <td>推广渠道</td>
+        <td>通过街道、社区、媒体、政务平台等渠道推广急救侠</td>
+        <td>提供宣传素材、培训活动支持及社区合作方案</td>
+      </tr>
+      <tr>
+        <td>志愿者激励</td>
+        <td>可为高活跃志愿者提供荣誉证书、政府表彰等非货币激励</td>
+        <td>运营积分体系、勋章排行榜，协调企业赞助奖励</td>
+      </tr>
+      <tr>
+        <td>培训补贴（可选）</td>
+        <td>为弱势社区或老年群体提供培训补贴，扩大覆盖范围</td>
+        <td>按协议提供公益培训名额，不设额外费用</td>
+      </tr>
+      <tr>
+        <td>监管与数据</td>
+        <td>确立数据共享协议，保障数据主权与隐私合规</td>
+        <td>提供政府专属数据看板，包含响应时间、覆盖率、任务数据等关键指标</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="aed-highlight" style="background:var(--green-bg);border-color:#7CC9A0;border-left-color:var(--green);">
+    <div class="aed-highlight-title" style="color:var(--green);">平台盈利模式说明</div>
+    <p>
+      急救侠作为社会公益平台运营，核心急救功能对公众永久免费。平台通过企业安全培训 B2B 服务、AED 设备供应商合作、保险联动等方式实现商业可持续，不依赖政府财政补贴维持日常运营。政府投入主要体现在数据开放与公信力支持层面。
+    </p>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     07  AED 责任人联动体系（深度解析）
+     ============================================================ -->
+<div class="section">
+  <div class="section-number">Section 07</div>
+  <div class="section-label">Innovation Deep Dive</div>
+  <div class="section-title">AED 责任人联动体系</div>
+  <div class="section-title-line"></div>
+
+  <p>
+    AED 责任人联动系统是急救侠区别于市场上所有同类产品的<strong>核心创新点</strong>，值得政府重点关注。
+  </p>
+
+  <h3>现状：责任人制度的"落纸不落地"困境</h3>
+  <p>
+     根据广东省及多个地方 AED 管理办法，公共 AED 设备必须指定"设备责任人"，负责设备日常维护与紧急响应。然而，这一制度目前仅停留在行政档案层面，存在三大系统性缺陷：
+  </p>
+  <ol class="num-list">
+    <li>心脏骤停发生时，施救者无法得知谁是该设备的责任人，也无法联系到他们</li>
+    <li>责任人无法在第一时间知晓附近发生了急救事件，错过了第一响应窗口</li>
+    <li>AED 柜门常年处于锁闭状态，施救者即使找到设备也无法及时取用</li>
+  </ol>
+
+  <div class="aed-highlight">
+    <div class="aed-highlight-title">急救侠的解决方案</div>
+    <p>
+      当志愿者在任务界面点击<strong>"前往取 AED"</strong>后，系统在秒级完成以下动作：自动识别最近可用 AED 设备并推送导航路线；同步向该设备的责任人发送实时通知，包含任务位置与志愿者信息；责任人可在手机端<strong>一键远程解锁设备柜</strong>（适配智能柜型号），并选择前往现场接应或电话协助。整个联动过程全程有时间戳记录，可作为应急响应证明。
+    </p>
+  </div>
+
+  <h3>预期效果</h3>
+  <div class="stat-grid">
+    <div class="stat-box">
+      <span class="stat-value">&lt;5%</span>
+      <span class="stat-label">当前 AED 紧急场景<br>实际使用率（估算）</span>
+    </div>
+    <div class="stat-box green">
+      <span class="stat-value">60%+</span>
+      <span class="stat-label">联动体系接入后<br>预期有效取用率目标</span>
+    </div>
+    <div class="stat-box blue">
+      <span class="stat-value">2分钟内</span>
+      <span class="stat-label">责任人收到通知至<br>响应确认的目标时间</span>
+    </div>
+  </div>
+
+  <p>
+    这一系统不仅提升 AED 的实际使用效能，还为政府 AED 管理部门提供了<strong>全量设备响应数据</strong>，彻底改变过去"只看台数、不看使用"的监管模式，有助于政府对 AED 布局进行数据驱动的优化决策。
+  </p>
+</div>
+
+
+<!-- ============================================================
+     08  预期社会效益
+     ============================================================ -->
+<div class="section">
+  <div class="section-number">Section 08</div>
+  <div class="section-label">Expected Social Impact</div>
+  <div class="section-title">预期社会效益</div>
+  <div class="section-title-line"></div>
+
+  <p>
+    以下为试点地区（单城市）三年分阶段预期数据，基于国内外同类志愿者急救网络实施案例与人口密度模型估算，供参考：
+  </p>
+
+  <table class="projection-table">
+    <thead>
+      <tr>
+        <th>指标</th>
+        <th>第一年</th>
+        <th>第二年</th>
+        <th>第三年</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>平台认证急救侠（人）</td>
+        <td>5,000</td>
+        <td>18,000</td>
+        <td>40,000</td>
+      </tr>
+      <tr>
+        <td>接入 AED 设备（台）</td>
+        <td>500</td>
+        <td>1,500</td>
+        <td>3,000+</td>
+      </tr>
+      <tr>
+        <td>500m 内有急救侠覆盖的点位（%）</td>
+        <td>30%</td>
+        <td>65%</td>
+        <td>85%</td>
+      </tr>
+      <tr>
+        <td>平均志愿者响应时间（分钟）</td>
+        <td>— 基线建立</td>
+        <td>&lt;5 分钟</td>
+        <td>&lt;3.5 分钟</td>
+      </tr>
+      <tr>
+        <td>AED 责任人联动覆盖率</td>
+        <td>40%（接入设备中）</td>
+        <td>75%</td>
+        <td>90%</td>
+      </tr>
+      <tr>
+        <td>培训公众人次（含非认证）</td>
+        <td>20,000</td>
+        <td>60,000</td>
+        <td>150,000</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4">* 上述数据为项目目标预测值，实际效果将视政府合作深度、本地推广力度及志愿者增长率而定，三年后将提交正式评估报告。</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <h3>对存活率的潜在影响</h3>
+  <p>
+     参考荷兰 HartslagNu 志愿者急救网络数据：该项目在运营后，对接到志愿者响应的心脏骤停案例，存活出院率相比对照组提升约 <strong>2 倍</strong>。若试点城市达到类似志愿者密度，预计每年可在现有基础上额外挽救数十至逾百名心脏骤停患者的生命。
+  </p>
+
+  <div class="callout">
+    <p>
+      除直接挽救生命外，急救侠还将形成长期社会效益：<strong>公众急救意识普及</strong>、<strong>AED 设备管理水平提升</strong>、<strong>政府急救体系数字化升级</strong>，以及<strong>形成可向全国复制的社会急救标准模版</strong>。
+    </p>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     09  实施路线图
+     ============================================================ -->
+<div class="section">
+  <div class="section-number">Section 09</div>
+  <div class="section-label">Implementation Roadmap</div>
+  <div class="section-title">实施路线图</div>
+  <div class="section-title-line"></div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="timeline-marker">一</div>
+      <div class="timeline-body">
+        <div class="timeline-phase">Phase 1 · 第 1–3 个月</div>
+        <div class="timeline-title">政府共识与基础搭建</div>
+        <ul class="timeline-items">
+          <li>签署政府合作意向书（MOU），确立合作框架与数据共享协议</li>
+          <li>与卫健委、应急管理局等相关部门完成对接，明确各方权责边界</li>
+          <li>接入政府 AED 数据库，完成设备信息录入与责任人注册</li>
+                     <li>确定首批试点区域（超大城市：核心商圈/地铁密集区/高校聚集地；旅游城市：机场/景区/度假酒店集群）</li>
+          <li>开发政府数据监管看板，确认数据报告机制</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-marker">二</div>
+      <div class="timeline-body">
+        <div class="timeline-phase">Phase 2 · 第 4–9 个月</div>
+        <div class="timeline-title">志愿者扩展与责任人体系建立</div>
+        <ul class="timeline-items">
+          <li>启动试点区域志愿者招募，联合医院与社区开展 CPR/AED 认证培训</li>
+          <li>AED 设备责任人批量注册上线，完成联动功能测试与演练</li>
+          <li>政府官方渠道（政务 App、街道通知、媒体）协助推广平台</li>
+          <li>每月提交运营数据报告，与政府联合评估阶段性效果</li>
+          <li>收集首批真实任务数据，优化响应流程与志愿者激励机制</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-marker">三</div>
+      <div class="timeline-body">
+        <div class="timeline-phase">Phase 3 · 第 10–12 个月</div>
+        <div class="timeline-title">全面启动与效果评估</div>
+        <ul class="timeline-items">
+          <li>在试点区域全面铺开，进入正式运营阶段</li>
+          <li>组织年度社会效益评估，提交政府正式试点总结报告</li>
+          <li>联合医院与急救专家对响应时间与救治质量进行独立评估</li>
+          <li>根据试点数据与政府反馈，共同制定下一步扩展方案</li>
+          <li>探讨在全市/全省范围内推广的可行性与政策支持需求</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     10  法律依据与合规
+     ============================================================ -->
+<div class="section">
+  <div class="section-number">Section 10</div>
+  <div class="section-label">Legal & Compliance</div>
+  <div class="section-title">法律依据与合规框架</div>
+  <div class="section-title-line"></div>
+
+  <p>
+    急救侠平台在设计阶段即将法律合规内嵌于核心流程，确保志愿者、伤者与政府合作方均处于清晰的法律保护框架内。
+  </p>
+
+  <div class="legal-grid">
+    <div class="legal-item">
+      <div class="legal-law">《民法典》第 184 条</div>
+      <p class="legal-desc">
+        "好撒玛利亚人"保护条款：志愿施救者因救助行为造成受助人损害的，不承担民事责任。急救侠在每次任务前强制显示该条款，并要求志愿者主动确认，形成有记录的知情同意。
+      </p>
+    </div>
+    <div class="legal-item">
+      <div class="legal-law">AED 管理相关法规</div>
+      <p class="legal-desc">
+        平台支持地方政府 AED 管理办法中规定的设备责任人制度落地，以数字化手段履行现行法规要求，不创设新义务，而是使现有义务真正可执行。
+      </p>
+    </div>
+    <div class="legal-item">
+      <div class="legal-law">《志愿服务条例》</div>
+      <p class="legal-desc">
+        急救侠志愿者认证及任务记录符合国家志愿服务时长记录标准，可向政府志愿服务平台同步数据，志愿者可获得官方志愿服务证明。
+      </p>
+    </div>
+    <div class="legal-item">
+      <div class="legal-law">数据隐私合规</div>
+      <p class="legal-desc">
+        平台依据《个人信息保护法》（PIPL）与《数据安全法》设计数据采集与存储方案。用户位置数据仅在活跃任务期间使用，任务结束后自动删除，不进行跨任务位置追踪。
+      </p>
+    </div>
+  </div>
+
+  <h3>反滥用机制</h3>
+  <p>
+    平台建立了严格的 SOS 防滥用机制：触发 SOS 后系统要求二次确认，恶意虚假呼救行为可追溯至账号实名信息，并将依据相关行政法规向有关部门报告，情节严重者可面临法律追究。平台公开承诺将配合政府及司法机关对滥用行为进行处置。
+  </p>
+</div>
+
+
+<!-- ============================================================
+     11  联系方式
+     ============================================================ -->
+<div class="section" style="border-bottom:none;">
+  <div class="section-number">Section 11</div>
+  <div class="section-label">Contact Information</div>
+  <div class="section-title">联系方式</div>
+  <div class="section-title-line"></div>
+
+  <p>
+    如贵部门有意进一步了解急救侠项目详情，或希望安排产品演示与方案沟通，欢迎通过以下方式联系项目团队：
+  </p>
+
+  <div class="contact-box">
+    <div class="contact-title">急救侠项目团队</div>
+    <div class="contact-subtitle">Emergency Rescue Hero — Project Team</div>
+
+      <div class="contact-row">
+        <div>
+          <div class="contact-item-label">项目负责人</div>
+          <div class="contact-item-value">汪步紧</div>
+        </div>
+        <div>
+          <div class="contact-item-label">联系电话</div>
+          <div class="contact-item-value">173 1804 4972</div>
+        </div>
+        <div>
+          <div class="contact-item-label">电子邮箱</div>
+          <div class="contact-item-value">bujinwang@hotmail.com</div>
+        </div>
+      </div>
+        <div class="contact-item-value">[ 邮箱地址 ]</div>
+      </div>
+      <div>
+        <div class="contact-item-label">项目网址</div>
+        <div class="contact-item-value">[ 网址 ]</div>
+      </div>
+    </div>
+
+    <div class="contact-note">
+      本建议书仅供政府内部评估使用，请勿对外传播。<br>
+      如需产品演示 Demo 账号，请联系团队获取专属试用权限。
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     DOCUMENT FOOTER
+     ============================================================ -->
+<div class="doc-footer">
+  <div>
+    <div class="footer-brand">急救侠</div>
+    <div style="font-size:11px;color:var(--ink-mute);margin-top:2px;">遇见倒下的人 · 你也能伸手</div>
+  </div>
+  <div class="footer-meta">
+     城市公共急救网络试点项目建议书<br>
+    2026年5月 · V1.0 · 仅供政府评估使用
+  </div>
+</div>
+
+</div><!-- .document -->
+</body>
+</html>
