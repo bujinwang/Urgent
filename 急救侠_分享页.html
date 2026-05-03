@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#C0392B">
+<title>急救侠 · CPR + AED 救援网络</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --rescue-red: #C0392B;
+  --rescue-red-deep: #8B2A1F;
+  --rescue-red-soft: #FFE8E5;
+  --ink: #1A1A1A;
+  --ink-soft: #4A4A4A;
+  --ink-mute: #8E8E8E;
+  --paper: #FAFAF7;
+  --paper-warm: #F4F1EA;
+  --line: #E8E4DD;
+  --green: #1F8A5B;
+  --gold: #C8A656;
+
+  --serif: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+  --sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+html, body {
+  font-family: var(--sans);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* LifeSpark Logo Styles */
+.logo-icon { width: 32px; height: 32px; flex-shrink: 0; }
+.logo-icon svg { width: 100%; height: 100%; }
+.logo-bg { fill: var(--logo-bg, var(--rescue-red)); }
+.logo-heart { fill: var(--logo-heart, white); }
+.logo-spark { fill: var(--logo-spark, #F6C65B); }
+.logo-chip { fill: var(--logo-chip, white); }
+.logo-chip-cross { stroke: var(--logo-chip-cross, var(--rescue-red)); stroke-width: 3.2; stroke-linecap: round; }
+.logo-ring { fill: none; stroke: var(--logo-ring, rgba(255,255,255,0.34)); stroke-width: 3; }
+.logo-pulse { animation: pulseAnim 2s ease-in-out infinite; transform-origin: center; }
+@keyframes pulseAnim { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+@media (prefers-reduced-motion: reduce) { .logo-pulse { animation: none; } }
+
+/* Share Page Container */
+.share-container {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #FFF8F5 0%, var(--paper) 50%);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Hero Section */
+.share-hero {
+  background: linear-gradient(165deg, var(--rescue-red) 0%, var(--rescue-red-deep) 100%);
+  color: white;
+  padding: 48px 24px 64px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.share-hero::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.share-hero::after {
+  content: '';
+  position: absolute;
+  bottom: -80px; left: -40px;
+  width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.share-hero-logo {
+  width: 88px; height: 88px;
+  margin: 0 auto 20px;
+  position: relative;
+  z-index: 2;
+}
+
+.share-hero-title {
+  font-family: var(--serif);
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  margin-bottom: 10px;
+  position: relative;
+  z-index: 2;
+  line-height: 1.2;
+}
+
+.share-hero-sub {
+  font-size: 14px;
+  opacity: 0.9;
+  margin-bottom: 28px;
+  position: relative;
+  z-index: 2;
+  line-height: 1.6;
+}
+
+.share-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(10px);
+  padding: 8px 18px;
+  border-radius: 24px;
+  font-size: 12px;
+  font-weight: 600;
+  position: relative;
+  z-index: 2;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+.share-hero-badge-dot {
+  width: 8px; height: 8px;
+  background: #FFEC8B;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #FFEC8B;
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Stats Section */
+.share-stats {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding: 24px 0;
+  position: relative;
+  z-index: 2;
+}
+
+.share-stat {
+  text-align: center;
+}
+
+.share-stat-num {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+  display: block;
+  line-height: 1;
+}
+
+.share-stat-label {
+  font-size: 11px;
+  opacity: 0.75;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+
+/* CTA Button */
+.share-cta-section {
+  padding: 0 24px 32px;
+  position: relative;
+  z-index: 2;
+}
+
+.share-cta-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--rescue-red) 0%, var(--rescue-red-deep) 100%);
+  border: 2px solid rgba(255,255,255,0.25);
+  border-radius: 20px;
+  padding: 24px 20px;
+  color: white;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 0 12px 32px rgba(192, 57, 43, 0.4);
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: relative;
+  overflow: hidden;
+  text-decoration: none;
+  text-align: center;
+}
+
+.share-cta-btn:hover, .share-cta-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 8px 24px rgba(192, 57, 43, 0.45);
+}
+
+.share-cta-btn::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 20px;
+  background: rgba(255, 107, 91, 0.4);
+  animation: pulse 2s ease-in-out infinite;
+  z-index: -1;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.02); }
+}
+
+.share-cta-btn-icon {
+  width: 44px; height: 44px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.share-cta-btn-text { text-align: left; line-height: 1.3; }
+.share-cta-btn-title { font-size: 20px; }
+.share-cta-btn-sub {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.85;
+  font-family: var(--sans);
+}
+
+/* Features Section */
+.share-features {
+  padding: 40px 24px;
+  background: white;
+  border-radius: 28px 28px 0 0;
+  margin-top: -20px;
+  position: relative;
+  z-index: 3;
+}
+
+.share-section-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--ink);
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.share-features-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.share-feature-card {
+  background: var(--paper-warm);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 18px 14px;
+  text-align: center;
+  transition: transform 0.15s;
+}
+
+.share-feature-card:active {
+  transform: scale(0.97);
+}
+
+.share-feature-icon {
+  width: 44px; height: 44px;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-feature-title {
+  font-family: var(--serif);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.share-feature-desc {
+  font-size: 11px;
+  color: var(--ink-mute);
+  line-height: 1.4;
+}
+
+/* Footer */
+.share-footer {
+  text-align: center;
+  padding: 24px 24px 40px;
+  color: var(--ink-mute);
+  font-size: 12px;
+}
+
+.share-footer-brand {
+  font-family: var(--serif);
+  font-weight: 700;
+  color: var(--rescue-red);
+  margin-right: 4px;
+}
+
+/* Enter App Button */
+.enter-app-btn {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  margin: 20px auto 40px;
+  background: white;
+  border: 2px solid var(--rescue-red);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(192, 57, 43, 0.12);
+}
+
+.enter-app-btn:hover, .enter-app-btn:active {
+  background: var(--rescue-red);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(192, 57, 43, 0.2);
+}
+
+.enter-app-btn:hover .enter-app-btn-text, .enter-app-btn:active .enter-app-btn-text {
+  color: white;
+}
+
+.enter-app-btn-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.enter-app-btn-text {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--rescue-red);
+  transition: color 0.2s;
+}
+
+.enter-app-btn-sub {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-top: 4px;
+}
+
+/* QR Section */
+.share-qr-section {
+  padding: 0 24px 32px;
+  text-align: center;
+}
+
+.share-qr-title {
+  font-size: 13px;
+  color: var(--ink-mute);
+  margin-bottom: 12px;
+}
+
+.share-qr-code {
+  width: 140px; height: 140px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--ink-mute);
+  border: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+}
+
+.share-qr-code::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+}
+
+/* Scroll Indicator */
+.scroll-indicator {
+  text-align: center;
+  padding: 12px;
+  color: var(--ink-mute);
+  font-size: 11px;
+  animation: bounce 1.5s infinite;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-8px); }
+  60% { transform: translateY(-4px); }
+}
+
+/* Mobile optimization */
+@media (max-width: 360px) {
+  .share-hero { padding: 36px 16px 48px; }
+  .share-hero-title { font-size: 28px; }
+  .share-features { padding: 24px 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="share-container">
+  
+  <!-- Hero Section -->
+  <div class="share-hero">
+    <svg class="share-hero-logo logo-pulse" viewBox="0 0 100 100">
+      <rect x="10" y="10" width="80" height="80" rx="24" class="logo-bg"/>
+      <circle cx="50" cy="50" r="31" class="logo-ring"/>
+      <path d="M50 73C36 60 28 52 28 42c0-7.2 5.3-12.5 12.4-12.5 4.4 0 7.8 2 9.6 5.2 1.8-3.2 5.2-5.2 9.6-5.2C66.7 29.5 72 34.8 72 42c0 10-8 18-22 31z" class="logo-heart"/>
+      <path d="M54 27 39 53h11l-4 20 18-31H53l1-15z" class="logo-spark"/>
+      <circle cx="72" cy="28" r="10" class="logo-chip"/>
+      <path d="M72 22v12M66 28h12" class="logo-chip-cross"/>
+    </svg>
+    
+    <h1 class="share-hero-title">急救侠</h1>
+    <p class="share-hero-sub">CPR + AED 救援网络<br>有人倒下，别慌 · 跟着做就能帮</p>
+    
+    <div class="share-hero-badge">
+      <span class="share-hero-badge-dot"></span>
+      <span>附近 3 名志愿者在线</span>
+    </div>
+    
+    <div class="share-stats">
+      <div class="share-stat">
+        <span class="share-stat-num">2,340+</span>
+        <span class="share-stat-label">累计志愿者</span>
+      </div>
+      <div class="share-stat">
+        <span class="share-stat-num">89</span>
+        <span class="share-stat-label">成功救援</span>
+      </div>
+      <div class="share-stat">
+        <span class="share-stat-num">1km</span>
+        <span class="share-stat-label">AED覆盖</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- CTA Button -->
+  <div class="share-cta-section">
+    <a href="急救侠_H5_Demo_v17.html" class="share-cta-btn">
+      <div class="share-cta-btn-icon">
+        <svg class="logo-pulse" viewBox="0 0 100 100" style="width:28px;height:28px">
+          <rect x="10" y="10" width="80" height="80" rx="24" fill="white"/>
+          <path d="M50 73C36 60 28 52 28 42c0-7.2 5.3-12.5 12.4-12.5 4.4 0 7.8 2 9.6 5.2 1.8-3.2 5.2-5.2 9.6-5.2C66.7 29.5 72 34.8 72 42c0 10-8 18-22 31z" fill="#C0392B"/>
+          <path d="M54 27 39 53h11l-4 20 18-31H53l1-15z" fill="#F6C65B"/>
+        </svg>
+      </div>
+      <div class="share-cta-btn-text">
+        <div class="share-cta-btn-title">立即进入救援网络</div>
+        <div class="share-cta-btn-sub">学习急救技能 · 守护身边生命</div>
+      </div>
+    </a>
+  </div>
+  
+  <!-- Enter App Button -->
+  <div class="enter-app-btn" onclick="window.location.href='急救侠_H5_Demo_v17.html'">
+    <div class="enter-app-btn-icon">🚑</div>
+    <div class="enter-app-btn-text">进入急救侠应用</div>
+    <div class="enter-app-btn-sub">👆 点击直达首页</div>
+  </div>
+  
+  <!-- Features Grid -->
+  <div class="share-features">
+    <h2 class="share-section-title">我们能做什么</h2>
+    <div class="share-features-grid">
+      <div class="share-feature-card">
+        <div class="share-feature-icon">❤</div>
+        <div class="share-feature-title">CPR指南</div>
+        <div class="share-feature-desc">节拍器引导<br>正确按压深度</div>
+      </div>
+      <div class="share-feature-card">
+        <div class="share-feature-icon">📍</div>
+        <div class="share-feature-title">AED地图</div>
+        <div class="share-feature-desc">实时查找<br>最近设备</div>
+      </div>
+      <div class="share-feature-card">
+        <div class="share-feature-icon">🔔</div>
+        <div class="share-feature-title">紧急呼救</div>
+        <div class="share-feature-desc">一键求救<br>志愿者响应</div>
+      </div>
+      <div class="share-feature-card">
+        <div class="share-feature-icon">📚</div>
+        <div class="share-feature-title">急救图谱</div>
+        <div class="share-feature-desc">常见急症<br>处理指南</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- QR Code Section -->
+  <div class="share-qr-section">
+    <div class="share-qr-title">扫码进入急救侠</div>
+    <div class="share-qr-code">
+      <div style="text-align:center">
+        <div style="font-size:24px;margin-bottom:4px">🚑</div>
+        <div>急救侠</div>
+        <div style="font-size:10px">jiujiaxia.com</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Footer -->
+  <div class="share-footer">
+    <span class="share-footer-brand">急救侠</span>
+    · 公共急救响应平台
+    <br>
+    <span style="font-size:10px;color:var(--line)">© 2026 急救侠团队 · 让每个生命都被守护</span>
+  </div>
+  
+</div>
+
+<script>
+// 防止分享页面被缩放
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function (event) {
+  let now = (new Date()).getTime();
+  if (now - lastTouchEnd <= 300) {
+    event.preventDefault();
+  }
+  lastTouchEnd = now;
+}, false);
+
+// 页面加载动画
+document.addEventListener('DOMContentLoaded', function() {
+  document.body.style.opacity = '0';
+  document.body.style.transition = 'opacity 0.3s';
+  setTimeout(() => {
+    document.body.style.opacity = '1';
+  }, 50);
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="急救侠 LifeSpark logo">
+  <rect x="10" y="10" width="80" height="80" rx="24" fill="#C0392B"/>
+  <circle cx="50" cy="50" r="31" fill="none" stroke="#FFFFFF" stroke-opacity=".34" stroke-width="3"/>
+  <path d="M50 73C36 60 28 52 28 42c0-7.2 5.3-12.5 12.4-12.5 4.4 0 7.8 2 9.6 5.2 1.8-3.2 5.2-5.2 9.6-5.2C66.7 29.5 72 34.8 72 42c0 10-8 18-22 31z" fill="#FFFFFF"/>
+  <path d="M54 27 39 53h11l-4 20 18-31H53l1-15z" fill="#F6C65B"/>
+  <circle cx="72" cy="28" r="10" fill="#FFFFFF"/>
+  <path d="M72 22v12M66 28h12" fill="none" stroke="#C0392B" stroke-width="3.2" stroke-linecap="round"/>
+</svg>

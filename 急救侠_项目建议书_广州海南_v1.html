@@ -140,10 +140,16 @@ body {
   position: relative;
   margin-bottom: 36px;
 }
+.cover-logo-mark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 
 .cover-logo-mark::before,
 .cover-logo-mark::after {
   content: '';
+  display: none;
   position: absolute;
   background: var(--red);
   border-radius: 3px;
@@ -1078,16 +1084,24 @@ h4 {
 <!-- ============================================================
      COVER PAGE
      ============================================================ -->
-<div class="cover">
-  <div class="cover-top-bar"></div>
-  <div class="cover-watermark"></div>
+ <div class="cover">
+   <div class="cover-top-bar"></div>
 
-  <div class="cover-content">
-    <div class="cover-logo-mark"></div>
+   <div class="cover-content">
+     <div class="cover-logo-mark">
+       <svg viewBox="0 0 100 100">
+         <rect x="10" y="10" width="80" height="80" rx="24" fill="var(--red)"/>
+         <circle cx="50" cy="50" r="31" fill="none" stroke="white" stroke-opacity=".34" stroke-width="3"/>
+         <path d="M50 73C36 60 28 52 28 42c0-7.2 5.3-12.5 12.4-12.5 4.4 0 7.8 2 9.6 5.2 1.8-3.2 5.2-5.2 9.6-5.2C66.7 29.5 72 34.8 72 42c0 10-8 18-22 31z" fill="white"/>
+         <path d="M54 27 39 53h11l-4 20 18-31H53l1-15z" fill="#F6C65B"/>
+         <circle cx="72" cy="28" r="10" fill="white"/>
+         <path d="M72 22v12M66 28h12" stroke="var(--red)" stroke-width="3.2" stroke-linecap="round"/>
+       </svg>
+     </div>
 
     <div class="cover-app-name">急救侠</div>
     <div class="cover-tagline">
-      遇见倒下的人 · 你也能伸手
+      有人倒下，别慌 · 跟着做就能帮
     </div>
 
     <div class="cover-divider"></div>
@@ -1246,7 +1260,7 @@ h4 {
       <div class="layer-body">
         <div class="layer-title">公众呼救层 — 任何人都能求助</div>
         <p class="layer-desc">
-          任何人发现心脏骤停伤者，可一键触发 SOS 紧急按钮。系统自动拨打 120，同时启动语音引导 CPR 指令，手把手协助旁观者实施初步急救，无需任何专业背景。位置信息同步推送至志愿者网络。
+          任何人发现心脑血管事件伤者，可一键触发 SOS 紧急按钮。系统自动拨打 120，同时启动语音引导 CPR 指令，手把手协助旁观者实施初步急救，无需任何专业背景。位置信息同步推送至志愿者网络。
         </p>
         <span class="layer-tag">面向所有公众</span>
       </div>
@@ -1254,11 +1268,11 @@ h4 {
     <div class="layer-item">
       <div class="layer-num">2</div>
       <div class="layer-body">
-        <div class="layer-title">志愿者响应层 — 持证急救侠实时接单</div>
+        <div class="layer-title">志愿者响应层 — 多人协作防疲劳</div>
         <p class="layer-desc">
-          通过平台认证的持证急救志愿者（急救侠）在后台保持待命状态。当其 1 公里范围内发生 SOS 事件，系统推送任务通知，志愿者接受任务后可查看导航路线、伤者信息及 AED 位置。任务全程有时间戳记录与法律免责确认。
+          平台为 CPR 等体力密集任务启用<strong>多志愿者协作机制</strong>：系统同时呼叫 2-3 名附近志愿者，第一人执行压缩，第二人准备 AED 或轮替施救，第三人负责记录时间与保护现场。这样可确保压缩质量持续、避免单人疲劳，同时分散任务风险。任务全程有时间戳记录与法律免责确认。
         </p>
-        <span class="layer-tag">面向认证志愿者</span>
+        <span class="layer-tag">面向认证志愿者 · 团队协作</span>
       </div>
     </div>
     <div class="layer-item">
@@ -1266,7 +1280,7 @@ h4 {
       <div class="layer-body">
         <div class="layer-title">AED 责任人联动层 — 设备秒级激活</div>
         <p class="layer-desc">
-          当志愿者点击"前往取 AED"，系统自动通知对应 AED 设备责任人。责任人可远程解锁设备柜并前往现场接应志愿者，实现设备与施救者的精准对接。这是全国首个将 AED 责任人制度真正融入急救响应链路的系统创新。
+          志愿者点击"前往取 AED"后，系统自动通知对应 AED 设备责任人。责任人可远程解锁设备柜并前往现场接应志愿者，实现设备与施救者的精准对接。这是全国首个将 AED 责任人制度真正融入急救响应链路的系统创新。
         </p>
         <span class="layer-tag">独家创新 · 首创联动</span>
       </div>
@@ -1297,13 +1311,13 @@ h4 {
       </p>
     </div>
 
-    <div class="feature-card">
-      <div class="feature-icon icon-cross"></div>
-      <div class="feature-name">志愿者任务系统</div>
-      <p class="feature-desc">
-        实时推送附近 SOS 任务，提供导航路线、事件详情。内置任务记录与法律免责确认流程，保护志愿者权益。
-      </p>
-    </div>
+<div class="feature-card">
+       <div class="feature-icon icon-cross"></div>
+       <div class="feature-name">志愿者任务系统</div>
+       <p class="feature-desc">
+         多志愿者协作机制，CPR 事件同时呼叫 2-3 人防疲劳；提供导航路线、事件详情、AED 位置。内置任务记录、轮替提醒与法律免责确认流程。
+       </p>
+     </div>
 
     <div class="feature-card">
       <div class="feature-icon icon-cross"></div>
@@ -1779,7 +1793,7 @@ h4 {
 <div class="doc-footer">
   <div>
     <div class="footer-brand">急救侠</div>
-    <div style="font-size:11px;color:var(--ink-mute);margin-top:2px;">遇见倒下的人 · 你也能伸手</div>
+    <div style="font-size:11px;color:var(--ink-mute);margin-top:2px;">有人倒下，别慌 · 跟着做就能帮</div>
   </div>
   <div class="footer-meta">
      城市公共急救网络试点项目建议书<br>

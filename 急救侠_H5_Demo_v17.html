@@ -5,32 +5,263 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#C0392B">
 <title>急救侠 · CPR + AED 救援网络</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-:root {
-  --rescue-red: #C0392B;
-  --rescue-red-deep: #8B2A1F;
-  --rescue-red-soft: #FFE8E5;
-  --ink: #1A1A1A;
-  --ink-soft: #4A4A4A;
-  --ink-mute: #8E8E8E;
-  --paper: #FAFAF7;
-  --paper-warm: #F4F1EA;
-  --line: #E8E4DD;
-  --green: #1F8A5B;
-  --green-soft: #E8F5EF;
-  --gold: #C8A656;
-  --bronze: #B87333;
-  --silver: #9CA3AF;
-  --diamond: #4A90E2;
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+   <style>
+   :root {
+     --rescue-red: #C0392B;
+     --rescue-red-deep: #8B2A1F;
+     --rescue-red-soft: #FFE8E5;
+     --ink: #1A1A1A;
+     --ink-soft: #4A4A4A;
+     --ink-mute: #8E8E8E;
+     --paper: #FAFAF7;
+     --paper-warm: #F4F1EA;
+     --line: #E8E4DD;
+     --green: #1F8A5B;
+     --green-soft: #E8F5EF;
+     --gold: #C8A656;
+     --bronze: #B87333;
+     --silver: #9CA3AF;
+     --diamond: #4A90E2;
 
-  --serif: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
-  --mono: 'DM Mono', 'Menlo', monospace;
-  --sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
+     --serif: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+     --mono: 'DM Mono', 'Menlo', monospace;
+     --sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+   }
 
+   /* LifeSpark Logo Icon */
+   .logo-icon {
+     width: 32px;
+     height: 32px;
+     position: relative;
+     flex-shrink: 0;
+   }
+   .logo-icon svg {
+     width: 100%;
+     height: 100%;
+   }
+   .logo-bg { fill: var(--logo-bg, var(--rescue-red)); }
+   .logo-heart { fill: var(--logo-heart, white); }
+   .logo-spark { fill: var(--logo-spark, #F6C65B); }
+   .logo-chip { fill: var(--logo-chip, white); }
+   .logo-chip-cross {
+     stroke: var(--logo-chip-cross, var(--rescue-red));
+     stroke-width: 3.2;
+     stroke-linecap: round;
+   }
+   .logo-ring {
+     fill: none;
+     stroke: var(--logo-ring, rgba(255,255,255,0.34));
+     stroke-width: 3;
+   }
+   .logo-pulse {
+     animation: logoPulse 2s ease-in-out infinite;
+     transform-origin: center;
+   }
+   @keyframes logoPulse {
+     0%, 100% { transform: scale(1); }
+     50% { transform: scale(1.03); }
+   }
+    @media (prefers-reduced-motion: reduce) {
+     .logo-pulse { animation: none; }
+    }
+
+    /* Emergency mission pulse animation */
+    @keyframes missionPulse {
+      0%, 100% { opacity: 0; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.04); }
+    }
+    @keyframes ctaPulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+      50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+    }
+
+    /* SVG Sprite */
+    .svg-sprite { display: none; }
+
+    /* Launch overlay */
+    #launch-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--paper);
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      cursor: pointer;
+      transition: opacity 0.5s, transform 0.5s;
+    }
+    #launch-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(1.1);
+    }
+    .launch-cross {
+      width: 80px; height: 80px;
+      opacity: 0.1;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='10' y='10' width='80' height='80' rx='24' fill='%23C0392B'/%3E%3Ccircle cx='50' cy='50' r='31' fill='none' stroke='white' stroke-opacity='.34' stroke-width='3'/%3E%3Cpath d='M50 73C36 60 28 52 28 42c0-7.2 5.3-12.5 12.4-12.5 4.4 0 7.8 2 9.6 5.2 1.8-3.2 5.2-5.2 9.6-5.2C66.7 29.5 72 34.8 72 42c0 10-8 18-22 31z' fill='white'/%3E%3Cpath d='M54 27 39 53h11l-4 20 18-31H53l1-15z' fill='%23F6C65B'/%3E%3Ccircle cx='72' cy='28' r='10' fill='white'/%3E%3Cpath d='M72 22v12M66 28h12' stroke='%23C0392B' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    .launch-brand {
+      font-family: var(--serif);
+      font-size: 36px;
+      font-weight: 900;
+      color: var(--red);
+      letter-spacing: -1px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .launch-logo-icon {
+      width: 48px; height: 48px;
+    }
+    .launch-tagline {
+      font-size: 13px;
+      color: var(--ink-mute);
+    }
+    .launch-tap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .launch-tap-circle {
+      width: 56px; height: 56px;
+      background: var(--red);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      animation: launchTapFloat 2s ease-in-out infinite;
+    }
+    @keyframes launchTapFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+    .launch-tap-label {
+      font-size: 12px;
+      color: var(--ink-mute);
+    }
+
+    /* Home specific */
+    .home-topbar {
+      padding: 16px 20px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .home-topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .home-logo {
+      font-family: var(--serif);
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--red);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .home-logo-icon {
+      width: 24px; height: 24px;
+    }
+    .home-logo-text {
+      font-family: var(--serif);
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--red);
+    }
+    .home-notif-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    /* Home SOS button - update the cross to use logo */
+    .home-sos-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--rescue-red) 0%, var(--rescue-red-deep) 100%);
+      border: 2px solid rgba(255, 107, 91, 0.5);
+      border-radius: 24px;
+      padding: 24px 20px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(192, 57, 43, 0.45);
+      transition: transform 0.15s;
+      margin: 16px 20px 0;
+    }
+    .home-sos-btn:active { transform: scale(0.98); }
+    .home-sos-pulse,
+    .home-sos-pulse-2 {
+      position: absolute;
+      inset: -2px;
+      border-radius: 24px;
+      pointer-events: none;
+    }
+    .home-sos-pulse {
+      background: rgba(255, 107, 91, 0.4);
+      animation: missionPulse 1.5s ease-in-out infinite;
+      z-index: -1;
+    }
+    .home-sos-pulse-2 {
+      background: rgba(255, 107, 91, 0.25);
+      animation: missionPulse 1.5s ease-in-out infinite 0.6s;
+      z-index: -2;
+    }
+    .home-sos-content {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+      z-index: 1;
+    }
+    .home-sos-logo {
+      width: 40px; height: 40px;
+      --logo-bg: rgba(255,255,255,0.96);
+      --logo-heart: var(--rescue-red);
+      --logo-ring: rgba(192,57,43,0.18);
+      --logo-chip: var(--rescue-red);
+      --logo-chip-cross: white;
+    }
+    .home-sos-text { flex: 1; text-align: left; }
+    .home-sos-title {
+      font-family: var(--serif);
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .home-sos-sub {
+      font-size: 12px;
+      opacity: 0.85;
+      line-height: 1.4;
+    }
+
+   /* Emergency mission pulse animation */
+   @keyframes missionPulse {
+     0%, 100% { opacity: 0; transform: scale(1); }
+     50% { opacity: 1; transform: scale(1.04); }
+   }
+   @keyframes ctaPulse {
+     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+     50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+   }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body {
   font-family: var(--sans);
@@ -86,12 +317,38 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   font-size: 22px;
   color: var(--ink);
 }
-.app-bar h1 {
-  font-family: var(--serif);
-  font-weight: 700;
-  font-size: 18px;
-  flex: 1;
-}
+ .app-bar h1 {
+   font-family: var(--serif);
+   font-weight: 700;
+   font-size: 18px;
+   flex: 1;
+   display: flex;
+   align-items: center;
+   gap: 8px;
+ }
+ .home-brand {
+   font-family: var(--serif);
+   font-weight: 900;
+   font-size: 36px;
+   letter-spacing: -1px;
+   margin-bottom: 8px;
+   position: relative;
+   display: inline-flex;
+   align-items: center;
+   gap: 10px;
+ }
+ .home-brand::before {
+   content: '急救侠';
+ }
+ .home-tagline {
+   font-size: 13px;
+   opacity: 0.85;
+   margin-bottom: 24px;
+   position: relative;
+   display: flex;
+   align-items: center;
+   gap: 6px;
+ }
 
 /* ============ 底部导航 ============ */
 .tabbar {
@@ -140,31 +397,35 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   position: relative;
   overflow: hidden;
 }
-.home-user-profile {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-  position: relative;
-  z-index: 10;
-  background: rgba(255,255,255,0.1);
-  padding: 8px 12px;
-  border-radius: 16px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.15);
-  width: fit-content;
-}
-.home-user-avatar {
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  background: white;
-  color: var(--rescue-red);
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--serif);
-  font-weight: 700;
-  font-size: 18px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-}
+ .home-user-profile {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   margin-bottom: 24px;
+   position: relative;
+   z-index: 10;
+   background: rgba(255,255,255,0.1);
+   padding: 8px 12px;
+   border-radius: 16px;
+   backdrop-filter: blur(10px);
+   border: 1px solid rgba(255,255,255,0.15);
+   width: fit-content;
+ }
+ .home-user-avatar {
+   width: 44px; height: 44px;
+   border-radius: 12px;
+   background: white;
+   display: flex; align-items: center; justify-content: center;
+   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+ }
+ .logo-icon { width: 32px; height: 32px; }
+ .home-user-name {
+   font-size: 13px;
+   font-weight: 700;
+   display: flex;
+   align-items: center;
+   gap: 6px;
+ }
 .home-user-name {
   font-size: 13px;
   font-weight: 700;
@@ -202,15 +463,21 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
   border-radius: 50%;
 }
-.home-hero::after {
-  content: '+';
-  position: absolute;
-  top: 20px; right: 24px;
-  font-size: 80px;
-  font-weight: 900;
-  color: rgba(255,255,255,0.12);
-  font-family: var(--serif);
-}
+ .home-hero::after {
+   content: '';
+   position: absolute;
+   top: 20px;
+   right: 24px;
+   width: 80px;
+   height: 80px;
+   opacity: 0.08;
+   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='10' y='10' width='80' height='80' rx='24' fill='white'/%3E%3Ccircle cx='50' cy='50' r='31' fill='none' stroke='white' stroke-opacity='.38' stroke-width='3'/%3E%3Cpath d='M50 73C36 60 28 52 28 42c0-7.2 5.3-12.5 12.4-12.5 4.4 0 7.8 2 9.6 5.2 1.8-3.2 5.2-5.2 9.6-5.2C66.7 29.5 72 34.8 72 42c0 10-8 18-22 31z' fill='white'/%3E%3Cpath d='M54 27 39 53h11l-4 20 18-31H53l1-15z' fill='white'/%3E%3Ccircle cx='72' cy='28' r='10' fill='white'/%3E%3Cpath d='M72 22v12M66 28h12' stroke='white' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E");
+   background-size: contain;
+   background-repeat: no-repeat;
+   background-position: center;
+   transform: rotate(10deg);
+   z-index: 0;
+ }
 .home-brand {
   font-family: var(--serif);
   font-weight: 900;
@@ -430,18 +697,20 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   animation: missionPulse 1.5s ease-in-out infinite 0.6s;
   z-index: -2;
 }
-.primary-rescue-btn::after {
-  content: '+';
-  position: absolute;
-  right: -10px;
-  top: -30px;
-  font-family: var(--serif);
-  font-size: 130px;
-  font-weight: 900;
-  color: rgba(255,255,255,0.10);
-  line-height: 1;
-  pointer-events: none;
-}
+ .primary-rescue-btn::after {
+   content: '';
+   position: absolute;
+   right: -10px;
+   top: -30px;
+   width: 130px;
+   height: 130px;
+   opacity: 0.10;
+   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='10' y='10' width='80' height='80' rx='24' fill='white'/%3E%3Ccircle cx='50' cy='50' r='31' fill='none' stroke='%23C0392B' stroke-opacity='.18' stroke-width='3'/%3E%3Cpath d='M50 73C36 60 28 52 28 42c0-7.2 5.3-12.5 12.4-12.5 4.4 0 7.8 2 9.6 5.2 1.8-3.2 5.2-5.2 9.6-5.2C66.7 29.5 72 34.8 72 42c0 10-8 18-22 31z' fill='%23C0392B'/%3E%3Cpath d='M54 27 39 53h11l-4 20 18-31H53l1-15z' fill='%23F6C65B'/%3E%3Ccircle cx='72' cy='28' r='10' fill='%23C0392B'/%3E%3Cpath d='M72 22v12M66 28h12' stroke='white' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E");
+   background-size: contain;
+   background-repeat: no-repeat;
+   background-position: center;
+   pointer-events: none;
+ }
 .primary-rescue-content {
   display: flex;
   align-items: center;
@@ -484,7 +753,7 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
 }
 
 .mission-alert-banner {
-  margin: 16px 20px 0;
+  margin: 16px 20px 12px;
   background: linear-gradient(135deg, #C0392B 0%, #8B2A1F 100%);
   color: white;
   padding: 18px 20px;
@@ -533,17 +802,18 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 60%);
   pointer-events: none;
 }
-.mission-alert-banner::after {
-  content: '!';
-  position: absolute;
-  right: 16px; top: 8px;
-  font-family: var(--serif);
-  font-size: 80px;
-  font-weight: 900;
-  color: rgba(255,255,255,0.10);
-  line-height: 1;
-  pointer-events: none;
-}
+ .mission-alert-banner::after {
+   content: '';
+   position: absolute;
+   right: 16px; top: 8px;
+   width: 80px; height: 80px;
+   opacity: 0.10;
+   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='10' y='10' width='80' height='80' rx='24' fill='white'/%3E%3Ccircle cx='50' cy='50' r='31' fill='none' stroke='%23C0392B' stroke-opacity='.18' stroke-width='3'/%3E%3Cpath d='M50 73C36 60 28 52 28 42c0-7.2 5.3-12.5 12.4-12.5 4.4 0 7.8 2 9.6 5.2 1.8-3.2 5.2-5.2 9.6-5.2C66.7 29.5 72 34.8 72 42c0 10-8 18-22 31z' fill='%23C0392B'/%3E%3Cpath d='M54 27 39 53h11l-4 20 18-31H53l1-15z' fill='%23F6C65B'/%3E%3Ccircle cx='72' cy='28' r='10' fill='%23C0392B'/%3E%3Cpath d='M72 22v12M66 28h12' stroke='white' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E");
+   background-size: contain;
+   background-repeat: no-repeat;
+   background-position: center;
+   pointer-events: none;
+ }
 
 .mission-alert-content {
   position: relative;
@@ -2314,16 +2584,7 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   transition: opacity 0.35s ease;
 }
 .launch-cross {
-  font-family: var(--serif);
-  font-size: 96px;
-  font-weight: 900;
-  color: rgba(255,255,255,0.15);
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -56%);
-  line-height: 1;
-  user-select: none;
+  display: none;
 }
 .launch-brand {
   font-family: var(--serif);
@@ -2334,6 +2595,9 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   margin-bottom: 10px;
   position: relative;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 .launch-tagline {
   font-size: 14px;
@@ -2718,6 +2982,7 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
 }
 .home-sos-btn {
   width: 100%;
+  margin: 0;
   background: linear-gradient(140deg, #C0392B 0%, #8B2A1F 100%);
   border: none;
   border-radius: 24px;
@@ -2746,17 +3011,20 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   animation: missionPulse 1.9s ease-in-out infinite 0.75s;
   z-index: 0;
 }
-.home-sos-btn::after {
-  content: '+';
-  position: absolute;
-  right: -8px; top: -28px;
-  font-family: var(--serif);
-  font-size: 140px;
-  font-weight: 900;
-  color: rgba(255,255,255,0.08);
-  line-height: 1;
-  pointer-events: none;
-}
+ .home-sos-btn::after {
+   content: '';
+   position: absolute;
+   right: -8px;
+   top: -28px;
+   width: 140px;
+   height: 140px;
+   opacity: 0.08;
+   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='10' y='10' width='80' height='80' rx='24' fill='white'/%3E%3Ccircle cx='50' cy='50' r='31' fill='none' stroke='%23C0392B' stroke-opacity='.18' stroke-width='3'/%3E%3Cpath d='M50 73C36 60 28 52 28 42c0-7.2 5.3-12.5 12.4-12.5 4.4 0 7.8 2 9.6 5.2 1.8-3.2 5.2-5.2 9.6-5.2C66.7 29.5 72 34.8 72 42c0 10-8 18-22 31z' fill='%23C0392B'/%3E%3Cpath d='M54 27 39 53h11l-4 20 18-31H53l1-15z' fill='%23F6C65B'/%3E%3Ccircle cx='72' cy='28' r='10' fill='%23C0392B'/%3E%3Cpath d='M72 22v12M66 28h12' stroke='white' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E");
+   background-size: contain;
+   background-repeat: no-repeat;
+   background-position: center;
+   pointer-events: none;
+ }
 .home-sos-content {
   display: flex;
   align-items: center;
@@ -2925,16 +3193,30 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
 </head>
 <body>
 
+<!-- SVG Sprite (hidden) -->
+<svg class="svg-sprite" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="logo-icon" viewBox="0 0 100 100">
+    <rect x="10" y="10" width="80" height="80" rx="24" class="logo-bg"/>
+    <circle cx="50" cy="50" r="31" class="logo-ring"/>
+    <path d="M50 73C36 60 28 52 28 42c0-7.2 5.3-12.5 12.4-12.5 4.4 0 7.8 2 9.6 5.2 1.8-3.2 5.2-5.2 9.6-5.2C66.7 29.5 72 34.8 72 42c0 10-8 18-22 31z" class="logo-heart"/>
+    <path d="M54 27 39 53h11l-4 20 18-31H53l1-15z" class="logo-spark"/>
+    <circle cx="72" cy="28" r="10" class="logo-chip"/>
+    <path d="M72 22v12M66 28h12" class="logo-chip-cross"/>
+  </symbol>
+</svg>
+
 <!-- 启动遮罩：第一次点击即解锁音频并进入 demo -->
-<div id="launch-overlay">
-  <div class="launch-cross">+</div>
-  <div class="launch-brand">急救侠</div>
-  <div class="launch-tagline">遇见倒下的人 · 你也能伸手</div>
-  <div class="launch-tap">
-    <div class="launch-tap-circle">👆</div>
-    <div class="launch-tap-label">点击任意处开始体验</div>
-  </div>
-</div>
+ <div id="launch-overlay">
+   <div class="launch-brand">
+     <svg class="launch-logo-icon logo-pulse" viewBox="0 0 100 100"><use href="#logo-icon"></use></svg>
+     急救侠
+   </div>
+   <div class="launch-tagline">有人倒下，别慌 · 跟着做就能帮</div>
+   <div class="launch-tap">
+     <div class="launch-tap-circle">👆</div>
+     <div class="launch-tap-label">点击任意处开始体验</div>
+   </div>
+ </div>
 
 <div class="demo-badge">
   <span class="demo-badge-dot"></span>
@@ -2958,7 +3240,10 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
         <div class="home-user-sub">2,340 积分</div>
       </div>
     </div>
-    <div class="home-logo">急救侠</div>
+    <div class="home-logo">
+     <svg class="home-logo-icon logo-pulse" viewBox="0 0 100 100"><use href="#logo-icon"></use></svg>
+     <span class="home-logo-text">急救侠</span>
+   </div>
     <div class="home-notif-btn">🔔</div>
   </div>
 
@@ -2976,14 +3261,14 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
     <button class="home-sos-btn" onclick="goPage('rescue')">
       <div class="home-sos-pulse"></div>
       <div class="home-sos-pulse-2"></div>
-      <div class="home-sos-content">
-        <div class="home-sos-icon">+</div>
-        <div class="home-sos-text">
-          <div class="home-sos-title">紧急呼救</div>
-          <div class="home-sos-sub">语音引导 · 召唤志愿者 · 联动 120</div>
-        </div>
-        <div class="home-sos-arrow">→</div>
-      </div>
+     <div class="home-sos-content">
+       <svg class="home-sos-logo logo-pulse" viewBox="0 0 100 100"><use href="#logo-icon"></use></svg>
+       <div class="home-sos-text">
+         <div class="home-sos-title">紧急呼救</div>
+         <div class="home-sos-sub">语音引导 · 召唤志愿者 · 联动 120</div>
+       </div>
+       <div class="home-sos-arrow">→</div>
+     </div>
     </button>
   </div>
 
@@ -2997,8 +3282,8 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
         <span>MISSION · 紧急任务</span>
         <span class="mission-alert-time" id="mission-countdown">23s</span>
       </div>
-      <div class="mission-alert-title">100m 外有人需要 AED</div>
-      <div class="mission-alert-detail">系统已为您锁定最近 AED · 80m · 写字楼 1F</div>
+      <div class="mission-alert-title">100m 外 CPR 协作任务</div>
+      <div class="mission-alert-detail">系统正在召集 3 人小队 · 你负责 AED 准备</div>
       <div class="mission-alert-cta">
         <span>立即查看</span>
         <span class="mission-alert-arrow">→</span>
@@ -3222,8 +3507,8 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
         <div class="step-task" style="background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.4);">
           <div class="step-task-check" style="background:#F59E0B;">⚡</div>
           <div class="step-task-text">
-            <strong>2 名志愿者正带 AED 过来</strong>
-            <div style="font-size:11px;opacity:0.85;margin-top:2px;">100m 内 · 最近 AED 在 80m 写字楼 1F</div>
+            <strong>3 名志愿者小队已分工响应</strong>
+            <div style="font-size:11px;opacity:0.85;margin-top:2px;">压缩手 240m · AED 手 100m · 记录员 310m</div>
           </div>
         </div>
         <div class="step-task" onclick="goPage('helper')">
@@ -3232,7 +3517,7 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
         </div>
       </div>
       <div class="step-detail" style="margin-top:16px;">
-        <strong style="color:#FF8B5B;">您不用自己去找 AED</strong>——附近的认证志愿者会带过来。<br>
+        <strong style="color:#FF8B5B;">您不用自己去找 AED</strong>——系统已同步调度压缩、AED 与记录协作角色。<br>
         放下手机，跟着语音指令准备开始按压。
       </div>
       <div class="step-timer">
@@ -3323,7 +3608,7 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
 
       <div class="helpers-bar">
         <div class="helpers-dot"></div>
-        <div class="helpers-text">最近志愿者 <strong>240m</strong> · 预计 <strong>3 分钟</strong> 到达</div>
+        <div class="helpers-text">3 人协作小队响应中 · 最近 <strong>240m</strong> · 预计 <strong>3 分钟</strong></div>
         <div class="helpers-arrow">›</div>
       </div>
 
@@ -4785,18 +5070,43 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   <div style="margin:12px 20px 0;background:rgba(31,138,91,0.1);border:1px solid rgba(31,138,91,0.3);border-radius:14px;padding:12px 16px;display:flex;gap:12px;align-items:center;">
     <div style="width:36px;height:36px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:18px;">🎯</div>
     <div style="flex:1;">
-      <div style="font-size:13px;font-weight:700;color:#34D277;">系统已通知 3 人 · 你是最近的</div>
-      <div style="font-size:11px;opacity:0.8;font-family:var(--mono);">你的排名: 第 1 / 3 位 · 预计最先到达</div>
+      <div style="font-size:13px;font-weight:700;color:#34D277;">系统已通知 3 人 · 协作小队成组</div>
+      <div style="font-size:11px;opacity:0.8;font-family:var(--mono);">你的角色: AED 准备/轮替 · 第 2 / 3 位</div>
+    </div>
+  </div>
+
+  <!-- 协作分工 -->
+  <div style="margin:12px 20px 0;display:grid;grid-template-columns:1fr;gap:8px;">
+    <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;">
+      <div style="width:34px;height:34px;background:#C0392B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:900;flex-shrink:0;">压</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;">1 号志愿者 · 胸外按压</div>
+        <div style="font-size:11px;opacity:0.72;">240m · 预计 3 分钟 · 到场后先接替路人</div>
+      </div>
+    </div>
+    <div style="background:rgba(245,158,11,0.16);border:1px solid rgba(245,158,11,0.42);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;">
+      <div style="width:34px;height:34px;background:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:900;flex-shrink:0;">AED</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;color:#FDE68A;">你 · AED 准备 / 2 分钟轮替</div>
+        <div style="font-size:11px;opacity:0.8;">80m 取设备 · 到场贴片 · 按压手疲劳时接替</div>
+      </div>
+    </div>
+    <div style="background:rgba(74,144,226,0.12);border:1px solid rgba(74,144,226,0.35);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;">
+      <div style="width:34px;height:34px;background:#4A90E2;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:900;flex-shrink:0;">记</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;">3 号志愿者 · 现场记录</div>
+        <div style="font-size:11px;opacity:0.72;">310m · 记录倒地、按压、AED、电击时间点</div>
+      </div>
     </div>
   </div>
 
   <!-- 主任务卡 -->
   <div style="margin:12px 20px 0;background:linear-gradient(135deg,rgba(192,57,43,0.25),rgba(139,42,31,0.2));border:1.5px solid rgba(192,57,43,0.5);border-radius:20px;padding:20px;text-align:center;">
-    <div style="font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.7);letter-spacing:2px;margin-bottom:8px;">系统派单</div>
-    <div style="font-family:var(--serif);font-size:26px;font-weight:900;line-height:1.3;margin-bottom:8px;">取 AED 送到现场</div>
+    <div style="font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.7);letter-spacing:2px;margin-bottom:8px;">协作派单</div>
+    <div style="font-family:var(--serif);font-size:26px;font-weight:900;line-height:1.3;margin-bottom:8px;">取 AED · 准备轮替</div>
     <div style="font-size:13px;opacity:0.85;line-height:1.6;">
       80m 外 · 写字楼1F<br>
-      送到 280m 外的求救现场
+      送到 280m 外的求救现场 · 2 分钟轮替防疲劳
     </div>
   </div>
 
@@ -4858,7 +5168,8 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
     <div style="font-size:13px;line-height:1.7;opacity:0.9;">
       <div>👤 求救者：男，约60岁</div>
       <div>❤ 状态：心脏骤停，正在 CPR</div>
-      <div>👥 现场已 2 人按压 · 1 人指挥</div>
+      <div>👥 小队分工：压缩 / AED / 记录</div>
+      <div>⏱ 轮替提醒：每 2 分钟换压缩手</div>
       <div>📞 120 已派车 · 预计 8 分钟到达</div>
     </div>
   </div>
@@ -4866,7 +5177,7 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   <!-- 操作按钮 -->
   <div style="padding:0 20px 24px;display:flex;flex-direction:column;gap:12px;">
     <button onclick="confirmMission()" style="width:100%;padding:18px;background:#C0392B;color:white;border:2px solid #C0392B;border-radius:16px;font-family:var(--serif);font-size:17px;font-weight:700;box-shadow:0 8px 24px rgba(192,57,43,0.4);">
-      接受任务 · 立即出发
+      接受 AED 角色 · 立即出发
     </button>
     <button onclick="stopMissionAlertLoop();goPage('home');" style="width:100%;padding:14px;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.8);border:1.5px solid rgba(255,255,255,0.15);border-radius:14px;font-size:14px;">
       我无法前往 · 转给其他志愿者
@@ -4894,7 +5205,7 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
     <div style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
       <div style="width:10px;height:10px;background:#F59E0B;border-radius:50%;animation:blink 1s infinite;"></div>
       <div style="flex:1;">
-        <div style="font-size:13px;font-weight:700;">已取到 AED · 跑步前往现场</div>
+        <div style="font-size:13px;font-weight:700;">AED 角色执行中 · 准备接力</div>
         <div style="font-size:11px;opacity:0.75;font-family:var(--mono);">距离 <span id="run-dist">240m</span> · 预计 <span id="run-time">1 分 40 秒</span> 到达</div>
       </div>
     </div>
@@ -4923,7 +5234,7 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   <div style="padding:8px 20px 24px;text-align:center;">
     <div style="font-family:var(--mono);font-size:11px;letter-spacing:2px;color:rgba(255,255,255,0.6);margin-bottom:8px;">系统正在语音指导您</div>
     <div style="font-family:var(--serif);font-size:32px;font-weight:900;line-height:1.2;color:#FF8B5B;margin-bottom:6px;">边跑边听</div>
-    <div style="font-size:14px;opacity:0.85;">不用看屏幕 · 到现场就会用</div>
+    <div style="font-size:14px;opacity:0.85;">到现场先贴片 · 再按 2 分钟轮替</div>
   </div>
 
   <!-- 跑动中的提示卡片(模拟语音内容) -->
@@ -4954,7 +5265,7 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
     <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">
       <div style="font-family:var(--mono);font-size:11px;color:#F59E0B;flex-shrink:0;width:30px;">1:00</div>
       <div style="font-size:13px;line-height:1.6;flex:1;">
-        <strong>"到现场后，告诉按压者：</strong><br><strong style="color:#FF8B5B;">'继续按压，不要停！'</strong><br>您来贴电极片"
+        <strong>"到现场后，告诉按压者：</strong><br><strong style="color:#FF8B5B;">'继续按压，不要停！'</strong><br>您先贴电极片，随后准备轮替"
       </div>
     </div>
 
@@ -4977,9 +5288,10 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   <div style="margin:0 20px 16px;background:rgba(31,138,91,0.1);border:1px solid rgba(31,138,91,0.3);border-radius:14px;padding:14px 16px;">
     <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#34D277;margin-bottom:10px;">现场实时</div>
     <div style="font-size:13px;line-height:1.8;">
-      <div>👥 现场 2 人在按压 · <strong>已 6 分 12 秒</strong></div>
+      <div>👥 压缩手已按压 <strong>1 分 42 秒</strong> · 即将轮替</div>
+      <div>📝 记录员正在记录倒地与按压时间</div>
       <div>📞 120 已派车 · 还有 5 分钟到</div>
-      <div>⚡ 您是<strong style="color:#34D277;">第 1 个</strong>到场的志愿者</div>
+      <div>⚡ 您负责 AED 准备 · 必要时接替压缩</div>
     </div>
   </div>
 
@@ -5010,8 +5322,8 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
   </div>
 
   <div style="padding:24px 20px;text-align:center;">
-    <div style="font-family:var(--serif);font-size:28px;font-weight:900;line-height:1.2;margin-bottom:6px;color:#FF8B5B;">立即接管按压者</div>
-    <div style="font-size:14px;opacity:0.85;">您已经知道怎么用 AED 了，开始操作</div>
+    <div style="font-family:var(--serif);font-size:28px;font-weight:900;line-height:1.2;margin-bottom:6px;color:#FF8B5B;">贴 AED · 准备轮替</div>
+    <div style="font-size:14px;opacity:0.85;">先不中断按压，按系统节拍完成交接</div>
   </div>
 
   <!-- 立即操作步骤 -->
@@ -5020,11 +5332,11 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
         <div style="width:44px;height:44px;background:#C0392B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:900;font-size:22px;flex-shrink:0;">1</div>
         <div style="flex:1;">
-          <div style="font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.3;">大声告诉按压者</div>
+          <div style="font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.3;">大声告诉压缩手</div>
         </div>
       </div>
       <div style="background:rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;font-family:var(--serif);font-size:20px;font-weight:700;text-align:center;color:#FF8B5B;">
-        "继续按压！<br>不要停！"
+        "继续按压！<br>我来贴片！"
       </div>
     </div>
 
@@ -5056,7 +5368,15 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
       <div style="width:40px;height:40px;background:#F59E0B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:900;font-size:20px;flex-shrink:0;">5</div>
       <div style="flex:1;">
         <div style="font-family:var(--serif);font-size:15px;font-weight:700;margin-bottom:2px;">按下电击键 · 立即继续按压</div>
-        <div style="font-size:11px;opacity:0.75;">2 分钟后 AED 会再次分析</div>
+        <div style="font-size:11px;opacity:0.75;">电击后由体力较好的志愿者接替 2 分钟</div>
+      </div>
+    </div>
+
+    <div style="background:rgba(31,138,91,0.12);border:1px solid rgba(31,138,91,0.35);border-radius:14px;padding:16px;margin-bottom:20px;display:flex;align-items:center;gap:14px;">
+      <div style="width:40px;height:40px;background:#1F8A5B;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:900;font-size:20px;flex-shrink:0;">6</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--serif);font-size:15px;font-weight:700;margin-bottom:2px;">按 2 分钟节拍轮替</div>
+        <div style="font-size:11px;opacity:0.75;">压缩手、AED 手交替上手，记录员报时</div>
       </div>
     </div>
   </div>
@@ -5667,6 +5987,8 @@ function stopRhythmTraining(showConfirm) {
 // ============ 页面导航 ============
 let currentPage = 'home';
 function goPage(id) {
+  stopContextVoiceForPage(id);
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   currentPage = id;
@@ -5689,6 +6011,14 @@ function goPage(id) {
     clearInterval(missionMapTimer);
     missionMapTimer = null;
   }
+  if (id !== 'aed-running' && missionStartTimer) {
+    clearTimeout(missionStartTimer);
+    missionStartTimer = null;
+  }
+
+  if (id !== 'home' && id !== 'aed-mission') {
+    stopMissionAlertLoop();
+  }
 
   // 重置紧急页阶段
   if (id === 'rescue') {
@@ -5697,6 +6027,15 @@ function goPage(id) {
     flowAborted = true;
     stopCPR();
     flowAborted = false;
+  }
+}
+
+function stopContextVoiceForPage(nextPage) {
+  if (!currentPage || currentPage === nextPage) return;
+
+  const voicePages = ['rescue', 'helper', 'aed-mission', 'aed-running', 'aed-arrived', 'cpr-rhythm', 'train-cpr-flow', 'train-aed', 'train-heimlich', 'train-scenario'];
+  if (voicePages.includes(currentPage) || voicePages.includes(nextPage)) {
+    stopVoice();
   }
 }
 
@@ -5724,6 +6063,7 @@ let helpTimer = null;
 let loopTimer = null;
 let ventTimer = null;
 let aedTimer = null;
+let flowTimeouts = [];
 let audioCtx = null;
 let currentStep = 0;
 let ventStep = 0;
@@ -5790,8 +6130,8 @@ function startMissionAlertLoop() {
     if (currentPage === 'home' || currentPage === 'aed-mission') {
       playMissionAlertSound();
       speakSequence([
-        { text: '紧急任务！100米外有人需要AED！', rate: 1.25, pitch: 1.1, volume: 1.0 },
-        { text: '你是距离最近的一位，请立即查看！', rate: 1.25, pitch: 1.1, volume: 1.0 }
+        { text: '紧急任务！100米外需要 C P R 协作！', rate: 1.25, pitch: 1.1, volume: 1.0 },
+        { text: '系统正在呼叫三人小队，你负责 A E D 准备和轮替！', rate: 1.2, pitch: 1.1, volume: 1.0 }
       ]);
     } else {
       stopMissionAlertLoop();
@@ -5807,8 +6147,8 @@ function stopMissionAlertLoop() {
   if (missionAlertTimer) {
     clearInterval(missionAlertTimer);
     missionAlertTimer = null;
-    voice.stop(); // 停止当前正在播报的紧急语音
   }
+  stopVoice(); // 停止当前正在播报的紧急语音，即使定时器已被清掉也要执行
 }
 
 // 启动遮罩：点击即解锁音频 + 触发任务语音
@@ -5840,6 +6180,7 @@ class VoiceManager {
     this.bestVoice = null;
     this.voicesReady = false;
     this.audioCtx = null;
+    this.stopToken = 0;
     this.init();
   }
 
@@ -5900,11 +6241,11 @@ class VoiceManager {
 
     if (priority === 'URGENT') {
       // 紧急任务：清空队列直接插播
-      window.speechSynthesis.cancel();
+      this.stop();
       this.queue = [];
     }
 
-    this.queue.push({ utterance, onstart, onend });
+    this.queue.push({ utterance, onstart, onend, token: this.stopToken });
     if (!this.isPlaying) this.processQueue();
   }
 
@@ -5915,23 +6256,31 @@ class VoiceManager {
     }
 
     this.isPlaying = true;
-    const { utterance, onstart, onend } = this.queue.shift();
+    const { utterance, onstart, onend, token } = this.queue.shift();
+    if (token !== this.stopToken) {
+      this.processQueue();
+      return;
+    }
 
     utterance.onstart = () => {
+      if (token !== this.stopToken) return;
       if (onstart) onstart();
     };
 
     utterance.onend = () => {
+      if (token !== this.stopToken) return;
       if (onend) onend();
       // 模拟人类“呼吸感”停顿：指令之间自动停 200ms
-      setTimeout(() => this.processQueue(), 200);
+      setTimeout(() => {
+        if (token === this.stopToken) this.processQueue();
+      }, 200);
     };
 
     utterance.onerror = () => {
-      this.processQueue();
+      if (token === this.stopToken) this.processQueue();
     };
 
-    window.speechSynthesis.speak(utterance);
+    if (window.speechSynthesis) window.speechSynthesis.speak(utterance);
   }
 
   // 快捷播报：指令型
@@ -5951,14 +6300,23 @@ class VoiceManager {
 
   // 停止所有播报
   stop() {
-    window.speechSynthesis.cancel();
+    this.stopToken++;
     this.queue = [];
     this.isPlaying = false;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
   }
 }
 
 // 实例化全局语音管理器
 const voice = new VoiceManager();
+
+function stopVoice() {
+  if (voice && typeof voice.stop === 'function') {
+    voice.stop();
+  } else if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+}
 
 // 兼容旧的 speak 函数
 function speak(text, opts = {}) {
@@ -6022,7 +6380,7 @@ function startRescueFlow() {
 function abortFlow(reason) {
   flowAborted = true;
   stopAllTimers();
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  stopVoice();
   alert(`已暂停流程：${reason}\n\n实际场景下：\n• "有反应"→ 安抚患者+继续观察\n• "有正常呼吸"→ 转为侧卧位+持续监测\n• 始终保持联系 120`);
 }
 
@@ -6085,6 +6443,7 @@ function updateStepTitle(n) {
 }
 
 function stopAllTimers() {
+  clearFlowTimeouts();
   if (cprInterval) { clearInterval(cprInterval); cprInterval = null; }
   if (breathTimer) { clearInterval(breathTimer); breathTimer = null; }
   if (consciousTimer) { clearInterval(consciousTimer); consciousTimer = null; }
@@ -6094,14 +6453,28 @@ function stopAllTimers() {
   if (aedTimer) { clearInterval(aedTimer); aedTimer = null; }
 }
 
+function setFlowTimeout(callback, delay) {
+  const timer = setTimeout(() => {
+    flowTimeouts = flowTimeouts.filter(t => t !== timer);
+    callback();
+  }, delay);
+  flowTimeouts.push(timer);
+  return timer;
+}
+
+function clearFlowTimeouts() {
+  flowTimeouts.forEach(timer => clearTimeout(timer));
+  flowTimeouts = [];
+}
+
 // 步骤 1：呼救（5 秒后自动进下一步）
 function startHelpStep() {
   // 用紧迫语气连续播报
   speakSequence([
     { text: '请这位先生', rate: 1.15, pause: 100 },
     { text: '立即拨打120！', rate: 1.25, pitch: 1.1, pause: 600 },
-    { text: '系统已派志愿者', rate: 1.1, pause: 100 },
-    { text: '带 A E D 过来', rate: 1.1, pause: 500 },
+    { text: '系统已派三名志愿者', rate: 1.1, pause: 100 },
+    { text: '分别负责按压，A E D，和现场记录', rate: 1.1, pause: 500 },
     { text: '您不用自己去找', rate: 1.0, pause: 400 },
     { text: '准备开始按压', rate: 1.1, pitch: 1.05 },
   ]);
@@ -6165,7 +6538,7 @@ function startBreathStep() {
   let breathSpeaking = false;
 
   // 5.5 秒后开始报数（让前面的语音播完）
-  setTimeout(() => {
+  setFlowTimeout(() => {
     breathTimer = setInterval(() => {
       if (flowAborted) { clearInterval(breathTimer); return; }
       elapsed += 0.1;
@@ -6178,9 +6551,9 @@ function startBreathStep() {
         // 语音只在不忙时说
         if (!breathSpeaking && window.speechSynthesis) {
           try {
-            window.speechSynthesis.cancel();
+            stopVoice();
             const u = new SpeechSynthesisUtterance(String(newCount));
-            u.voice = bestVoice;
+            u.voice = voice.bestVoice;
             u.lang = 'zh-CN';
             u.rate = 1.5;
             u.onstart = () => { breathSpeaking = true; };
@@ -6193,8 +6566,8 @@ function startBreathStep() {
 
       if (elapsed >= 7) {
         clearInterval(breathTimer);
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
-        setTimeout(() => goStep(4), 300);
+        stopVoice();
+        setFlowTimeout(() => goStep(4), 300);
       }
     }, 100);
   }, 5500);
@@ -6219,14 +6592,14 @@ function startCompression() {
 
   // 第一组先讲解，后续组直接开始
   if (cprRounds === 0) {
-    setTimeout(() => speak('开始胸外按压'), 200);
-    setTimeout(() => speak('双掌交叠，按在胸骨中下段'), 2000);
-    setTimeout(() => speak('用力下压5到6厘米，跟我数'), 4500);
+    setFlowTimeout(() => speak('开始胸外按压'), 200);
+    setFlowTimeout(() => speak('双掌交叠，按在胸骨中下段'), 2000);
+    setFlowTimeout(() => speak('用力下压5到6厘米，跟我数'), 4500);
 
-    setTimeout(() => startPressLoop(), 7500);
+    setFlowTimeout(() => startPressLoop(), 7500);
   } else {
-    setTimeout(() => speak('继续按压，跟我数'), 200);
-    setTimeout(() => startPressLoop(), 1800);
+    setFlowTimeout(() => speak('继续按压，跟我数'), 200);
+    setFlowTimeout(() => startPressLoop(), 1800);
   }
 }
 
@@ -6242,9 +6615,9 @@ function startPressLoop() {
       clearInterval(cprInterval);
       cprInterval = null;
       // 取消所有未播完的 TTS 队列
-      if (window.speechSynthesis) window.speechSynthesis.cancel();
-      setTimeout(() => speak('完成30次，准备人工呼吸'), 200);
-      setTimeout(() => goStep(5), 1800);
+      stopVoice();
+      setFlowTimeout(() => speak('完成30次，准备人工呼吸'), 200);
+      setFlowTimeout(() => goStep(5), 1800);
       return;
     }
 
@@ -6266,7 +6639,7 @@ function startPressLoop() {
         try {
           if (window.speechSynthesis) {
             // 清空队列避免堆积
-            window.speechSynthesis.cancel();
+            stopVoice();
 
             const word = numberToChinese(cprCount);
             const u = new SpeechSynthesisUtterance(word);
@@ -6309,13 +6682,13 @@ function startVentilation() {
 
   // 第一组才详细讲解，后续直接进入
   if (cprRounds === 0) {
-    setTimeout(() => speak('开始人工呼吸，仰头抬下巴'), 200);
-    setTimeout(() => speak('清理口腔异物'), 2200);
-    setTimeout(() => speak('捏住鼻子，吹一口气'), 4200);
-    setTimeout(() => runVentRound(), 6200);
+    setFlowTimeout(() => speak('开始人工呼吸，仰头抬下巴'), 200);
+    setFlowTimeout(() => speak('清理口腔异物'), 2200);
+    setFlowTimeout(() => speak('捏住鼻子，吹一口气'), 4200);
+    setFlowTimeout(() => runVentRound(), 6200);
   } else {
-    setTimeout(() => speak('人工呼吸 2 次'), 200);
-    setTimeout(() => runVentRound(), 1500);
+    setFlowTimeout(() => speak('人工呼吸 2 次'), 200);
+    setFlowTimeout(() => runVentRound(), 1500);
   }
 }
 
@@ -6362,12 +6735,12 @@ function runVentRound() {
       ventRound++;
       if (ventRound <= 2) {
         // 自动开始第 2 次
-        setTimeout(() => runVentRound(), 600);
+        setFlowTimeout(() => runVentRound(), 600);
       } else {
         // 完成 2 次人工呼吸，进入循环
         cprRounds++;
         speak('完成一组循环');
-        setTimeout(() => goStep('loop'), 1200);
+        setFlowTimeout(() => goStep('loop'), 1200);
       }
     }
   }, 100);
@@ -6394,7 +6767,7 @@ function resetCprCount() {
     clearInterval(cprInterval);
     cprInterval = null;
   }
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  stopVoice();
 
   // 重置计数
   cprCount = 0;
@@ -6406,7 +6779,7 @@ function resetCprCount() {
   speak('已重置，从 1 开始', { rate: 1.15 });
 
   // 1.5 秒后重新开始
-  setTimeout(() => {
+  setFlowTimeout(() => {
     if (flowAborted) return;
     document.getElementById('press-label').textContent = '跟屏幕数字按压';
     startPressLoop();
@@ -6421,7 +6794,7 @@ function startAedInterrupt() {
     clearInterval(cprInterval);
     cprInterval = null;
   }
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  stopVoice();
   if (aedTimer) { clearInterval(aedTimer); aedTimer = null; }
 
   // 隐藏按压页 + 显示AED介入页
@@ -6491,7 +6864,7 @@ function runAedStage() {
       document.getElementById('cpr-count').textContent = '0';
       document.getElementById('press-num').textContent = '0';
       document.getElementById('press-label').textContent = '电击后 · 重新开始';
-      setTimeout(() => {
+      setFlowTimeout(() => {
         if (flowAborted) return;
         document.getElementById('press-label').textContent = '跟屏幕数字按压';
         startPressLoop();
@@ -6520,7 +6893,7 @@ function runAedTimer(seconds, callback) {
 
 function cancelAedInterrupt() {
   if (aedTimer) { clearInterval(aedTimer); aedTimer = null; }
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  stopVoice();
   document.getElementById('step-aed').style.display = 'none';
   document.getElementById('step-4').style.display = 'block';
   // 重置计数（因为按压已经中断了几秒）
@@ -6528,7 +6901,7 @@ function cancelAedInterrupt() {
   document.getElementById('cpr-count').textContent = '0';
   document.getElementById('press-num').textContent = '0';
   document.getElementById('press-label').textContent = '从 1 重新开始';
-  setTimeout(() => {
+  setFlowTimeout(() => {
     if (flowAborted) return;
     document.getElementById('press-label').textContent = '跟屏幕数字按压';
     startPressLoop();
@@ -6538,6 +6911,7 @@ function cancelAedInterrupt() {
 // 志愿者接受 AED 任务
 // ============ 志愿者任务地图动画 ============
 let missionMapTimer = null;
+let missionStartTimer = null;
 let missionDistance = 240;
 let missionTimeRemaining = 100;
 
@@ -6590,8 +6964,8 @@ function startAedRunningSimulation() {
     
     // 触发语音里程碑
     if (missionDistance === 180) speak('继续保持步伐，距离现场 180 米');
-    if (missionDistance === 120) speak('还有 120 米，准备好接管按压');
-    if (missionDistance === 30) speak('即将到达现场，请大声喊：继续按压，不要停');
+    if (missionDistance === 120) speak('还有 120 米，准备好贴 A E D 电极片，并在两分钟后轮替');
+    if (missionDistance === 30) speak('即将到达现场，请大声喊：继续按压，我来贴片');
     
   }, 1000);
 }
@@ -6615,16 +6989,16 @@ function confirmMission() {
             <span style="color:var(--green);">✓</span> 您的实时地理位置 (GPS)
           </div>
           <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-mute);">
-            <span style="color:var(--green);">✓</span> 设备唯一标识与手机号
+            <span style="color:var(--green);">✓</span> AED 取用、到场与电击时间戳
           </div>
           <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-mute);">
-            <span style="color:var(--green);">✓</span> 救援过程中的轨迹记录
+            <span style="color:var(--green);">✓</span> 小队分工、轮替与现场记录同步
           </div>
         </div>
       </div>
 
       <div style="font-size:12px;color:var(--ink-mute);margin-bottom:20px;text-align:center;">
-        点击“确认前往”即代表您已准备好并承诺尽力施救
+        点击“确认前往”即代表您接受 AED 准备/轮替角色并承诺尽力施救
       </div>
 
       <div style="display:flex;gap:12px;">
@@ -6640,7 +7014,11 @@ function acceptAedMission() {
   stopMissionAlertLoop();
   goPage('aed-running');
   startAedRunningGuide();
-  setTimeout(startAedRunningSimulation, 1000);
+  if (missionStartTimer) clearTimeout(missionStartTimer);
+  missionStartTimer = setTimeout(() => {
+    missionStartTimer = null;
+    if (currentPage === 'aed-running') startAedRunningSimulation();
+  }, 1000);
 }
 
 // 跑动中的语音引导
@@ -6650,16 +7028,16 @@ function startAedRunningGuide() {
     { text: '已接受任务', rate: 1.05, pause: 200 },
     { text: '请保持步伐', rate: 1.1, pitch: 1.05, pause: 800 },
     { text: '现在边跑边听', rate: 1.05, pause: 400 },
-    { text: '我会告诉您 A E D 怎么用', rate: 1.05, pause: 1200 },
+    { text: '我会告诉您 A E D 怎么用，以及什么时候轮替', rate: 1.05, pause: 1200 },
     { text: '揭开盖子', rate: 1.1, pause: 200 },
     { text: 'A E D 自动开机', rate: 1.1, pause: 800 },
     { text: '电极片', rate: 1.1, pause: 100 },
     { text: '一片贴右胸上方', rate: 1.05, pause: 200 },
     { text: '一片贴左侧腋下', rate: 1.05, pause: 1000 },
     { text: '到现场后', rate: 1.05, pause: 200 },
-    { text: '告诉按压者', rate: 1.05, pause: 200 },
-    { text: '继续按压不要停！', rate: 1.2, pitch: 1.1, pause: 800 },
-    { text: '您来贴电极片', rate: 1.05 },
+    { text: '告诉压缩手', rate: 1.05, pause: 200 },
+    { text: '继续按压不要停，我来贴片！', rate: 1.2, pitch: 1.1, pause: 800 },
+    { text: '两分钟后准备轮替压缩', rate: 1.05 },
   ]);
 }
 
@@ -6689,7 +7067,7 @@ function stopCPR() {
   flowAborted = true;
   stopAllTimers();
   if (cprTotalTimer) { clearInterval(cprTotalTimer); cprTotalTimer = null; }
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  stopVoice();
   cprCount = 0;
   cprRounds = 0;
   cprTotalSeconds = 0;
