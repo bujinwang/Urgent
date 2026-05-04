@@ -1,5 +1,4 @@
-   <style>
-   :root {
+:root {
      --rescue-red: #C0392B;
      --rescue-red-deep: #8B2A1F;
      --rescue-red-soft: #FFE8E5;
@@ -1421,28 +1420,65 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
 }
 
 .helpers-bar {
-  background: rgba(31, 138, 91, 0.15);
-  border: 1px solid rgba(31, 138, 91, 0.3);
-  border-radius: 14px;
-  padding: 12px 16px;
+  background: linear-gradient(90deg, rgba(31, 138, 91, 0.25) 0%, rgba(31, 138, 91, 0.05) 100%);
+  border: 1px solid rgba(52, 210, 119, 0.25);
+  border-radius: 16px;
+  padding: 14px 18px;
   margin: 0 20px 16px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.helpers-bar:active {
+  transform: scale(0.98);
+  background: linear-gradient(90deg, rgba(31, 138, 91, 0.3) 0%, rgba(31, 138, 91, 0.1) 100%);
 }
 .helpers-dot {
+  position: relative;
   width: 10px; height: 10px;
   background: #34D277;
   border-radius: 50%;
   box-shadow: 0 0 12px #34D277;
-  animation: blink 1.6s infinite;
+}
+.helpers-dot::after {
+  content: "";
+  position: absolute;
+  top: -4px; left: -4px; right: -4px; bottom: -4px;
+  border-radius: 50%;
+  border: 1.5px solid #34D277;
+  opacity: 0;
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
 }
 .helpers-text {
   flex: 1;
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.95);
+}
+.helpers-text strong {
+  font-weight: 700;
+  color: #34D277;
+  font-family: var(--mono);
+  font-size: 15px;
 }
 .helpers-arrow {
-  opacity: 0.6;
+  opacity: 0.8;
+  font-size: 18px;
+  color: #34D277;
+  transition: transform 0.2s;
+}
+.helpers-bar:hover .helpers-arrow {
+  transform: translateX(4px);
 }
 
 /* ============ AED 地图 ============ */
@@ -3518,3 +3554,88 @@ button { border: none; background: none; font-family: inherit; cursor: pointer; 
 .home-activity-title {
   font-size: 13px;
   font-weight: 600;
+  margin-bottom: 3px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.home-activity-meta {
+  font-size: 11px;
+  color: var(--ink-mute);
+}
+
+/* ========================================= */
+/* 紧急任务响应 (aed-mission) 样式补充 */
+/* ========================================= */
+
+.mission-status-badge {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(192,57,43,0.2);
+  border: 1px solid rgba(192,57,43,0.5);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #FF8B5B;
+}
+
+.mission-status-badge::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #FF6B5B;
+  border-radius: 50%;
+  margin-right: 8px;
+  animation: blink 1s infinite;
+}
+
+.mission-team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mission-team-item {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: center;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.3s;
+}
+
+.mission-team-item.active {
+  background: rgba(192, 57, 43, 0.15);
+  border-color: rgba(192, 57, 43, 0.4);
+}
+
+.mission-team-role {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+}
+
+.mission-team-user {
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+}
+
+.mission-team-status {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.mission-team-item:nth-child(1) .mission-team-status {
+  color: #34D277;
+}
+.mission-team-item:nth-child(2) .mission-team-status {
+  color: #FF6B5B;
+}
+.mission-team-item:nth-child(3) .mission-team-status {
+  color: #F59E0B;
+}

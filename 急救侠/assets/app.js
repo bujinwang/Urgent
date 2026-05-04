@@ -1,4 +1,3 @@
-<script>
 // ============ 通用浮层控制 ============
 function openSheet(title, content) {
   document.getElementById('sheet-title').textContent = title;
@@ -13,6 +12,247 @@ function closeSheet() {
   document.getElementById('modal-overlay').classList.remove('active');
   document.getElementById('bottom-sheet').classList.remove('active');
   document.body.style.overflow = '';
+}
+
+function summonVolunteersForGuide(type) {
+  const typeNames = {
+    'heimlich': '异物窒息',
+    'bleeding': '大出血',
+    'fracture': '外伤骨折',
+    'transport': '伤员搬运',
+    'psychological': '心理干预'
+  };
+  const name = typeNames[type] || '紧急';
+  
+  const content = `
+    <div style="text-align:center;padding:10px 0;">
+      <div style="font-size:48px;margin-bottom:16px;animation:launchPulse 1.5s infinite;">📡</div>
+      <div style="font-family:var(--serif);font-size:22px;font-weight:700;margin-bottom:8px;">正在呼叫周边志愿者</div>
+      <div style="font-size:14px;color:var(--ink-soft);line-height:1.6;margin-bottom:24px;">
+        系统正向 1km 内具备<strong>${name}处理经验</strong>的急救侠发送紧急求助
+      </div>
+      <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);padding:14px;border-radius:12px;margin-bottom:24px;display:flex;align-items:center;gap:10px;text-align:left;">
+        <div style="width:10px;height:10px;background:#F59E0B;border-radius:50%;animation:blink 1.2s infinite;"></div>
+        <div style="font-size:13px;color:#D97706;font-weight:700;">5 名具备经验的志愿者已收到请求，等待响应…</div>
+      </div>
+      <button onclick="closeSheet()" style="width:100%;background:var(--ink);color:white;border:none;padding:16px;border-radius:14px;font-size:16px;font-weight:700;">返回继续处理</button>
+    </div>
+  `;
+  stopVoice();
+  openSheet('请求志愿者协助', content);
+  speakSequence([
+    { text: '已向附近志愿者发送紧急求助', rate: 1.15 },
+    { text: '请先按屏幕指南进行初步处理', rate: 1.1 }
+  ]);
+}
+
+function showEmergencyGuide(type) {
+  const guides = {
+    'heimlich': {
+      title: '气道异物梗阻 (海姆立克)',
+      voice: '发现气道异物梗阻，请使用海姆立克急救法。口诀：剪刀、石头、布！向内、向上，快速冲击五次。',
+      content: `
+        <style>
+          .ai-illustration {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 16px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+            animation: float-img 4s ease-in-out infinite;
+          }
+          @keyframes float-img {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+          }
+        </style>
+        <div style="text-align:center;">
+          <div style="margin-bottom:20px;position:relative;">
+            <img src="assets/heimlich.png" class="ai-illustration" alt="海姆立克急救法">
+            <div style="position:absolute; bottom:12px; right:16px; font-family:var(--mono); font-size:10px; color:#10B981; letter-spacing:1px; background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:10px; backdrop-filter:blur(4px);">
+              <span style="display:inline-block;width:6px;height:6px;background:#10B981;border-radius:50%;margin-right:4px;animation:blink 1s infinite;"></span>
+              MEDICAL AI SIMULATION
+            </div>
+          </div>
+          <div style="background:#f3f4f6;border-radius:12px;padding:16px;margin-bottom:16px;">
+            <div style="font-weight:700;margin-bottom:6px;color:#E74C3C;">⚠️ 核心判断依据</div>
+            <div style="font-size:13px;color:#555;">患者无法发声、憋气面色紫绀、双手不由自主抓住颈部（"V"字手势）。</div>
+          </div>
+          <div style="text-align:left;font-size:14px;line-height:1.7;background:rgba(231,76,60,0.05);padding:16px;border-radius:12px;border:1px solid rgba(231,76,60,0.1);">
+            <strong style="color:#E74C3C;font-size:15px;">【动作口诀：剪刀、石头、布】</strong><br><br>
+            <strong>1. 剪刀：</strong>找到肚脐上两指位置。<br>
+            <strong>2. 石头：</strong>一手握拳，拳眼（大拇指侧）向内抵住该位置。<br>
+            <strong>3. 布：</strong>另一手包住拳头，<strong style="color:#E74C3C;">向内、向上</strong>快速冲击 5 次。<br>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:24px;">
+            <button onclick="stopVoice();closeSheet();" style="flex:1;background:#E5E7EB;color:#374151;border:none;padding:16px;border-radius:14px;font-size:15px;font-weight:700;">自己处理</button>
+            <button onclick="summonVolunteersForGuide('heimlich')" style="flex:1.5;background:var(--rescue-red);color:white;border:none;padding:16px;border-radius:14px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 6px 16px rgba(231,76,60,0.3);">
+              <span>🙋</span> 呼叫志愿者
+            </button>
+          </div>
+        </div>
+      `
+    },
+    'bleeding': {
+      title: '大出血急救',
+      voice: '发现大出血，请立即使用干净敷料直接压迫伤口，持续五到十分钟。',
+      content: `
+        <style>
+          .ai-illustration {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 16px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+            animation: float-img 4s ease-in-out infinite;
+          }
+        </style>
+        <div style="text-align:center;">
+          <div style="margin-bottom:20px;position:relative;">
+            <img src="assets/bleeding.png" class="ai-illustration" alt="大出血急救">
+            <div style="position:absolute; bottom:12px; right:16px; font-family:var(--mono); font-size:10px; color:#EF4444; letter-spacing:1px; background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:10px; backdrop-filter:blur(4px);">
+              <span style="display:inline-block;width:6px;height:6px;background:#EF4444;border-radius:50%;margin-right:4px;animation:blink 1s infinite;"></span>
+              MEDICAL AI SIMULATION
+            </div>
+          </div>
+          <div style="text-align:left;font-size:14px;line-height:1.6;">
+            <strong>【核心操作：直接压迫止血】</strong><br><br>
+            <strong>1. 压迫：</strong>用干净敷料（或衣物）直接用力按压伤口 5-10 分钟。<br>
+            <strong>2. 抬高：</strong>若没有骨折，将出血部位抬高至心脏以上。<br>
+            <strong>3. 包扎：</strong>血止住后，用绷带或三角巾进行螺旋包扎或回返形包扎固定。<br>
+            <em style="color:#E74C3C;font-size:12px;">* 切勿随意拿开敷料查看，若血渗出可加盖敷料继续压迫。</em>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:24px;">
+            <button onclick="stopVoice();closeSheet();" style="flex:1;background:#E5E7EB;color:#374151;border:none;padding:16px;border-radius:14px;font-size:15px;font-weight:700;">自己处理</button>
+            <button onclick="summonVolunteersForGuide('bleeding')" style="flex:1.5;background:var(--rescue-red);color:white;border:none;padding:16px;border-radius:14px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;">
+              <span>🙋</span> 呼叫志愿者
+            </button>
+          </div>
+        </div>
+      `
+    },
+    'fracture': {
+      title: '骨折外伤固定',
+      voice: '发现疑似骨折，请就地取材进行原位固定，切勿随意搬动或复位。',
+      content: `
+        <style>
+          .ai-illustration {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 16px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+            animation: float-img 4s ease-in-out infinite;
+          }
+        </style>
+        <div style="text-align:center;">
+          <div style="margin-bottom:20px;position:relative;">
+            <img src="assets/fracture.png" class="ai-illustration" alt="骨折外伤固定">
+            <div style="position:absolute; bottom:12px; right:16px; font-family:var(--mono); font-size:10px; color:#06B6D4; letter-spacing:1px; background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:10px; backdrop-filter:blur(4px);">
+              <span style="display:inline-block;width:6px;height:6px;background:#06B6D4;border-radius:50%;margin-right:4px;animation:blink 1s infinite;"></span>
+              MEDICAL AI SIMULATION
+            </div>
+          </div>
+          <div style="text-align:left;font-size:14px;line-height:1.6;">
+            <strong>【核心操作：原位固定防二次损伤】</strong><br><br>
+            <strong>1. 不乱动：</strong>切勿尝试复位或将突出的骨头按回。<br>
+            <strong>2. 找支撑：</strong>就地取材（木板、树枝、硬纸板）作为夹板。<br>
+            <strong>3. 绑扎：</strong>用布条或三角巾在骨折上下两端固定，松紧适宜，露出指/趾端观察血运。<br>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:24px;">
+            <button onclick="stopVoice();closeSheet();" style="flex:1;background:#E5E7EB;color:#374151;border:none;padding:16px;border-radius:14px;font-size:15px;font-weight:700;">自己处理</button>
+            <button onclick="summonVolunteersForGuide('fracture')" style="flex:1.5;background:var(--rescue-red);color:white;border:none;padding:16px;border-radius:14px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;">
+              <span>🙋</span> 呼叫志愿者
+            </button>
+          </div>
+        </div>
+      `
+    },
+    'transport': {
+      title: '伤员搬运',
+      voice: '发现疑似脊柱损伤，严禁一人抱头一人搬腿，必须三人以上使用硬板轴线平移。',
+      content: `
+        <style>
+          .ai-illustration {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 16px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+            animation: float-img 4s ease-in-out infinite;
+          }
+        </style>
+        <div style="text-align:center;">
+          <div style="margin-bottom:20px;position:relative;">
+            <img src="assets/transport.png" class="ai-illustration" alt="伤员搬运">
+            <div style="position:absolute; bottom:12px; right:16px; font-family:var(--mono); font-size:10px; color:#F59E0B; letter-spacing:1px; background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:10px; backdrop-filter:blur(4px);">
+              <span style="display:inline-block;width:6px;height:6px;background:#F59E0B;border-radius:50%;margin-right:4px;animation:blink 1s infinite;"></span>
+              MEDICAL AI SIMULATION
+            </div>
+          </div>
+          <div style="text-align:left;font-size:14px;line-height:1.6;">
+            <strong>【核心操作：轴线翻身与平移】</strong><br><br>
+            <strong>1. 严禁软担架：</strong>禁止一人抱头、一人搬腿，必须使用硬板。<br>
+            <strong>2. 轴线翻身：</strong>3-4人协作，一人专职固定头部，其他人托住肩背、腰、腿，口令一致同时翻转，保持头、颈、躯干在同一水平线。<br>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:24px;">
+            <button onclick="stopVoice();closeSheet();" style="flex:1;background:#E5E7EB;color:#374151;border:none;padding:16px;border-radius:14px;font-size:15px;font-weight:700;">自己处理</button>
+            <button onclick="summonVolunteersForGuide('transport')" style="flex:1.5;background:var(--rescue-red);color:white;border:none;padding:16px;border-radius:14px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;">
+              <span>🙋</span> 呼叫志愿者
+            </button>
+          </div>
+        </div>
+      `
+    },
+    'psychological': {
+      title: '紧急心理干预',
+      voice: '面对突发情况，请保持冷静。深呼吸，告知患者救援已经在路上，持续陪伴并安抚其情绪。',
+      content: `
+        <style>
+          .ai-illustration {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 16px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+            animation: float-img 4s ease-in-out infinite;
+          }
+        </style>
+        <div style="text-align:center;">
+          <div style="margin-bottom:20px;position:relative;">
+            <img src="assets/psychological.png" class="ai-illustration" alt="紧急心理干预">
+            <div style="position:absolute; bottom:12px; right:16px; font-family:var(--mono); font-size:10px; color:#A855F7; letter-spacing:1px; background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:10px; backdrop-filter:blur(4px);">
+              <span style="display:inline-block;width:6px;height:6px;background:#A855F7;border-radius:50%;margin-right:4px;animation:blink 1s infinite;"></span>
+              MEDICAL AI SIMULATION
+            </div>
+          </div>
+          <div style="text-align:left;font-size:14px;line-height:1.6;">
+            <strong>【核心操作：情绪降级与陪伴】</strong><br><br>
+            <strong>1. 保持冷静：</strong>你的情绪会感染患者，请使用平稳、有力的语调说话。<br>
+            <strong>2. 传递安全感：</strong>明确告知“我已经呼叫了急救车，救援马上就到，我会一直在这里陪你”。<br>
+            <strong>3. 转移注意力：</strong>引导患者进行缓慢深呼吸（如：吸气4秒，呼气6秒），避免其关注伤情。<br>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:24px;">
+            <button onclick="stopVoice();closeSheet();" style="flex:1;background:#E5E7EB;color:#374151;border:none;padding:16px;border-radius:14px;font-size:15px;font-weight:700;">自己处理</button>
+            <button onclick="summonVolunteersForGuide('psychological')" style="flex:1.5;background:var(--rescue-red);color:white;border:none;padding:16px;border-radius:14px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;">
+              <span>🙋</span> 呼叫志愿者
+            </button>
+          </div>
+        </div>
+      `
+    }
+  };
+
+  const g = guides[type];
+  if(g) {
+    stopVoice();
+    if (g.voice) {
+      setTimeout(() => {
+        voice.speak(g.voice, { rate: 1.15, volume: 1.0, priority: 'URGENT' });
+      }, 300);
+    }
+    openSheet(g.title, g.content);
+  }
 }
 
 function simulateScan() {
@@ -531,10 +771,44 @@ let currentPage = 'home';
 function goPage(id) {
   stopContextVoiceForPage(id);
 
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  currentPage = id;
-  window.scrollTo(0, 0);
+  const el = document.getElementById(id);
+  const isIndexPage = !!document.getElementById('home');
+
+  if (!el) {
+    // 页面不在当前文件中，尝试跳转
+    const routes = {
+      'news': 'news.html',
+      'case-detail': 'case-detail.html',
+      'home': 'index.html',
+      'aed': 'index.html#aed',
+      'learn': 'index.html#learn',
+      'cert': 'index.html#cert',
+      'rescue': 'index.html#rescue',
+      'atlas': 'index.html#atlas',
+      'volunteer': 'index.html#volunteer',
+      'helper': 'index.html#helper'
+    };
+    if (routes[id]) {
+      window.location.href = routes[id];
+      return;
+    }
+  }
+
+  if (el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    currentPage = id;
+    window.scrollTo(0, 0);
+
+    // 如果在首页，更新 hash 以支持刷新和分享
+    if (isIndexPage) {
+      if (id === 'home') {
+        history.replaceState(null, null, window.location.pathname);
+      } else {
+        history.replaceState(null, null, '#' + id);
+      }
+    }
+  }
 
   // 更新底部 tab 高亮
   const pageToTab = { home: 'home', aed: 'aed', learn: 'learn', cert: 'cert', train: 'learn', volunteer: 'cert', atlas: 'home' };
@@ -545,8 +819,10 @@ function goPage(id) {
 
   // 紧急救援/路人协助/志愿者任务 页隐藏底部导航
   const tabbar = document.getElementById('tabbar');
-  const hiddenPages = ['rescue', 'helper', 'aed-contact', 'aed-mission', 'aed-running', 'aed-arrived', 'cpr-rhythm', 'train-cpr-flow', 'train-aed', 'train-heimlich', 'train-scenario', 'news', 'case-detail'];
-  tabbar.style.display = hiddenPages.includes(id) ? 'none' : 'flex';
+  if (tabbar) {
+    const hiddenPages = ['rescue', 'helper', 'aed-contact', 'aed-mission', 'aed-running', 'aed-arrived', 'cpr-rhythm', 'train-cpr-flow', 'train-aed', 'train-heimlich', 'train-scenario', 'news', 'case-detail'];
+    tabbar.style.display = hiddenPages.includes(id) ? 'none' : 'flex';
+  }
 
   // 停止地图模拟
   if (id !== 'aed-running' && missionMapTimer) {
@@ -571,6 +847,18 @@ function goPage(id) {
     flowAborted = false;
   }
 }
+
+// 监听 hash 变化
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash.replace('#', '');
+  if (hash) goPage(hash);
+});
+
+// 页面加载时检查 hash
+window.addEventListener('load', () => {
+  const hash = window.location.hash.replace('#', '');
+  if (hash) goPage(hash);
+});
 
 function stopContextVoiceForPage(nextPage) {
   if (!currentPage || currentPage === nextPage) return;
@@ -614,23 +902,37 @@ let flowAborted = false;
 
 function initAudio() {
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
   } catch(e) {}
 }
 
 function playClick() {
   try {
     if (!audioCtx) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.frequency.value = 880;
-    osc.type = 'square';
-    gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.04);
+    
+    const play = () => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'square';
+      gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.04);
+    };
+
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(play).catch(() => {});
+    } else {
+      play();
+    }
   } catch(e) {}
 }
 
@@ -639,23 +941,31 @@ function playMissionAlertSound() {
   try {
     initAudio();
     if (!audioCtx) return;
-    const now = audioCtx.currentTime;
     
-    // 模拟类似手机警报的急促双音
-    for(let i=0; i<3; i++) {
-      const start = now + i * 0.4;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(900, start);
-      osc.frequency.exponentialRampToValueAtTime(1200, start + 0.1);
-      gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.1, start + 0.05);
-      gain.gain.linearRampToValueAtTime(0, start + 0.2);
-      osc.start(start);
-      osc.stop(start + 0.3);
+    const play = () => {
+      const now = audioCtx.currentTime;
+      // 模拟类似手机警报的急促双音
+      for(let i=0; i<3; i++) {
+        const start = now + i * 0.4;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(900, start);
+        osc.frequency.exponentialRampToValueAtTime(1200, start + 0.1);
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.1, start + 0.05);
+        gain.gain.linearRampToValueAtTime(0, start + 0.2);
+        osc.start(start);
+        osc.stop(start + 0.3);
+      }
+    };
+
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(play).catch(() => {});
+    } else {
+      play();
     }
   } catch(e) {}
 }
@@ -700,6 +1010,8 @@ function stopMissionAlertLoop() {
 
   function launch(e) {
     e.stopPropagation();
+    if (e.cancelable) e.preventDefault();
+    initAudio(); // 同步初始化/恢复音频上下文
     overlay.classList.add('hidden');
     overlay.removeEventListener('click', launch);
     overlay.removeEventListener('touchstart', launch);
@@ -711,7 +1023,7 @@ function stopMissionAlertLoop() {
   }
 
   overlay.addEventListener('click', launch);
-  overlay.addEventListener('touchstart', launch);
+  overlay.addEventListener('touchstart', launch, { passive: false });
 })();
 
 // ============ 语音系统 V3 (VoiceManager) ============
@@ -766,10 +1078,9 @@ class VoiceManager {
       onend
     } = options;
 
-    // 预处理文本：字母逐字化 + 符号停顿
     let processedText = String(text)
-      .replace(/A\s*E\s*D/gi, 'A, E, D, 自动体外除颤器')
-      .replace(/C\s*P\s*R/gi, 'C, P, R, 心肺复苏')
+      .replace(/A\s*E\s*D/gi, 'AED')
+      .replace(/C\s*P\s*R/gi, 'CPR')
       .replace(/!|！/g, ', ') // 惊叹号转为短停顿
       .replace(/\?|？/g, ', ') 
       .replace(/\.\.\./g, '... '); // 省略号转为长停顿
@@ -924,6 +1235,7 @@ function abortFlow(reason) {
   stopAllTimers();
   stopVoice();
   alert(`已暂停流程：${reason}\n\n实际场景下：\n• "有反应"→ 安抚患者+继续观察\n• "有正常呼吸"→ 转为侧卧位+持续监测\n• 始终保持联系 120`);
+  goPage('home'); // 退回首页
 }
 
 function goStep(n) {
@@ -1013,11 +1325,11 @@ function clearFlowTimeouts() {
 function startHelpStep() {
   // 用紧迫语气连续播报
   speakSequence([
-    { text: '请这位先生', rate: 1.15, pause: 100 },
-    { text: '立即拨打120！', rate: 1.25, pitch: 1.1, pause: 600 },
+    { text: '系统已自动呼叫 120', rate: 1.15, pause: 100 },
+    { text: '请立即准备胸外按压！', rate: 1.25, pitch: 1.1, pause: 600 },
     { text: '系统已派三名志愿者', rate: 1.1, pause: 100 },
     { text: '分别负责按压，A E D，和现场记录', rate: 1.1, pause: 500 },
-    { text: '您不用自己去找', rate: 1.0, pause: 400 },
+    { text: '现场清空', rate: 1.0, pause: 400 },
     { text: '准备开始按压', rate: 1.1, pitch: 1.05 },
   ]);
 
@@ -1041,7 +1353,7 @@ function startConsciousStep() {
   speakSequence([
     { text: '轻拍患者双肩', rate: 1.1, pause: 300 },
     { text: '在耳边大声呼喊', rate: 1.1, pause: 400 },
-    { text: '大爷！', rate: 1.3, pitch: 1.15, pause: 200 },
+    { text: '喂！', rate: 1.3, pitch: 1.15, pause: 200 },
     { text: '你怎么啦！', rate: 1.3, pitch: 1.15 },
   ]);
 
@@ -1128,7 +1440,7 @@ function startBreathStep() {
 // 步骤 4：30 次按压 + 人声报数
 function startCompression() {
   cprCount = 0;
-  document.getElementById('cpr-count').textContent = '0';
+  document.getElementById('cpr-count').textContent = '00';
   document.getElementById('press-num').textContent = '准备';
   document.getElementById('cpr-rounds').textContent = cprRounds;
 
@@ -1164,38 +1476,19 @@ function startPressLoop() {
     }
 
     // 屏幕数字 + 节拍音 + 振动 - 这三个永远准时
-    document.getElementById('cpr-count').textContent = cprCount;
-    document.getElementById('press-num').textContent = cprCount;
+    const displayCount = cprCount < 10 ? '0' + cprCount : String(cprCount);
+    document.getElementById('cpr-count').textContent = displayCount;
+    document.getElementById('press-num').textContent = displayCount;
     playClick();
     if (navigator.vibrate) navigator.vibrate(30);
 
-    // TTS 报数 - 关键策略：
-    // 1. 只在不忙的时候报
-    // 2. 关键节点（5, 10, 15, 20, 25, 30）必报
-    // 3. 数字 1-9 用单字（一二三..），10+ 太长就跳过
-    if (!isSpeaking) {
-      const isMilestone = (cprCount % 5 === 0);
-      const isShortNumber = cprCount <= 9;
-
-      if (isMilestone || isShortNumber) {
-        try {
-          if (window.speechSynthesis) {
-            // 清空队列避免堆积
-            stopVoice();
-
-            const word = numberToChinese(cprCount);
-            const u = new SpeechSynthesisUtterance(word);
-            u.lang = 'zh-CN';
-            u.rate = 1.7;  // 加快语速避免拖延
-            u.volume = 1.0;
-            u.onstart = () => { isSpeaking = true; };
-            u.onend = () => { isSpeaking = false; };
-            u.onerror = () => { isSpeaking = false; };
-            window.speechSynthesis.speak(u);
-          }
-        } catch(e) {}
-      }
-    }
+    // TTS 报数 - 关键策略：保证每个节拍都能发声
+    // 如果前一个数字没报完，强制中断它，保证节奏准确。
+    try {
+      const word = numberToChinese(cprCount);
+      // 使用 URGENT 优先级打断之前的语音，保证语音始终跟上节拍
+      voice.speak(word, { rate: 1.7, volume: 1.0, priority: 'URGENT' });
+    } catch(e) {}
   }
 
   // 立即触发第一次
@@ -1205,10 +1498,10 @@ function startPressLoop() {
 
 // 数字转中文短读法（避免TTS引擎"二十三"拖太长）
 function numberToChinese(n) {
-  if (n <= 10) {
-    return ['零','一','二','三','四','五','六','七','八','九','十'][n];
+  if (n < 10) {
+    return '零' + String(n);
   }
-  // 11-30 用阿拉伯数字让 TTS 自动读，但用更短的形式
+  // 10-30 用阿拉伯数字让 TTS 自动读，但用更短的形式
   // 实测 TTS 读 "23" 比 "二十三" 短
   return String(n);
 }
@@ -1248,11 +1541,15 @@ function runVentRound() {
   document.querySelectorAll('.vent-item').forEach(el => el.classList.remove('active'));
   document.getElementById('vent-4').classList.add('active');
 
-  // 语音引导
-  if (ventRound === 1 && cprRounds > 0) {
-    speak('吹气');
+  // 语音引导：加入吹气的语音模拟
+  if (ventRound === 1) {
+    if (cprRounds === 0) {
+      speakSequence([{ text: '深吸气，呼——', rate: 0.8, pitch: 0.6 }]);
+    } else {
+      speakSequence([{ text: '吹气', rate: 1.2 }, { text: '深吸气，呼——', rate: 0.8, pitch: 0.6 }]);
+    }
   } else if (ventRound === 2) {
-    speak('再吹一次');
+    speakSequence([{ text: '再吹一次', rate: 1.2 }, { text: '深吸气，呼——', rate: 0.8, pitch: 0.6 }]);
   }
 
   let t = 0;
@@ -1740,9 +2037,10 @@ function startAedContactFlow() {
 
     // 0.4s 后显示沟通气泡
     setTimeout(() => {
-    chatArea.style.opacity = '1';
-    ownerStatusText.textContent = '已前往设备柜，30 秒内到位';
-  }, 400);
+      chatArea.style.opacity = '1';
+      ownerStatusText.textContent = '已前往设备柜，30 秒内到位';
+    }, 400);
+  }, 1800);
 }
 
 // ============ 救援动态页 Tab 切换 ============
@@ -1770,10 +2068,7 @@ window.addEventListener('load', () => {
   if (homeActivity) {
     const moreBtn = document.createElement('div');
     moreBtn.style.cssText = 'text-align:center;padding:8px 0 16px;';
-    moreBtn.innerHTML = '<a href="javascript:void(0);" onclick="goPage(\\'news\\');return false;" style="color:var(--rescue-red);font-size:13px;cursor:pointer;font-family:var(--serif);font-weight:700;">查看全部救援动态 →</a>';
+    moreBtn.innerHTML = `<a href="javascript:void(0);" onclick="goPage('news');return false;" style="color:var(--rescue-red);font-size:13px;cursor:pointer;font-family:var(--serif);font-weight:700;">查看全部救援动态 →</a>`;
     homeActivity.after(moreBtn);
   }
 });
-
-</body>
-</html>
