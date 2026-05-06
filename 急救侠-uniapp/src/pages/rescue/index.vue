@@ -26,13 +26,15 @@
       </view>
 
       <!-- CPR 按钮（组件） -->
-      <SosButton
-        variant="dark"
-        title="立即启动 CPR"
-        subtitle="全自动呼叫 120 + 调度 AED 小队"
-        :show-arrow="false"
-        @click="showConfirm"
-      />
+      <view class="sos-btn-wrap">
+        <SosButton
+          variant="dark"
+          title="立即启动 CPR"
+          subtitle="全自动呼叫 120 + 调度 AED 小队"
+          :show-arrow="false"
+          @click="showConfirm"
+        />
+      </view>
 
       <!-- 系统自动操作说明 -->
       <view class="decision-auto-box">
@@ -510,7 +512,7 @@ onUnmounted(() => stopAll())
 .rescue-settings { font-size: 36rpx; }
 
 /* 决策页 */
-.decision-tag-row { text-align: center; padding: 40rpx 48rpx 0; }
+.decision-tag-row { text-align: center; padding: 40rpx 40rpx 0; }
 .decision-tag {
   display: inline-flex;
   align-items: center;
@@ -530,11 +532,12 @@ onUnmounted(() => stopAll())
   border-radius: 50%;
   animation: blink 1s infinite;
 }
-.decision-headline { text-align: center; padding: 0 48rpx 56rpx; }
+.decision-headline { text-align: center; padding: 0 40rpx 56rpx; }
 .decision-main { font-family: var(--serif); font-size: 64rpx; font-weight: 900; line-height: 1.2; display: block; margin-bottom: 20rpx; }
 .decision-sub { font-size: 28rpx; opacity: 0.7; }
 
 /* CPR 主按钮 */
+.sos-btn-wrap { padding: 0 40rpx 32rpx; }
 .decision-btn-wrap { padding: 0 40rpx 32rpx; }
 .primary-rescue-btn {
   width: 100%;
@@ -600,12 +603,12 @@ onUnmounted(() => stopAll())
 .decision-legal {
   display: flex; align-items: center; gap: 20rpx; justify-content: center;
   font-size: 22rpx; color: rgba(255,255,255,0.4); font-family: var(--mono);
-  padding: 0 48rpx 48rpx;
+  padding: 0 40rpx 48rpx;
 }
 
 /* ============ CPR 流程共享 ============ */
 .step-progress {
-  display: flex; align-items: center; padding: 16rpx 32rpx 24rpx;
+  display: flex; align-items: center; padding: 16rpx 40rpx 24rpx;
 }
 .step-pill {
   width: 72rpx; height: 72rpx; border-radius: 50%;

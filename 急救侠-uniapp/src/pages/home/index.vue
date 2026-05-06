@@ -30,11 +30,13 @@
     </view>
 
     <!-- SOS 按钮（组件） -->
-    <SosButton
-      title="紧急呼救"
-      subtitle="语音引导 · 召唤志愿者 · 联动 120"
-      @click="goRescue"
-    />
+    <view class="home-sos-wrap">
+      <SosButton
+        title="紧急处理"
+        subtitle="语音引导 · 召唤志愿者 · 联动 120"
+        @click="goRescue"
+      />
+    </view>
 
     <!-- 紧急任务 Banner（组件） -->
     <MissionBanner
@@ -352,6 +354,8 @@ function goMission() {
   font-size: 22rpx;
   color: var(--ink-mute);
 }
+
+.home-sos-wrap { padding: 0 40rpx 32rpx; }
 
 /* SOS 按钮 & 使命 Banner 样式已迁移到组件 */
 

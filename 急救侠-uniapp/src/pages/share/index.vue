@@ -51,7 +51,7 @@ import LifeSparkLogo from '@/components/LifeSparkLogo/index.vue'
 const features = [
   { icon: '❤', title: 'CPR指南', desc: '节拍器引导正确按压深度' },
   { icon: '📍', title: 'AED地图', desc: '实时查找最近设备' },
-  { icon: '🔔', title: '紧急呼救', desc: '一键求救志愿者响应' },
+  { icon: '🔔', title: '紧急处理', desc: '一键求救志愿者响应' },
   { icon: '📚', title: '急救图谱', desc: '常见急症处理指南' },
 ]
 

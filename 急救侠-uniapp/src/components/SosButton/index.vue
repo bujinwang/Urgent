@@ -33,7 +33,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  title: '紧急呼救',
+  title: '紧急处理',
   subtitle: '语音引导 · 召唤志愿者 · 联动 120',
   variant: 'primary',
   showArrow: true,
