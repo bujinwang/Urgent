@@ -1,0 +1,127 @@
+{
+  "pages": [
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
+    },
+    {
+      "path": "pages/rescue/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
+    },
+    {
+      "path": "pages/mission/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
+    },
+    {
+      "path": "pages/aed/index",
+      "style": {
+        "navigationBarTitleText": "附近 AED"
+      }
+    },
+    {
+      "path": "pages/atlas/index",
+      "style": {
+        "navigationBarTitleText": "急救图谱"
+      }
+    },
+    {
+      "path": "pages/learn/index",
+      "style": {
+        "navigationBarTitleText": "学习训练"
+      }
+    },
+    {
+      "path": "pages/cert/index",
+      "style": {
+        "navigationBarTitleText": "我的徽章"
+      }
+    },
+    {
+      "path": "pages/volunteer/index",
+      "style": {
+        "navigationBarTitleText": "排行榜"
+      }
+    },
+    {
+      "path": "pages/news/index",
+      "style": {
+        "navigationBarTitleText": "救援动态"
+      }
+    },
+    {
+      "path": "pages/case-detail/index",
+      "style": {
+        "navigationBarTitleText": "案例详情"
+      }
+    },
+    {
+      "path": "pages/share/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "急救侠",
+    "navigationBarBackgroundColor": "#FAFAF7",
+    "backgroundColor": "#FAFAF7"
+  },
+  "tabBar": {
+    "color": "#8E8E8E",
+    "selectedColor": "#C0392B",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页",
+        "iconPath": "static/tab/home.svg",
+        "selectedIconPath": "static/tab/home-active.svg"
+      },
+      {
+        "pagePath": "pages/aed/index",
+        "text": "AED",
+        "iconPath": "static/tab/aed.svg",
+        "selectedIconPath": "static/tab/aed-active.svg"
+      },
+      {
+        "pagePath": "pages/learn/index",
+        "text": "学习",
+        "iconPath": "static/tab/learn.svg",
+        "selectedIconPath": "static/tab/learn-active.svg"
+      },
+      {
+        "pagePath": "pages/cert/index",
+        "text": "我的",
+        "iconPath": "static/tab/cert.svg",
+        "selectedIconPath": "static/tab/cert-active.svg"
+      }
+    ]
+  },
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^ls-(.*)": "@/components/LifeSparkLogo/index.vue",
+      "^sos-btn": "@/components/SosButton/index.vue",
+      "^cpr-flow": "@/components/CprFlow/index.vue",
+      "^aed-flow": "@/components/AedFlow/index.vue",
+      "^metronome": "@/components/Metronome/index.vue",
+      "^voice-mgr": "@/components/VoiceManager/index.vue",
+      "^mission-banner": "@/components/MissionBanner/index.vue",
+      "^bottom-sheet": "@/components/BottomSheet/index.vue",
+      "^tab-bar": "@/components/TabBar/index.vue",
+      "^aed-map": "@/components/AedMap/index.vue"
+    }
+  }
+}

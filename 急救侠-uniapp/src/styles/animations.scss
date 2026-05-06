@@ -1,0 +1,76 @@
+/**
+ * 急救侠 · 动画定义
+ * 支持 prefers-reduced-motion 无障碍偏好
+ */
+
+/* LifeSpark Logo 脉冲 */
+@keyframes logoPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+/* 紧急任务脉冲光晕 */
+@keyframes missionPulse {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+/* CTA 按钮脉动 */
+@keyframes ctaPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+  50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+/* 闪烁点 */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* CPR 节拍器心跳 */
+@keyframes beat {
+  0%, 100% { transform: scale(0.92); opacity: 0.6; }
+  20% { transform: scale(1); opacity: 1; }
+}
+
+/* 脉冲环 */
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* 启动页浮动 */
+@keyframes launchTapFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+/* 页面进入 */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* 弹窗滑入 */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* 图片浮动 */
+@keyframes float-img {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* 无障碍：尊重减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .logo-pulse,
+  .mission-pulse,
+  .cta-pulse,
+  .metronome-ring-active,
+  .launch-tap-circle {
+    animation: none !important;
+  }
+}

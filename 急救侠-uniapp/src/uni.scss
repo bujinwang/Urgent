@@ -1,0 +1,87 @@
+/**
+ * 急救侠 · 设计 Token 体系
+ * 基于 LifeSpark 品牌设计系统
+ */
+
+/* ============================================================
+   品牌色（核心调色板）
+   ============================================================ */
+$rescue-red: #C0392B;
+$rescue-red-deep: #8B2A1F;
+$rescue-red-soft: #FFE8E5;
+$rescue-red-light: #F9ECEB;
+
+$ink: #1A1A1A;
+$ink-soft: #4A4A4A;
+$ink-mute: #8E8E8E;
+
+$paper: #FAFAF7;
+$paper-warm: #F4F1EA;
+$white: #FFFFFF;
+
+$line: #E8E4DD;
+$line-light: #ECEAE5;
+
+$green: #1F8A5B;
+$green-soft: #E8F5EF;
+$gold: #C8A656;
+$bronze: #B87333;
+$silver: #9CA3AF;
+$diamond: #4A90E2;
+
+/* ============================================================
+   Logo (LifeSpark) 专用 Token
+   ============================================================ */
+$logo-bg: $rescue-red;
+$logo-heart: #FFFFFF;
+$logo-spark: #F6C65B;
+$logo-chip: #FFFFFF;
+$logo-chip-cross: $rescue-red;
+$logo-ring: rgba(255, 255, 255, 0.34);
+
+/* ============================================================
+   排版
+   ============================================================ */
+$serif: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+$mono: 'DM Mono', 'Menlo', monospace;
+$sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+/* ============================================================
+   UniApp 内置变量覆盖（插件兼容）
+   ============================================================ */
+$uni-color-primary: $rescue-red;
+$uni-color-success: $green;
+$uni-color-warning: #F59E0B;
+$uni-color-error: #FF6B5B;
+
+$uni-text-color: $ink;
+$uni-text-color-inverse: $white;
+$uni-text-color-grey: $ink-mute;
+$uni-text-color-placeholder: #C0C0C0;
+$uni-text-color-disable: #C0C0C0;
+
+$uni-bg-color: $white;
+$uni-bg-color-grey: $paper;
+$uni-bg-color-hover: $paper-warm;
+$uni-bg-color-mask: rgba(0, 0, 0, 0.4);
+
+$uni-border-color: $line;
+
+/* 圆角 */
+$uni-border-radius-sm: 6px;
+$uni-border-radius-base: 10px;
+$uni-border-radius-lg: 16px;
+$uni-border-radius-circle: 50%;
+
+/* 间距 */
+$uni-spacing-row-sm: 6px;
+$uni-spacing-row-base: 12px;
+$uni-spacing-row-lg: 20px;
+$uni-spacing-col-sm: 4px;
+$uni-spacing-col-base: 8px;
+$uni-spacing-col-lg: 16px;
+
+/* 字号 */
+$uni-font-size-sm: 11px;
+$uni-font-size-base: 14px;
+$uni-font-size-lg: 16px;

@@ -1,0 +1,47 @@
+/**
+ * 急救侠 · CSS 变量（运行时）
+ * 与 uni.scss 保持一致，供组件内使用 var(--xxx)
+ */
+
+:root {
+  /* 品牌色 */
+  --rescue-red: #C0392B;
+  --rescue-red-deep: #8B2A1F;
+  --rescue-red-soft: #FFE8E5;
+  --rescue-red-light: #F9ECEB;
+
+  /* 文字 */
+  --ink: #1A1A1A;
+  --ink-soft: #4A4A4A;
+  --ink-mute: #8E8E8E;
+
+  /* 背景 */
+  --paper: #FAFAF7;
+  --paper-warm: #F4F1EA;
+  --white: #FFFFFF;
+
+  /* 线条 */
+  --line: #E8E4DD;
+  --line-light: #ECEAE5;
+
+  /* 语义色 */
+  --green: #1F8A5B;
+  --green-soft: #E8F5EF;
+  --gold: #C8A656;
+  --bronze: #B87333;
+  --silver: #9CA3AF;
+  --diamond: #4A90E2;
+
+  /* Logo */
+  --logo-bg: #C0392B;
+  --logo-heart: #FFFFFF;
+  --logo-spark: #F6C65B;
+  --logo-chip: #FFFFFF;
+  --logo-chip-cross: #C0392B;
+  --logo-ring: rgba(255, 255, 255, 0.34);
+
+  /* 排版 */
+  --serif: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+  --mono: 'DM Mono', 'Menlo', monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
