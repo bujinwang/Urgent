@@ -58,8 +58,18 @@ const trainings = [
   { id: 'scenario', icon: '🎯', title: '场景模拟', desc: '地铁站情境挑战' },
 ]
 
-function startTraining(_id: string) {
-  uni.showToast({ title: '训练模块开发中', icon: 'none' })
+function startTraining(id: string) {
+  const routes: Record<string, string> = {
+    cpr: '/pages/rescue/index',
+    aed: '/pages/aed/index',
+    heimlich: '/pages/guide/index?type=heimlich',
+    scenario: '/pages/guide/index?type=bleeding',
+  }
+  const url = routes[id]
+  if (url) {
+    if (id === 'aed') uni.switchTab({ url })
+    else uni.navigateTo({ url })
+  }
 }
 </script>
 

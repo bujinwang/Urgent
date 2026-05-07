@@ -47,8 +47,12 @@ const pinPositions = [
   { x: 30, y: 30 }, { x: 65, y: 35 }, { x: 20, y: 70 }, { x: 75, y: 75 },
 ]
 
-function goContact(_aed: any) {
-  uni.showToast({ title: '责任人联络功能开发中', icon: 'none' })
+function goContact(aed: any) {
+  uni.showToast({ title: '已发消息通知 AED 责任人 · ' + aed.name, icon: 'success' })
+  // 模拟：2 秒后确认
+  setTimeout(() => {
+    uni.showToast({ title: '责任人已确认 · 设备可用', icon: 'success' })
+  }, 2000)
 }
 </script>
 

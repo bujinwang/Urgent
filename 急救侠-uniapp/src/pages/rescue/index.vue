@@ -314,7 +314,7 @@ function showGuide(type: string) {
 }
 
 function goHelper() {
-  uni.showToast({ title: '路人协助模式开发中', icon: 'none' })
+  uni.navigateTo({ url: '/pages/share/index' })
 }
 
 // --- CPR 流程 ---
