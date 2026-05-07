@@ -708,7 +708,7 @@ onUnmounted(() => stopAll())
 .cpr-action-icon { font-size: 40rpx; }
 
 /* 人工呼吸 */
-.vent-img { width: 100%; height: 360rpx; border-radius: 24rpx; margin-bottom: 32rpx; }
+.vent-img { width: 100%; height: 360rpx; border-radius: 24rpx; margin-bottom: 32rpx; animation: float-img 4s ease-in-out infinite; }
 .vent-checklist { display: flex; flex-direction: column; gap: 20rpx; margin-bottom: 40rpx; text-align: left; }
 .vent-item {
   display: flex; align-items: center; gap: 28rpx; padding: 28rpx 36rpx;

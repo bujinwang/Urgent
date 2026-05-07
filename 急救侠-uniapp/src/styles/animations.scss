@@ -74,3 +74,14 @@
     animation: none !important;
   }
 }
+
+/* 通用脉冲（SOS 图钉等） */
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
+/* 旋转加载 */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
