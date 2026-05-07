@@ -356,7 +356,7 @@ function startPress() {
     const display = pressCount.value < 10 ? '0' + pressCount.value : String(pressCount.value)
     pressNumDisplay.value = display
     // 语音报数：不 cancel，直接排队播报
-    voice.count(toChineseNumber(pressCount.value))
+    voice.count(toChineseNumber(pressCount.value)); uni.vibrateShort({ type: "light" })
     if (pressCount.value >= 30) {
       stopPress()
       cprStep.value = 5

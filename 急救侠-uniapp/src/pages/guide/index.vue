@@ -55,7 +55,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { voice } from '@/utils/voice'
 
 interface Step { title: string; detail: string; icon: string; warn?: boolean }
 interface GuideData { title: string; emoji: string; steps: Step[]; warnings: string[] }
@@ -163,6 +164,12 @@ function prevStep() {
     }, 200)
   }
 }
+
+// 语音播报当前步骤
+watch(current, (val) => {
+  const s = guide.value.steps[val]
+  if (s) setTimeout(() => voice.command(s.title + "，" + s.detail), 300)
+})
 
 function goBack() { uni.navigateBack() }
 function call120() {

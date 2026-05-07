@@ -104,12 +104,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import LifeSparkLogo from '@/components/LifeSparkLogo/index.vue'
 import SosButton from '@/components/SosButton/index.vue'
 import MissionBanner from '@/components/MissionBanner/index.vue'
 import { useUserStore } from '@/stores/user'
 import { useTaskStore } from '@/stores/task'
+import { voice } from '@/utils/voice'
 
 // --- stores ---
 const userStore = useUserStore()
@@ -150,6 +151,15 @@ onMounted(() => {
   })
 
 
+  // 紧急任务语音告警
+  watch(activeTask, (task) => {
+    if (task) {
+      setTimeout(() => {
+        voice.command('紧急任务！' + task.distance + '米外需要 C P R 协作！')
+        setTimeout(() => voice.command('系统正在呼叫三人小队，请查看任务'), 2500)
+      }, 500)
+    }
+  })
 })
 
 // --- 常量 ---
