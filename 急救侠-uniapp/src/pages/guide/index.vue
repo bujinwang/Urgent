@@ -3,27 +3,47 @@
     <view class="guide-appbar">
       <text class="guide-back" @click="goBack">‹</text>
       <text class="guide-title">{{ guide.title }}</text>
+      <text class="guide-step-indicator">{{ current + 1 }} / {{ guide.steps.length }}</text>
     </view>
-    <view class="guide-hero">
-      <view class="guide-icon-wrap">
-        <text class="guide-emoji">{{ guide.emoji }}</text>
+
+    <!-- 场景图 -->
+    <view class="guide-scene">
+      <view class="scene-icon-wrap" :class="sceneAnim">
+        <text class="scene-emoji">{{ guide.steps[current].icon }}</text>
       </view>
-      <text class="guide-name">{{ guide.title }}</text>
-      <text class="guide-summary">{{ guide.summary }}</text>
-    </view>
-    <view class="guide-steps">
-      <view v-for="(step, i) in guide.steps" :key="i" class="guide-step" :class="{ done: step.done, warn: step.warn }">
-        <view class="guide-step-num">{{ i + 1 }}</view>
-        <view class="guide-step-body">
-          <text class="guide-step-title">{{ step.title }}</text>
-          <text v-if="step.detail" class="guide-step-detail">{{ step.detail }}</text>
-        </view>
+      <!-- 连接线 -->
+      <view class="scene-connectors">
+        <view v-for="i in guide.steps.length - 1" :key="i" class="scene-dot" :class="{ done: i <= current, current: i === current + 1 }" />
       </view>
     </view>
-    <view class="guide-warning">
-      <text class="guide-warning-title">⚠️ 注意事项</text>
+
+    <!-- 当前步骤（大卡片） -->
+    <view class="guide-card" :key="current">
+      <view class="card-step-tag" :class="{ warn: guide.steps[current].warn }">
+        <text>第 {{ current + 1 }} 步</text>
+      </view>
+      <text class="card-title">{{ guide.steps[current].title }}</text>
+      <text class="card-detail">{{ guide.steps[current].detail }}</text>
+    </view>
+
+    <!-- 操作 -->
+    <view class="guide-nav">
+      <view v-if="current > 0" class="nav-btn prev" @click="prevStep">← 上一步</view>
+      <view class="nav-spacer" />
+      <view v-if="current < guide.steps.length - 1" class="nav-btn next" @click="nextStep">下一步 →</view>
+      <view v-else class="nav-btn done" @click="goBack">✓ 完成</view>
+    </view>
+
+    <!-- 注意事项（折叠） -->
+    <view class="guide-warn-toggle" @click="showWarn = !showWarn">
+      <text>⚠️ 注意事项</text>
+      <text class="warn-arrow" :class="{ open: showWarn }">▾</text>
+    </view>
+    <view v-if="showWarn" class="guide-warning">
       <text v-for="(w, i) in guide.warnings" :key="i" class="guide-warning-item">{{ w }}</text>
     </view>
+
+    <!-- 底部 -->
     <view class="guide-footer">
       <view class="guide-call-btn" @click="call120">
         <text class="guide-call-icon">📞</text>
@@ -37,86 +57,112 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 
-interface Step { title: string; detail?: string; done?: boolean; warn?: boolean }
-interface GuideData { title: string; emoji: string; summary: string; steps: Step[]; warnings: string[] }
+interface Step { title: string; detail: string; icon: string; warn?: boolean }
+interface GuideData { title: string; emoji: string; steps: Step[]; warnings: string[] }
 
 const guides: Record<string, GuideData> = {
   bleeding: {
-    title: '大出血', emoji: '🩸', summary: '严重出血可在数分钟内致命，立即止血是第一要务',
+    title: '大出血', emoji: '🩸',
     steps: [
-      { title: '直接压迫止血', detail: '用干净纱布、毛巾或衣物直接用力按压伤口。不要松开查看。' },
-      { title: '抬高受伤部位', detail: '将出血部位抬高至心脏水平以上，减缓血流速度。' },
-      { title: '加压包扎固定', detail: '用绷带或布条紧紧缠绕，但不要过紧阻断循环。' },
-      { title: '勿移除浸透敷料', detail: '纱布被血浸透后在上面叠加新的继续按压，不要揭开旧的。' },
-      { title: '止血带（最后手段）', detail: '仅当直接压迫无效且出血危及生命时使用。扎在伤口近心端 5-7cm 处，记录时间。', warn: true },
+      { title: '直接压迫止血', detail: '用干净纱布或毛巾用力按压伤口', icon: '✋' },
+      { title: '抬高受伤部位', detail: '将出血部位抬高至心脏水平以上', icon: '⬆️' },
+      { title: '加压包扎固定', detail: '用绷带紧紧缠绕，但不要过紧', icon: '🩹' },
+      { title: '勿移除浸透敷料', detail: '在上面叠加新的，不要揭开旧的', icon: '📚' },
+      { title: '止血带（最后手段）', detail: '扎在伤口近心端 5-7cm 处，记录时间', icon: '⏱️', warn: true },
     ],
-    warnings: ['切勿用手直接接触开放性伤口，尽量戴手套或用塑料袋隔离', '如果有异物刺入体内，不要拔除，在周围垫高固定后包扎', '密切观察患者面色、呼吸，出现休克迹象立即告知 120'],
+    warnings: ['戴手套或塑料袋隔离，勿直接接触血液', '异物刺入体内不要拔除，周围垫高固定', '密切观察面色呼吸，休克迹象告知 120'],
   },
   heimlich: {
-    title: '异物窒息', emoji: '🫁', summary: '气道完全阻塞后 4-6 分钟可致死，立即施救',
+    title: '异物窒息', emoji: '🫁',
     steps: [
-      { title: '确认窒息', detail: '患者无法说话、咳嗽无力、双手抓喉、面色发紫。问"你噎住了吗？"' },
-      { title: '站到背后', detail: '从背后环抱患者，一只手握拳置于肚脐上方两指处。' },
-      { title: '向上冲击', detail: '另一只手抓住拳头，快速向内向上冲击腹部。重复 5 次。' },
-      { title: '检查口腔', detail: '每次冲击后查看口腔是否有异物排出，有则取出。' },
-      { title: '交替进行', detail: '5 次腹部冲击 + 检查口腔，重复循环直至异物排出或患者失去意识。' },
-      { title: '如失去意识 → CPR', detail: '将患者平放，立即开始胸外按压（按压亦可排出异物），并呼叫 120。', warn: true },
+      { title: '确认窒息', detail: '患者无法说话、双手抓喉、面色发紫', icon: '👀' },
+      { title: '站到背后环抱', detail: '一只手握拳，置于肚脐上方两指处', icon: '🧍' },
+      { title: '向上冲击腹部', detail: '另一只手抓拳，快速向内向上冲击 ×5 次', icon: '👊' },
+      { title: '检查口腔', detail: '每次冲击后查看口腔，有异物则取出', icon: '👄' },
+      { title: '交替循环', detail: '5 次冲击 + 检查口腔，重复至异物排出', icon: '🔁' },
+      { title: '失去意识 → CPR', detail: '平放患者，立即胸外按压并呼叫 120', icon: '❤️', warn: true },
     ],
-    warnings: ['孕妇或肥胖者：改为胸部冲击（握拳置于胸骨中段）', '婴儿窒息：背部拍击 + 胸部冲击交替（5 次拍背 + 5 次压胸）', '能够剧烈咳嗽的患者：鼓励继续咳嗽，不要干预'],
+    warnings: ['孕妇/肥胖者改为胸部冲击（握拳置胸骨中段）', '婴儿：5 次拍背 + 5 次压胸交替', '能咳嗽的患者鼓励继续咳，不要干预'],
   },
   fracture: {
-    title: '骨折外伤', emoji: '🦴', summary: '不当移动可能造成二次损伤甚至终身残疾',
+    title: '骨折外伤', emoji: '🦴',
     steps: [
-      { title: '不要移动患者', detail: '除非现场有立即危险（火、塌方等），否则保持原位。' },
-      { title: '固定受伤部位', detail: '用夹板（木板、杂志、硬纸板）固定骨折处上下两个关节。' },
-      { title: '垫软物缓冲', detail: '在夹板和身体之间用衣物、毛巾垫好，避免压迫。' },
-      { title: '悬吊固定（上肢）', detail: '手臂骨折用三角巾或衣物做悬吊，让前臂保持水平。' },
-      { title: '冷敷消肿', detail: '用冰袋或冷毛巾敷在伤处周围（不要直接接触皮肤），每次 15-20 分钟。' },
+      { title: '不要移动患者', detail: '除非现场有立即危险，保持原位不动', icon: '🛑' },
+      { title: '夹板固定', detail: '用木板/杂志固定骨折处上下两个关节', icon: '📏' },
+      { title: '垫软物缓冲', detail: '夹板与身体间用衣物垫好，避免压迫', icon: '🧻' },
+      { title: '悬吊固定上肢', detail: '手臂骨折用三角巾做悬吊，保持水平', icon: '🔺' },
+      { title: '冷敷消肿', detail: '冰袋敷伤处周围，每次 15-20 分钟', icon: '🧊' },
     ],
-    warnings: ['疑似脊柱损伤：严禁移动！保持头颈躯干一条直线，等待专业急救', '开放性骨折（骨头穿出皮肤）：不要试图推回，用干净敷料覆盖伤口', '不要给患者进食或饮水（可能需要急诊手术）'],
+    warnings: ['疑似脊柱损伤：严禁移动！保持头颈躯干直线', '开放性骨折：不要试图推回骨头', '不要给患者进食饮水（可能需急诊手术）'],
   },
   transport: {
-    title: '伤员搬运', emoji: '🚑', summary: '错误搬运方式可能加重脊髓损伤导致瘫痪',
+    title: '伤员搬运', emoji: '🚑',
     steps: [
-      { title: '评估现场安全', detail: '确保自身安全后再接近伤员。如有火、毒气等立即危险才移动。' },
-      { title: '稳定头颈', detail: '一人专门负责固定头部，双手夹住伤员两侧耳朵，保持头颈躯干在一条直线。' },
-      { title: '多人同步翻身', detail: '至少 3-4 人，一人喊口令，所有人同步将伤员整体轴向翻动。' },
-      { title: '脊柱板/硬板转移', detail: '将硬板（门板、桌面）紧贴伤员一侧，整体轴向滚动到板上。' },
-      { title: '固定躯干四肢', detail: '用绷带将伤员固定在硬板上：额头、胸部、骨盆、大腿、小腿。' },
+      { title: '评估现场安全', detail: '确保自身安全后再接近，仅必要时移动', icon: '👁️' },
+      { title: '固定头颈', detail: '一人双手夹住耳朵，保持头颈躯干直线', icon: '🤲' },
+      { title: '多人同步翻身', detail: '一人喊口令，所有人整体轴向翻动', icon: '👥' },
+      { title: '硬板转移', detail: '用门板/桌面贴紧一侧，轴向滚到板上', icon: '🪵' },
+      { title: '全身固定', detail: '绷带固定额头→胸部→骨盆→大腿→小腿', icon: '🔗' },
     ],
-    warnings: ['怀疑脊柱损伤时，绝对禁止：扶起、抱起、一人抬头一人抬脚', '搬运途中保持平稳，避免颠簸晃动', '密切观察呼吸和意识变化，随时准备 CPR'],
+    warnings: ['脊柱损伤绝对禁止：扶起、抱起、抬头抬脚', '搬运途中保持平稳避免颠簸', '密切观察呼吸意识，随时准备 CPR'],
   },
   psychological: {
-    title: '紧急心理干预', emoji: '🧠', summary: '突发创伤后心理应激可导致二次伤害，简单安抚即可起效',
+    title: '紧急心理干预', emoji: '🧠',
     steps: [
-      { title: '确保安全', detail: '带离危险环境，到安静、安全的地方。保证基本生理需求（水、保暖）。' },
-      { title: '温和接触', detail: '用平静缓慢的语调说话，自报身份。蹲下与患者保持同一高度。' },
-      { title: '倾听不打断', detail: '允许患者表达任何情绪（哭、愤怒、沉默），不要说"别哭"或"坚强点"。' },
-      { title: '提供确定信息', detail: '告诉患者：现在发生了什么、谁在帮忙、接下来会怎样。不确定就说不知道。' },
-      { title: '转移注意力', detail: '引导做简单动作：深呼吸、握紧再放松拳头、说出周围 3 样看到的东西。' },
+      { title: '确保安全', detail: '带离危险环境，保障基本需求（水、保暖）', icon: '🏠' },
+      { title: '温柔接触', detail: '平静语调，自报身份，蹲下同高度', icon: '🤝' },
+      { title: '倾听不打断', detail: '允许所有情绪，不说"别哭""坚强点"', icon: '👂' },
+      { title: '提供确定信息', detail: '告知现状/谁在帮忙/接下来如何', icon: '📋' },
+      { title: '转移注意力', detail: '深呼吸 → 握拳放松 → 说出 3 样看到的东西', icon: '🌿' },
     ],
-    warnings: ['不要强迫患者回忆创伤细节', '不要做出无法兑现的承诺（如"一切都会好的"）', '如果患者出现严重精神症状（幻觉、暴力），保护自身安全并寻求专业支援'],
+    warnings: ['不要强迫回忆创伤细节', '不做无法兑现的承诺', '出现严重精神症状时保护自身安全并求助'],
   },
   seizure: {
-    title: '癫痫急救', emoji: '🧠', summary: '大多数癫痫发作 2-3 分钟内自行停止，关键是保护而非干预',
+    title: '癫痫急救', emoji: '🧠',
     steps: [
-      { title: '保持冷静计时', detail: '记录发作开始时间。如果持续超过 5 分钟，立即呼叫 120。' },
-      { title: '清除周围危险物', detail: '移开尖锐、硬质物品。在头部下方垫软物（衣服、包）。' },
-      { title: '不要按住患者', detail: '不要试图压住四肢或阻止抽搐。不要往嘴里塞任何东西。' },
-      { title: '侧卧位（恢复后）', detail: '抽搐停止后，将患者转为侧卧位，便于唾液或呕吐物排出。' },
-      { title: '守在旁边', detail: '发作结束后患者可能意识模糊，温和安抚，告知发生了什么。' },
+      { title: '保持冷静计时', detail: '记录发作开始时间。超过 5 分钟呼叫 120', icon: '⏱️' },
+      { title: '清除危险物', detail: '移开尖锐硬物，头部下方垫软物', icon: '🧹' },
+      { title: '不要按住患者', detail: '不压四肢不阻止抽搐，不往嘴里塞东西', icon: '✋' },
+      { title: '侧卧位恢复', detail: '抽搐停止后转侧卧位，便于排出分泌物', icon: '🔄' },
+      { title: '守在旁边', detail: '发作后可能意识模糊，温和安抚告知', icon: '💚' },
     ],
-    warnings: ['绝对不要往嘴里塞手指、毛巾、勺子等任何物品', '不要强行喂水喂药', '出现以下情况立即呼叫 120：发作超过 5 分钟、连续发作、水中发作、孕妇、首次发作'],
+    warnings: ['绝对不要往嘴里塞任何东西', '不要强行喂水喂药', '超过 5 分钟/连续发作/水中/孕妇/首次 → 120'],
   },
 }
+
+const current = ref(0)
+const showWarn = ref(false)
 
 const type = ref('bleeding')
 const guide = computed(() => guides[type.value] || guides.bleeding)
 
-// 从页面 query 参数获取类型
 const pages = getCurrentPages()
 const options = (pages[pages.length - 1] as any).$page?.options
 if (options?.type) type.value = options.type
+
+const sceneAnim = ref('pulse-in')
+
+function nextStep() {
+  if (current.value < guide.value.steps.length - 1) {
+    sceneAnim.value = 'slide-out'
+    setTimeout(() => {
+      current.value++
+      sceneAnim.value = 'slide-in'
+      setTimeout(() => sceneAnim.value = 'pulse-in', 300)
+    }, 200)
+  }
+}
+
+function prevStep() {
+  if (current.value > 0) {
+    sceneAnim.value = 'slide-out'
+    setTimeout(() => {
+      current.value--
+      sceneAnim.value = 'slide-in'
+      setTimeout(() => sceneAnim.value = 'pulse-in', 300)
+    }, 200)
+  }
+}
 
 function goBack() { uni.navigateBack() }
 function call120() {
@@ -130,45 +176,109 @@ function call120() {
 .page-guide {
   background: linear-gradient(180deg, #2A0F0C 0%, #1A0907 100%);
   color: #fff; min-height: 100vh; padding-bottom: 80rpx;
+  overflow: hidden;
 }
+
+/* 顶栏 */
 .guide-appbar {
-  display: flex; align-items: center; padding: 28rpx 40rpx; gap: 24rpx;
+  display: flex; align-items: center; padding: 28rpx 40rpx; gap: 16rpx;
 }
 .guide-back { font-size: 48rpx; width: 72rpx; height: 72rpx; display: flex; align-items: center; justify-content: center; }
 .guide-title { flex: 1; font-family: var(--serif); font-weight: 700; font-size: 36rpx; }
-.guide-hero { text-align: center; padding: 32rpx 40rpx 48rpx; }
-.guide-icon-wrap {
-  width: 160rpx; height: 160rpx; border-radius: 48rpx;
-  background: linear-gradient(135deg, #C0392B, #8B2A1F);
+.guide-step-indicator { font-family: var(--mono); font-size: 22rpx; opacity: 0.5; }
+
+/* 场景区 */
+.guide-scene {
+  display: flex; flex-direction: column; align-items: center; padding: 40rpx 0 20rpx;
+}
+.scene-icon-wrap {
+  width: 240rpx; height: 240rpx; border-radius: 50%;
+  background: radial-gradient(circle, rgba(192,57,43,0.3) 0%, transparent 70%);
   display: flex; align-items: center; justify-content: center;
-  margin: 0 auto 28rpx; box-shadow: 0 24rpx 56rpx rgba(192,57,43,0.35);
+  position: relative;
+  box-shadow: 0 0 80rpx rgba(192,57,43,0.25);
+
+  &::before {
+    content: ''; position: absolute; inset: -16rpx; border-radius: 50%;
+    border: 2px solid rgba(192,57,43,0.2);
+    animation: pulse-ring 2s ease-out infinite;
+  }
+  &::after {
+    content: ''; position: absolute; inset: -32rpx; border-radius: 50%;
+    border: 1px solid rgba(192,57,43,0.1);
+    animation: pulse-ring 2s ease-out infinite 0.6s;
+  }
+
+  &.slide-in .scene-emoji { animation: slideInRight 0.25s ease-out; }
+  &.slide-out .scene-emoji { animation: slideOutLeft 0.2s ease-in; }
+  &.pulse-in .scene-emoji { animation: pulseIn 0.4s ease-out; }
 }
-.guide-emoji { font-size: 80rpx; }
-.guide-name { font-family: var(--serif); font-size: 52rpx; font-weight: 900; display: block; margin-bottom: 12rpx; }
-.guide-summary { font-size: 26rpx; opacity: 0.7; display: block; line-height: 1.5; }
-.guide-steps { padding: 0 40rpx; display: flex; flex-direction: column; gap: 16rpx; }
-.guide-step {
-  display: flex; gap: 24rpx; padding: 28rpx;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 24rpx; align-items: flex-start;
-  &.done { background: rgba(52,210,119,0.08); border-color: rgba(52,210,119,0.25); .guide-step-num { background: var(--green); } }
-  &.warn { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.35); .guide-step-num { background: #F59E0B; color: #1A0907; } }
+.scene-emoji { font-size: 120rpx; }
+
+/* 连接线进度 */
+.scene-connectors {
+  display: flex; gap: 20rpx; padding: 32rpx 0 0; justify-content: center;
 }
-.guide-step-num {
-  width: 52rpx; height: 52rpx; border-radius: 50%; background: rgba(255,255,255,0.12);
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-weight: 700; font-size: 26rpx; flex-shrink: 0; margin-top: 2rpx;
+.scene-dot {
+  width: 16rpx; height: 16rpx; border-radius: 50%; background: rgba(255,255,255,0.15);
+  transition: all 0.3s;
+  &.done { background: var(--green); box-shadow: 0 0 12rpx rgba(52,210,119,0.5); }
+  &.current { background: var(--rescue-red); animation: blink 0.8s infinite; }
 }
-.guide-step-body { flex: 1; }
-.guide-step-title { font-family: var(--serif); font-size: 28rpx; font-weight: 700; display: block; margin-bottom: 4rpx; }
-.guide-step-detail { font-size: 24rpx; opacity: 0.72; line-height: 1.6; display: block; }
+
+/* 步骤卡片 */
+.guide-card {
+  margin: 0 40rpx 24rpx;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 32rpx; padding: 40rpx 36rpx;
+  animation: slideInRight 0.3s ease-out;
+  position: relative; overflow: hidden;
+}
+.card-step-tag {
+  display: inline-flex; padding: 8rpx 24rpx; border-radius: 20rpx;
+  background: rgba(52,210,119,0.15); border: 1px solid rgba(52,210,119,0.3);
+  font-family: var(--mono); font-size: 20rpx; letter-spacing: 2rpx; color: var(--green);
+  margin-bottom: 24rpx;
+  &.warn { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3); color: #F59E0B; }
+}
+.card-title {
+  font-family: var(--serif); font-size: 40rpx; font-weight: 900;
+  display: block; margin-bottom: 16rpx; line-height: 1.3;
+}
+.card-detail {
+  font-size: 28rpx; opacity: 0.78; line-height: 1.7; display: block;
+}
+
+/* 导航 */
+.guide-nav { display: flex; gap: 24rpx; padding: 0 40rpx 32rpx; }
+.nav-btn {
+  padding: 28rpx 40rpx; border-radius: 28rpx; font-size: 28rpx;
+  font-family: var(--serif); font-weight: 700; text-align: center;
+  &.prev { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); }
+  &.next { flex: 1; background: var(--rescue-red); color: #fff; box-shadow: 0 12rpx 36rpx rgba(192,57,43,0.3); }
+  &.done { flex: 1; background: var(--green); color: #fff; box-shadow: 0 12rpx 36rpx rgba(52,210,119,0.3); }
+}
+.nav-spacer { flex: 1; }
+
+/* 注意事项折叠 */
+.guide-warn-toggle {
+  margin: 0 40rpx 0; padding: 20rpx 0;
+  display: flex; align-items: center; gap: 8rpx;
+  font-size: 24rpx; opacity: 0.5;
+}
+.warn-arrow { transition: transform 0.3s; &.open { transform: rotate(180deg); } }
 .guide-warning {
-  margin: 40rpx 40rpx 32rpx; padding: 28rpx 32rpx;
-  background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2);
-  border-radius: 28rpx; border-left: 6rpx solid #F59E0B;
+  margin: 0 40rpx 32rpx; padding: 24rpx 28rpx;
+  background: rgba(245,158,11,0.04); border: 1px solid rgba(245,158,11,0.15);
+  border-radius: 24rpx; border-left: 4rpx solid #F59E0B;
+  animation: slideUp 0.3s ease-out;
 }
-.guide-warning-title { font-family: var(--serif); font-size: 26rpx; font-weight: 700; display: block; margin-bottom: 16rpx; }
-.guide-warning-item { font-size: 24rpx; opacity: 0.82; line-height: 1.7; display: block; &::before { content: '• '; color: #F59E0B; } }
+.guide-warning-item {
+  font-size: 24rpx; opacity: 0.75; line-height: 1.8; display: block;
+  &::before { content: '• '; color: #F59E0B; }
+}
+
+/* 底部 */
 .guide-footer { padding: 0 40rpx; text-align: center; }
 .guide-call-btn {
   display: inline-flex; align-items: center; gap: 14rpx;
@@ -178,4 +288,10 @@ function call120() {
 }
 .guide-call-icon { font-size: 36rpx; }
 .guide-legal { font-size: 22rpx; opacity: 0.4; font-family: var(--mono); }
+
+/* 动画 */
+@keyframes slideInRight { from { opacity: 0; transform: translateX(40rpx); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideOutLeft { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-40rpx); } }
+@keyframes pulseIn { 0% { transform: scale(0.6); opacity: 0.3; } 60% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20rpx); } to { opacity: 1; transform: translateY(0); } }
 </style>
