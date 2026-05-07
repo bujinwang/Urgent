@@ -24,7 +24,19 @@ const cards = [
 ]
 
 function showDetail(id: string) {
-  uni.showToast({ title: '「' + id + '」详情开发中', icon: 'none' })
+  const routes: Record<string, string> = {
+    cpr: '/pages/rescue/index',
+    choking: '/pages/guide/index?type=heimlich',
+    aed: '/pages/aed/index',
+    bleeding: '/pages/guide/index?type=bleeding',
+    fracture: '/pages/guide/index?type=fracture',
+    epilepsy: '/pages/guide/index?type=seizure',
+  }
+  const url = routes[id]
+  if (url) {
+    if (id === 'aed') uni.switchTab({ url })
+    else uni.navigateTo({ url })
+  }
 }
 </script>
 

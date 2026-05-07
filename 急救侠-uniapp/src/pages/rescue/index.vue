@@ -309,8 +309,8 @@ function call120() {
   })
 }
 
-function showGuide(_type: string) {
-  uni.showToast({ title: '急救指南开发中', icon: 'none' })
+function showGuide(type: string) {
+  uni.navigateTo({ url: `/pages/guide/index?type=${type}` })
 }
 
 function goHelper() {

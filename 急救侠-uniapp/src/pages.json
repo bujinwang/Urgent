@@ -64,6 +64,13 @@
       }
     },
     {
+      "path": "pages/guide/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
+    },
+    {
       "path": "pages/share/index",
       "style": {
         "navigationStyle": "custom",
