@@ -216,7 +216,11 @@ const activities = [
 
 // --- 导航 ---
 function goPage(route: string) {
-  uni.navigateTo({ url: route })
+  if (route.startsWith('/pages/aed') || route.startsWith('/pages/cert') || route.startsWith('/pages/learn')) {
+    uni.switchTab({ url: route })
+  } else {
+    uni.navigateTo({ url: route })
+  }
 }
 
 function goCert() {
