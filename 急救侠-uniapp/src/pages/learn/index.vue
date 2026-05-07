@@ -28,11 +28,21 @@
 
     <!-- 训练模块 -->
     <view v-if="tab === 'training'">
+      <!-- 演习模式提示 -->
+      <view class="training-notice">
+        <text class="training-notice-icon">⚠️</text>
+        <view class="training-notice-body">
+          <text class="training-notice-title">演习模式</text>
+          <text class="training-notice-sub">以下训练仅为流程演习，不会真实拨打 120 或调度志愿者</text>
+        </view>
+      </view>
+
       <view class="train-grid">
         <view v-for="item in trainings" :key="item.id" class="train-card" @click="startTraining(item.id)">
           <text class="train-card-icon">{{ item.icon }}</text>
           <text class="train-card-title">{{ item.title }}</text>
           <text class="train-card-desc">{{ item.desc }}</text>
+          <view class="train-card-tag">演习</view>
         </view>
       </view>
     </view>
@@ -52,10 +62,10 @@ const lessons = [
 ]
 
 const trainings = [
-  { id: 'cpr', icon: '❤️', title: '节拍器训练', desc: '110 BPM 按压节奏' },
-  { id: 'aed', icon: '⚡', title: 'AED 模拟', desc: '设备操作流程' },
-  { id: 'heimlich', icon: '🫁', title: '海姆立克', desc: '分人群手法练习' },
-  { id: 'scenario', icon: '🎯', title: '场景模拟', desc: '地铁站情境挑战' },
+  { id: 'cpr', icon: '❤️', title: '节拍器训练', desc: '110 BPM 按压节奏 · 全流程演习' },
+  { id: 'aed', icon: '⚡', title: 'AED 模拟', desc: '设备操作流程 · 演习' },
+  { id: 'heimlich', icon: '🫁', title: '海姆立克', desc: '分人群手法练习 · 演习' },
+  { id: 'scenario', icon: '🎯', title: '场景模拟', desc: '地铁站情境挑战 · 演习' },
 ]
 
 function startTraining(id: string) {
@@ -97,9 +107,63 @@ function startTraining(id: string) {
 .lesson-title { font-family: var(--serif); font-weight: 700; font-size: 28rpx; display: block; margin-bottom: 8rpx; }
 .lesson-meta { font-size: 22rpx; color: var(--ink-mute); display: flex; gap: 16rpx; }
 .lesson-progress { width: 64rpx; height: 64rpx; border-radius: 50%; border: 6rpx solid var(--green); display: flex; align-items: center; justify-content: center; color: var(--green); font-size: 28rpx; font-weight: 700; &.todo { border-color: var(--line); color: var(--ink-mute); } }
+
+/* 演习模式提示 */
+.training-notice {
+  display: flex;
+  gap: 20rpx;
+  align-items: flex-start;
+  margin: 0 40rpx 32rpx;
+  padding: 28rpx 32rpx;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 24rpx;
+}
+.training-notice-icon {
+  font-size: 36rpx;
+  flex-shrink: 0;
+}
+.training-notice-body {
+  flex: 1;
+}
+.training-notice-title {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #D97706;
+  margin-bottom: 4rpx;
+}
+.training-notice-sub {
+  font-size: 22rpx;
+  color: var(--ink-mute);
+  line-height: 1.5;
+}
+
 .train-grid { padding: 40rpx; display: grid; grid-template-columns: 1fr 1fr; gap: 28rpx; }
-.train-card { background: #fff; border: 1px solid var(--line); border-radius: 32rpx; padding: 48rpx 32rpx; text-align: center; }
+.train-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 32rpx;
+  padding: 48rpx 32rpx;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
 .train-card-icon { font-size: 64rpx; display: block; margin-bottom: 20rpx; }
 .train-card-title { font-family: var(--serif); font-size: 30rpx; font-weight: 700; display: block; margin-bottom: 8rpx; }
 .train-card-desc { font-size: 22rpx; color: var(--ink-mute); display: block; }
+
+.train-card-tag {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+  background: rgba(245, 158, 11, 0.12);
+  color: #D97706;
+  font-size: 18rpx;
+  font-family: var(--mono);
+  font-weight: 700;
+  padding: 4rpx 12rpx;
+  border-radius: 10rpx;
+  letter-spacing: 1rpx;
+}
 </style>

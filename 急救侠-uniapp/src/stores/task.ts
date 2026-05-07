@@ -15,20 +15,51 @@ export interface RescueTask {
   createdAt: string
 }
 
+export type MissionPhase = 'idle' | 'confirming' | 'running' | 'arrived'
+
 export const useTaskStore = defineStore('task', () => {
   const activeTask = ref<RescueTask | null>(getActiveTask())
   const tasks = ref<RescueTask[]>(getTaskList())
   const missionAccepted = ref(false)
+  const missionPhase = ref<MissionPhase>('idle')
+  const runningDistance = ref(240)
+  const runningTimeRemaining = ref(100)
 
   const hasMission = computed(() => activeTask.value !== null && !missionAccepted.value)
 
+  function showConfirm() {
+    missionPhase.value = 'confirming'
+  }
+
+  function hideConfirm() {
+    if (missionPhase.value === 'confirming') {
+      missionPhase.value = 'idle'
+    }
+  }
+
+  /** 确认接受 → 进入跑动导航 */
   function acceptMission() {
     missionAccepted.value = true
+    missionPhase.value = 'running'
+    runningDistance.value = 240
+    runningTimeRemaining.value = 100
+  }
+
+  function updateRunning(distance: number, time: number) {
+    runningDistance.value = distance
+    runningTimeRemaining.value = time
+  }
+
+  function arrive() {
+    missionPhase.value = 'arrived'
   }
 
   function finishMission() {
     missionAccepted.value = false
+    missionPhase.value = 'idle'
     activeTask.value = null
+    runningDistance.value = 240
+    runningTimeRemaining.value = 100
   }
 
   function refresh() {
@@ -36,5 +67,10 @@ export const useTaskStore = defineStore('task', () => {
     tasks.value = getTaskList()
   }
 
-  return { activeTask, tasks, missionAccepted, hasMission, acceptMission, finishMission, refresh }
+  return {
+    activeTask, tasks, missionAccepted, missionPhase,
+    runningDistance, runningTimeRemaining,
+    hasMission, showConfirm, hideConfirm,
+    acceptMission, updateRunning, arrive, finishMission, refresh,
+  }
 })

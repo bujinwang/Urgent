@@ -22,9 +22,30 @@
       }
     },
     {
+      "path": "pages/mission/running",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
+    },
+    {
+      "path": "pages/mission/arrived",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
+    },
+    {
       "path": "pages/aed/index",
       "style": {
         "navigationBarTitleText": "附近 AED"
+      }
+    },
+    {
+      "path": "pages/aed/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
       }
     },
     {
@@ -58,6 +79,13 @@
       }
     },
     {
+      "path": "pages/news/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
+    },
+    {
       "path": "pages/case-detail/index",
       "style": {
         "navigationBarTitleText": "案例详情"
@@ -72,6 +100,13 @@
     },
     {
       "path": "pages/share/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
+    },
+    {
+      "path": "pages/media-alert/index",
       "style": {
         "navigationStyle": "custom",
         "navigationBarTitleText": ""

@@ -38,6 +38,19 @@
       />
     </view>
 
+    <!-- 一键图片视频报警 -->
+    <view class="home-media-alert" @click="goMediaAlert">
+      <view class="home-media-pulse" />
+      <view class="home-media-content">
+        <text class="home-media-icon">📸</text>
+        <view class="home-media-body">
+          <text class="home-media-title">一键图片视频报警</text>
+          <text class="home-media-sub">拍照/录像 · 发送现场给 120</text>
+        </view>
+        <text class="home-media-arrow">→</text>
+      </view>
+    </view>
+
     <!-- 紧急任务 Banner（组件） -->
     <MissionBanner
       v-if="activeTask"
@@ -75,6 +88,14 @@
             </svg>
           </view>
           <text class="home-module-name">{{ mod.name }}</text>
+        </view>
+      </view>
+      <view class="home-module-btn" @click="goMediaAlert">
+        <view class="home-module-inner">
+          <view class="home-module-icon" style="background:#FFEBEE;">
+            <text style="font-size:28rpx;">📸</text>
+          </view>
+          <text class="home-module-name">图片报警</text>
         </view>
       </view>
       <view class="home-module-btn" @click="goNews">
@@ -231,6 +252,10 @@ function goRescue() {
   uni.navigateTo({ url: '/pages/rescue/index' })
 }
 
+function goMediaAlert() {
+  uni.navigateTo({ url: '/pages/media-alert/index' })
+}
+
 function goNews() {
   uni.navigateTo({ url: '/pages/news/index' })
 }
@@ -370,7 +395,59 @@ function goMission() {
   color: var(--ink-mute);
 }
 
-.home-sos-wrap { padding: 0 40rpx 32rpx; }
+.home-sos-wrap { padding: 0 40rpx 12rpx; }
+
+/* 一键图片视频报警 */
+.home-media-alert {
+  margin: 0 40rpx 20rpx;
+  padding: 28rpx 32rpx;
+  background: linear-gradient(135deg, #1E3A5F, #162D4A);
+  border: 2px solid rgba(59, 130, 246, 0.35);
+  border-radius: 28rpx;
+  position: relative;
+  overflow: hidden;
+}
+.home-media-pulse {
+  position: absolute;
+  inset: -2rpx;
+  border-radius: 28rpx;
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  animation: mediaPulse 2s ease-in-out infinite;
+}
+.home-media-content {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  position: relative;
+  z-index: 1;
+}
+.home-media-icon {
+  font-size: 48rpx;
+  flex-shrink: 0;
+}
+.home-media-body {
+  flex: 1;
+}
+.home-media-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4rpx;
+}
+.home-media-sub {
+  display: block;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.55);
+}
+.home-media-arrow {
+  font-size: 32rpx;
+  color: rgba(255, 255, 255, 0.5);
+}
+@keyframes mediaPulse {
+  0% { opacity: 0.6; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.03); }
+}
 
 /* SOS 按钮 & 使命 Banner 样式已迁移到组件 */
 

@@ -2,6 +2,15 @@
   <view class="page-rescue">
     <!-- === 阶段1：决策 === -->
     <view v-if="stage === 'decision'" class="rescue-decision">
+      <!-- 演习模式横幅 -->
+      <view class="training-banner">
+        <text class="training-banner-icon">⚠️</text>
+        <view class="training-banner-body">
+          <text class="training-banner-title">演习模式</text>
+          <text class="training-banner-sub">本次为流程演练，不会真实拨打 120</text>
+        </view>
+      </view>
+
       <!-- 顶栏 -->
       <view class="rescue-appbar">
         <text class="rescue-back" @click="goBack">‹</text>
@@ -16,7 +25,7 @@
       <view class="decision-tag-row">
         <view class="decision-tag">
           <view class="decision-tag-dot" />
-          <text>EMERGENCY · 黄金 4 分钟</text>
+          <text>演习 · 熟悉 CPR 流程</text>
         </view>
       </view>
 
@@ -29,8 +38,8 @@
       <view class="sos-btn-wrap">
         <SosButton
           variant="dark"
-          title="立即启动 CPR"
-          subtitle="全自动呼叫 120 + 调度 AED 小队"
+          title="开始 CPR 演习"
+          subtitle="熟悉全流程 · 模拟调度 AED 小队"
           :show-arrow="false"
           @click="showConfirm"
         />
@@ -38,7 +47,7 @@
 
       <!-- 系统自动操作说明 -->
       <view class="decision-auto-box">
-        <text class="decision-auto-label">点击后 5 秒内系统自动:</text>
+        <text class="decision-auto-label">演习模式 · 系统将模拟以下操作：</text>
         <view class="decision-auto-row">
           <view v-for="item in autoActions" :key="item.label" class="decision-auto-item">
             <view class="decision-auto-icon">{{ item.icon }}</view>
@@ -75,6 +84,12 @@
 
     <!-- === 阶段2：CPR 流程 === -->
     <view v-if="stage === 'cpr'" class="rescue-cpr">
+      <!-- 演习模式横幅（紧凑） -->
+      <view class="training-banner cpr-banner">
+        <text class="training-banner-icon">⚠️</text>
+        <text class="training-banner-compact-text">演习 · 不会拨打 120</text>
+      </view>
+
       <view class="rescue-appbar">
         <text class="rescue-back" @click="backToDecision">‹</text>
         <text class="rescue-title">{{ stepTitle }}</text>
@@ -93,14 +108,39 @@
         <view class="step-icon-wrap" style="background:linear-gradient(135deg,#F59E0B,#D97706);">
           <text class="step-icon-emoji">📣</text>
         </view>
-        <text class="step-action-label">系统调度中 · 您只管准备按压</text>
+        <text class="step-action-label">演习 · 系统模拟调度中</text>
         <text class="step-quote">"系统已调度！现场清空，准备按压！"</text>
         <view class="step-tasks">
-          <view class="step-task done"><text class="step-task-check">✓</text><text class="step-task-text"><strong>120 已自动呼叫</strong></text></view>
-          <view class="step-task done"><text class="step-task-check">✓</text><text class="step-task-text"><strong>5km 内 8 名志愿者</strong>已通知</text></view>
-          <view class="step-task active"><text class="step-task-check" style="background:#F59E0B;">⚡</text><text class="step-task-text"><strong>3 名志愿者小队已分工</strong></text></view>
+          <view class="step-task done">
+            <view class="step-task-check">✓</view>
+            <view class="step-task-text">
+              <strong>【演习】模拟拨打 120</strong>
+              <view class="step-task-sub">（本次不会真实呼叫）</view>
+            </view>
+          </view>
+          <view class="step-task done">
+            <view class="step-task-check">✓</view>
+            <view class="step-task-text">
+              <strong>【演习】模拟通知 5km 内志愿者</strong>
+              <view class="step-task-sub">最近模拟距离 240m · 预计 3 分钟</view>
+            </view>
+          </view>
+          <view class="step-task active">
+            <view class="step-task-check" style="background:#F59E0B;">⚡</view>
+            <view class="step-task-text">
+              <strong>【演习】3 名志愿者角色已模拟分配</strong>
+              <view class="step-task-sub">压缩手 240m · AED 手 100m · 记录员 310m</view>
+            </view>
+          </view>
+          <view class="step-task" @click="goHelper">
+            <view class="step-task-check todo">→</view>
+            <view class="step-task-text">点这里 · 让现场路人扫码协助</view>
+          </view>
         </view>
-        <view class="step-detail"><strong style="color:#FF8B5B;">您不用自己去找 AED</strong>——系统已同步调度。</view>
+        <view class="step-detail">
+          <strong style="color:#FF8B5B;">本次为演习，不会真实调度资源</strong>——请跟着语音指令熟悉完整 CPR 流程。<br>
+          放下手机，跟着语音指引准备开始按压。
+        </view>
         <StepTimer :seconds="7" @done="cprStep = 2" />
         <view class="step-buttons"><view class="step-btn-primary" @click="cprStep = 2">已喊人 · 立即开始</view></view>
       </view>
@@ -152,6 +192,10 @@
           <view class="cpr-action aed-action" @click="goAedFlow"><text class="cpr-action-icon">⚡</text><text>AED 连好了</text></view>
           <view class="cpr-action danger" @click="call120"><text class="cpr-action-icon">📞</text><text>120</text></view>
         </view>
+        <view class="cpr-action-media" @click="goMediaAlert">
+          <text class="cpr-action-media-icon">📸</text>
+          <text>拍照/录像 · 发送现场情况给 120</text>
+        </view>
       </view>
 
       <!-- AED 介入 -->
@@ -197,15 +241,27 @@
     </view>
 
     <!-- 确认弹层（组件） -->
-    <BottomSheet :visible="confirmVisible" dark title="⚠️ 责任与义务确认" @close="confirmVisible = false">
+    <BottomSheet :visible="confirmVisible" dark title="⚠️ 演习模式 · 免责确认" @close="confirmVisible = false">
       <view class="confirm-body">
-        您即将启动<strong>真实紧急救援流程</strong>。系统将自动呼叫 120、通知附近志愿者、记录您的 GPS 位置。
+        <!-- 演习提示 -->
+        <view class="confirm-drill-box">
+          <text class="confirm-drill-icon">⚠️</text>
+          <view>
+            <text class="confirm-drill-title">本次为演习，不会真实拨打 120</text>
+            <text class="confirm-drill-desc">请放心按照语音指引完成全流程练习</text>
+          </view>
+        </view>
+
+        <view class="confirm-body-text">
+          您即将进入<strong>CPR 心肺复苏流程演习</strong>。系统将模拟呼叫 120、通知附近志愿者等操作，帮助您熟悉真实急救场景下的每一步。
+        </view>
+
+        <view class="confirm-check" @click="confirmed = !confirmed">
+          <view class="confirm-checkbox" :class="{ checked: confirmed }">{{ confirmed ? '✓' : '' }}</view>
+          <text class="confirm-check-label">我已理解这是演习模式，不会真实拨打 120（《民法典》第 184 条保护善意救助者）</text>
+        </view>
+        <view class="confirm-btn" :class="confirmed ? 'ready' : 'disabled'" @click="startCpr">开始 CPR 演习</view>
       </view>
-      <view class="confirm-check" @click="confirmed = !confirmed">
-        <view class="confirm-checkbox" :class="{ checked: confirmed }">{{ confirmed ? '✓' : '' }}</view>
-        <text class="confirm-check-label">我已阅读并理解《善意救助免责声明》（《民法典》第 184 条）</text>
-      </view>
-      <view class="confirm-btn" :class="confirmed ? 'ready' : 'disabled'" @click="startCpr">确认启动 CPR</view>
     </BottomSheet>
   </view>
 </template>
@@ -230,7 +286,7 @@ const pressCount = ref(0)
 const rounds = ref(0)
 const elapsed = ref('00:00')
 const pressNumDisplay = ref('准备')
-const pressLabel = ref('点圆圈可重置')
+const pressLabel = ref('演习模式 · 点圆圈可重置')
 const totalSeconds = ref(0)
 let totalTimer: number | null = null
 let pressTimer: number | null = null
@@ -262,9 +318,9 @@ const aedPhaseSeconds = computed(() => aedPhase.value === 0 ? 10 : aedPhase.valu
 // --- 常量 ---
 const stepLabels = ['呼救', '判断', '呼吸', '按压', '人工呼吸']
 const autoActions = [
-  { icon: '📞', label: '呼叫 120' },
-  { icon: '👥', label: '召志愿者' },
-  { icon: '⚡', label: '派 AED' },
+  { icon: '📞', label: '模拟呼叫 120' },
+  { icon: '👥', label: '模拟召志愿者' },
+  { icon: '⚡', label: '模拟派 AED' },
 ]
 const emergencyGuides = [
   { type: 'heimlich', emoji: '🫁', title: '异物窒息', desc: '海姆立克法', wide: false },
@@ -304,14 +360,12 @@ function goBack() {
 
 function abort(reason: string) {
   stopAll()
-  uni.showToast({ title: `已暂停：${reason}`, icon: 'none' })
+  uni.showToast({ title: `演习暂停：${reason}`, icon: 'none' })
   stage.value = 'decision'
 }
 
 function call120() {
-  uni.makePhoneCall({ phoneNumber: '120' }).catch(() => {
-    uni.showToast({ title: '演示模式：正在呼叫 120...', icon: 'none' })
-  })
+  uni.showToast({ title: '演习模式 · 不会真实呼叫 120', icon: 'none' })
 }
 
 function showGuide(type: string) {
@@ -320,6 +374,10 @@ function showGuide(type: string) {
 
 function goHelper() {
   uni.navigateTo({ url: '/pages/share/index' })
+}
+
+function goMediaAlert() {
+  uni.navigateTo({ url: '/pages/media-alert/index' })
 }
 
 // --- CPR 流程 ---
@@ -338,24 +396,13 @@ function resetCount() {
   pressCount.value = 0
   pressNumDisplay.value = '0'
   pressLabel.value = '已重置'
-  setTimeout(() => { pressLabel.value = '跟屏幕数字按压'; startPress() }, 1500)
-}
-
-// 中文数字
-const CN_NUMS = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
-
-function toChineseNumber(n: number): string {
-  if (n <= 10) return CN_NUMS[n]
-  if (n < 20) return '十' + (n % 10 === 0 ? '' : CN_NUMS[n % 10])
-  if (n < 30) return '二十' + (n % 10 === 0 ? '' : CN_NUMS[n % 10])
-  if (n === 30) return '三十'
-  return String(n)
+  setTimeout(() => { pressLabel.value = '演习模式 · 跟屏幕数字按压'; startPress() }, 1500)
 }
 
 // CPR 数字转短读法（TTS 友好）
 function wordForCpr(n: number): string {
   if (n <= 10) return ['零','一','二','三','四','五','六','七','八','九','十'][n]
-  return String(n) // 阿拉伯数字让 TTS 读更快
+  return String(n)
 }
 
 function startPress() {
@@ -366,7 +413,6 @@ function startPress() {
     pressCount.value++
     const display = pressCount.value < 10 ? '0' + pressCount.value : String(pressCount.value)
     pressNumDisplay.value = display
-    // 语音报数：不 cancel，直接排队播报
     voice.speak(wordForCpr(pressCount.value), { rate: 1.7, volume: 1.0, priority: 'URGENT' }); uni.vibrateShort({ type: "light" }); playClick()
     if (pressCount.value >= 30) {
       stopPress()
@@ -421,7 +467,7 @@ watch([cprStep, aedPhase], ([step, phase]) => {
   voice.stop()
   setTimeout(() => {
     if (step === 1) {
-      speakCommand('系统已调度。现场清空，准备按压。')
+      speakCommand('演习模式。系统已模拟调度。现场清空，准备按压。')
     } else if (step === 2) {
       speakGuide('拍打患者两侧肩膀，在耳边大声呼喊。观察是否有反应。')
     } else if (step === 3) {
@@ -430,6 +476,7 @@ watch([cprStep, aedPhase], ([step, phase]) => {
       stopBreathCount()
     }
     if (step === 4) {
+      pressLabel.value = '演习模式 · 跟屏幕数字按压'
       startPress()
     }
     if (step === 'aed') {
@@ -484,6 +531,46 @@ onUnmounted(() => stopAll())
   padding-bottom: 60rpx;
 }
 
+/* ============ 演习模式横幅 ============ */
+.training-banner {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 0;
+  padding: 20rpx 40rpx;
+  background: rgba(245, 158, 11, 0.12);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+}
+.training-banner-icon {
+  font-size: 32rpx;
+  flex-shrink: 0;
+}
+.training-banner-body {
+  flex: 1;
+}
+.training-banner-title {
+  display: block;
+  font-family: var(--serif);
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #F59E0B;
+}
+.training-banner-sub {
+  display: block;
+  font-size: 20rpx;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 2rpx;
+}
+.training-banner-compact-text {
+  font-size: 22rpx;
+  color: #F59E0B;
+  font-weight: 600;
+}
+.cpr-banner {
+  padding: 14rpx 40rpx;
+  background: rgba(245, 158, 11, 0.1);
+}
+
 /* 顶栏 */
 .rescue-appbar {
   display: flex;
@@ -528,18 +615,18 @@ onUnmounted(() => stopAll())
   display: inline-flex;
   align-items: center;
   gap: 12rpx;
-  background: rgba(192,57,43,0.2);
-  border: 1px solid rgba(192,57,43,0.4);
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
   padding: 10rpx 24rpx;
   border-radius: 40rpx;
   font-family: var(--mono);
   font-size: 20rpx;
   letter-spacing: 3rpx;
-  color: #FF8B5B;
+  color: #F59E0B;
 }
 .decision-tag-dot {
   width: 14rpx; height: 14rpx;
-  background: #FF6B5B;
+  background: #F59E0B;
   border-radius: 50%;
   animation: blink 1s infinite;
 }
@@ -631,7 +718,6 @@ onUnmounted(() => stopAll())
   &.done { background: rgba(52,210,119,0.2); border-color: var(--green); color: var(--green); }
 }
 .step-pill + .step-pill { margin-left: 8rpx; }
-/* 用 connection line 替代 step-line：每个 pill 间加一条 */
 .step-pill-label { position: absolute; bottom: -32rpx; font-size: 18rpx; font-weight: 500; white-space: nowrap; color: rgba(255,255,255,0.5); }
 .step-pill.active .step-pill-label { color: #fff; }
 
@@ -651,7 +737,7 @@ onUnmounted(() => stopAll())
 }
 .step-tasks { display: flex; flex-direction: column; gap: 20rpx; margin-bottom: 32rpx; text-align: left; }
 .step-task {
-  display: flex; gap: 24rpx; align-items: center;
+  display: flex; gap: 24rpx; align-items: flex-start;
   padding: 28rpx 32rpx; background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1); border-radius: 24rpx;
   &.done { background: rgba(52,210,119,0.1); border-color: rgba(52,210,119,0.3); }
@@ -661,8 +747,10 @@ onUnmounted(() => stopAll())
   width: 56rpx; height: 56rpx; border-radius: 50%; background: var(--green);
   color: #fff; display: flex; align-items: center; justify-content: center;
   font-size: 28rpx; font-weight: 700; flex-shrink: 0;
+  &.todo { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); }
 }
 .step-task-text { font-size: 28rpx; font-weight: 500; }
+.step-task-sub { font-size: 22rpx; color: rgba(255,255,255,0.45); margin-top: 4rpx; }
 .step-buttons { display: flex; gap: 24rpx; }
 .step-btn-primary {
   flex: 1; padding: 32rpx; border-radius: 28rpx;
@@ -718,6 +806,25 @@ onUnmounted(() => stopAll())
 }
 .cpr-action-icon { font-size: 40rpx; }
 
+/* 拍照发送（全宽） */
+.cpr-action-media {
+  margin-top: 20rpx;
+  padding: 28rpx;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  color: #60A5FA;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+.cpr-action-media-icon {
+  font-size: 32rpx;
+}
+
 /* 人工呼吸 */
 .vent-img { width: 100%; height: 360rpx; border-radius: 24rpx; margin-bottom: 32rpx; animation: float-img 4s ease-in-out infinite; }
 .vent-checklist { display: flex; flex-direction: column; gap: 20rpx; margin-bottom: 40rpx; text-align: left; }
@@ -751,12 +858,50 @@ onUnmounted(() => stopAll())
 }
 .confirm-handle { width: 72rpx; height: 8rpx; background: rgba(255,255,255,0.2); border-radius: 4rpx; margin: 0 auto 48rpx; }
 .confirm-title { font-family: var(--serif); font-size: 40rpx; font-weight: 900; color: #fff; display: block; margin-bottom: 12rpx; }
+
 .confirm-body {
-  font-size: 26rpx; color: rgba(255,255,255,0.75); line-height: 1.75; margin-bottom: 40rpx;
-  padding: 28rpx 32rpx; background: rgba(245,158,11,0.06);
-  border: 1px solid rgba(245,158,11,0.2); border-radius: 28rpx; border-left: 6rpx solid #F59E0B;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
 }
-.confirm-check { display: flex; align-items: flex-start; gap: 24rpx; padding: 28rpx 0; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 40rpx; }
+
+/* 演习提示框 */
+.confirm-drill-box {
+  display: flex;
+  gap: 20rpx;
+  align-items: flex-start;
+  padding: 28rpx 32rpx;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 28rpx;
+}
+.confirm-drill-icon {
+  font-size: 40rpx;
+  flex-shrink: 0;
+}
+.confirm-drill-title {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #F59E0B;
+  margin-bottom: 4rpx;
+}
+.confirm-drill-desc {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.confirm-body-text {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.75;
+  padding: 28rpx 32rpx;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 28rpx;
+}
+
+.confirm-check { display: flex; align-items: flex-start; gap: 24rpx; padding: 28rpx 0; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); }
 .confirm-checkbox {
   width: 44rpx; height: 44rpx; border-radius: 12rpx; border: 2px solid rgba(255,255,255,0.3);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2rpx;
@@ -767,9 +912,19 @@ onUnmounted(() => stopAll())
 .confirm-btn {
   width: 100%; padding: 36rpx; border-radius: 36rpx;
   font-family: var(--serif); font-size: 34rpx; font-weight: 900; text-align: center;
-  margin-bottom: 20rpx; transition: all 0.2s;
+  transition: all 0.2s;
   &.ready { background: linear-gradient(135deg, #C0392B, #8B2A1F); color: #fff; box-shadow: 0 16rpx 48rpx rgba(192,57,43,0.5); }
   &.disabled { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); }
 }
 .confirm-cancel { display: block; text-align: center; color: rgba(255,255,255,0.4); font-size: 26rpx; padding: 24rpx; }
+
+/* 动画 */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.6); }
+  50% { box-shadow: 0 0 0 24rpx rgba(192, 57, 43, 0); }
+}
 </style>

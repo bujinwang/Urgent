@@ -55,19 +55,67 @@
 
     <!-- 操作按钮 -->
     <view class="mission-actions">
-      <view class="mission-btn-accept" @click="acceptMission">接受 · 立即出发</view>
+      <view class="mission-btn-accept" @click="showConfirmSheet">接受 · 立即出发</view>
       <view class="mission-btn-decline" @click="declineMission">无法前往，转给他人</view>
     </view>
+
+    <!-- === 责任确认弹层 === -->
+    <BottomSheet :visible="confirmVisible" dark title="任务确认" @close="confirmVisible = false">
+      <view class="confirm-body">
+        <!-- 责任与义务 -->
+        <view class="confirm-warn-box">
+          <view class="confirm-warn-header">
+            <text>⚠️</text>
+            <text class="confirm-warn-title">责任与义务确认</text>
+          </view>
+          <text class="confirm-warn-text">
+            这是一个<strong>真实</strong>的急救任务。恶意抢单、虚假响应将导致救援资源浪费，情节严重者将承担法律责任及治安处罚。
+          </text>
+        </view>
+
+        <!-- 系统将记录 -->
+        <view class="confirm-records">
+          <text class="confirm-records-title">系统将记录并开启：</text>
+          <view class="confirm-records-list">
+            <view class="confirm-record-item">
+              <text class="confirm-record-check">✓</text>
+              <text>您的实时地理位置 (GPS)</text>
+            </view>
+            <view class="confirm-record-item">
+              <text class="confirm-record-check">✓</text>
+              <text>AED 取用、到场与电击时间戳</text>
+            </view>
+            <view class="confirm-record-item">
+              <text class="confirm-record-check">✓</text>
+              <text>小队分工、轮替与现场记录同步</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 免责声明 -->
+        <text class="confirm-disclaimer">
+          点击"确认前往"即代表您接受 AED 准备/轮替角色并承诺尽力施救
+        </text>
+
+        <!-- 按钮 -->
+        <view class="confirm-buttons">
+          <view class="confirm-btn-cancel" @click="confirmVisible = false">取消</view>
+          <view class="confirm-btn-go" @click="acceptAndGo">确认前往</view>
+        </view>
+      </view>
+    </BottomSheet>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useTaskStore } from '@/stores/task'
+import BottomSheet from '@/components/BottomSheet/index.vue'
 
 const taskStore = useTaskStore()
 
 const countdown = ref(23)
+const confirmVisible = ref(false)
 let timer: number | null = null
 
 onMounted(() => {
@@ -86,11 +134,18 @@ function goBack() {
   else uni.switchTab({ url: '/pages/home/index' })
 }
 
-function acceptMission() {
+/** 弹确认弹窗 */
+function showConfirmSheet() {
+  confirmVisible.value = true
+}
+
+/** 确认 → 接受 + 跳转跑动页 */
+function acceptAndGo() {
+  confirmVisible.value = false
   taskStore.acceptMission()
   uni.showToast({ title: '任务已接受 · 开始导航', icon: 'success' })
   setTimeout(() => {
-    uni.switchTab({ url: '/pages/aed/index' })
+    uni.navigateTo({ url: '/pages/mission/running' })
   }, 600)
 }
 
@@ -318,5 +373,111 @@ function declineMission() {
   border-radius: 28rpx;
   font-size: 28rpx;
   text-align: center;
+}
+
+/* ============ 确认弹层内容 ============ */
+.confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.confirm-warn-box {
+  background: rgba(192, 57, 43, 0.1);
+  border: 1px solid rgba(192, 57, 43, 0.2);
+  border-radius: 28rpx;
+  padding: 28rpx 32rpx;
+}
+.confirm-warn-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+  font-size: 28rpx;
+}
+.confirm-warn-title {
+  color: var(--rescue-red);
+  font-weight: 700;
+  font-size: 28rpx;
+}
+.confirm-warn-text {
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.confirm-records {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24rpx;
+  padding: 28rpx 32rpx;
+}
+.confirm-records-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 20rpx;
+}
+.confirm-records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.confirm-record-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.6);
+}
+.confirm-record-check {
+  color: var(--green);
+  font-weight: 700;
+  font-size: 24rpx;
+}
+
+.confirm-disclaimer {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.confirm-buttons {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 8rpx;
+}
+.confirm-btn-cancel {
+  flex: 1;
+  padding: 28rpx;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 24rpx;
+  font-weight: 700;
+  font-size: 28rpx;
+  text-align: center;
+}
+.confirm-btn-go {
+  flex: 1;
+  padding: 28rpx;
+  background: var(--rescue-red);
+  color: #fff;
+  border-radius: 24rpx;
+  font-weight: 700;
+  font-size: 28rpx;
+  text-align: center;
+  box-shadow: 0 12rpx 32rpx rgba(192, 57, 43, 0.35);
+}
+
+/* 动画 */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.6); }
+  50% { box-shadow: 0 0 0 24rpx rgba(192, 57, 43, 0); }
 }
 </style>
