@@ -217,6 +217,7 @@ import StepTimer from '@/components/StepTimer/index.vue'
 import Metronome from '@/components/Metronome/index.vue'
 import BottomSheet from '@/components/BottomSheet/index.vue'
 import { voice } from '@/utils/voice'
+import { playClick } from '@/utils/audio'
 
 // --- 状态 ---
 const stage = ref<'decision' | 'cpr'>('decision')
@@ -347,6 +348,12 @@ function toChineseNumber(n: number): string {
   return String(n)
 }
 
+// CPR 数字转短读法（TTS 友好）
+function wordForCpr(n: number): string {
+  if (n <= 10) return ['零','一','二','三','四','五','六','七','八','九','十'][n]
+  return String(n) // 阿拉伯数字让 TTS 读更快
+}
+
 function startPress() {
   stopPress()
   pressCount.value = 0
@@ -356,7 +363,7 @@ function startPress() {
     const display = pressCount.value < 10 ? '0' + pressCount.value : String(pressCount.value)
     pressNumDisplay.value = display
     // 语音报数：不 cancel，直接排队播报
-    voice.count(toChineseNumber(pressCount.value)); uni.vibrateShort({ type: "light" })
+    voice.speak(wordForCpr(pressCount.value), { rate: 1.7, volume: 1.0, priority: 'URGENT' }); uni.vibrateShort({ type: "light" }); playClick()
     if (pressCount.value >= 30) {
       stopPress()
       cprStep.value = 5

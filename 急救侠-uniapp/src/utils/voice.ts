@@ -141,4 +141,24 @@ class VoiceManager {
   }
 }
 
+  /** 多句连续播报（自动停顿） */
+  speakSequence(phrases: Array<string | { text: string; rate?: number; pitch?: number; pause?: number }>, callback?: () => void) {
+    if (!phrases || phrases.length === 0) {
+      if (callback) callback()
+      return
+    }
+    phrases.forEach((p, idx) => {
+      const isLast = idx === phrases.length - 1
+      const opts: any = typeof p === 'string' ? {} : { ...p }
+      const text = typeof p === 'string' ? p : p.text
+      delete opts.text
+      if (isLast && callback) {
+        const originalEnd = opts.onend
+        opts.onend = () => { if (originalEnd) originalEnd(); callback() }
+      }
+      this.speak(text, opts)
+    })
+  }
+}
+
 export const voice = new VoiceManager()

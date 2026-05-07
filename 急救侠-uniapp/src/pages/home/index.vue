@@ -111,6 +111,7 @@ import MissionBanner from '@/components/MissionBanner/index.vue'
 import { useUserStore } from '@/stores/user'
 import { useTaskStore } from '@/stores/task'
 import { voice } from '@/utils/voice'
+import { playAlertSound } from '@/utils/audio'
 
 // --- stores ---
 const userStore = useUserStore()
@@ -155,7 +156,7 @@ onMounted(() => {
   watch(activeTask, (task) => {
     if (task) {
       setTimeout(() => {
-        voice.command('紧急任务！' + task.distance + '米外需要 C P R 协作！')
+        playAlertSound(); voice.command('紧急任务！' + task.distance + '米外需要 C P R 协作！')
         setTimeout(() => voice.command('系统正在呼叫三人小队，请查看任务'), 2500)
       }, 500)
     }

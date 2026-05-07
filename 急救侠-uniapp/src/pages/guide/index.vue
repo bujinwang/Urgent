@@ -17,6 +17,15 @@
       </view>
     </view>
 
+    <!-- AI 插图 -->
+    <view v-if="guideImage" class="guide-illustration">
+      <image class="guide-img" :src="guideImage" mode="aspectFill" />
+      <view class="guide-img-badge">
+        <view class="img-badge-dot" />
+        <text>MEDICAL AI SIMULATION</text>
+      </view>
+    </view>
+
     <!-- 当前步骤（大卡片） -->
     <view class="guide-card" :key="current">
       <view class="card-step-tag" :class="{ warn: guide.steps[current].warn }">
@@ -134,6 +143,17 @@ const guides: Record<string, GuideData> = {
 const current = ref(0)
 const showWarn = ref(false)
 
+
+const guideImages: Record<string, string> = {
+  bleeding: '/static/bleeding.png',
+  heimlich: '/static/heimlich.png',
+  fracture: '/static/fracture.png',
+  transport: '/static/transport.png',
+  psychological: '/static/psychological.png',
+  seizure: '/static/psychological.png',
+}
+const guideImage = computed(() => guideImages[type.value] || '')
+
 const type = ref('bleeding')
 const guide = computed(() => guides[type.value] || guides.bleeding)
 
@@ -231,6 +251,34 @@ function call120() {
   transition: all 0.3s;
   &.done { background: var(--green); box-shadow: 0 0 12rpx rgba(52,210,119,0.5); }
   &.current { background: var(--rescue-red); animation: blink 0.8s infinite; }
+}
+
+/* AI 插图 */
+.guide-illustration {
+  margin: 0 40rpx 24rpx; position: relative;
+  border-radius: 24rpx; overflow: hidden;
+  box-shadow: 0 16rpx 40rpx rgba(0,0,0,0.3);
+}
+.guide-img {
+  width: 100%; height: 360rpx; display: block;
+  animation: float-img 4s ease-in-out infinite;
+}
+.guide-img-badge {
+  position: absolute; bottom: 16rpx; right: 16rpx;
+  display: flex; align-items: center; gap: 8rpx;
+  font-family: var(--mono); font-size: 18rpx; letter-spacing: 1rpx;
+  background: rgba(0,0,0,0.55); color: rgba(255,255,255,0.8);
+  padding: 6rpx 16rpx; border-radius: 16rpx;
+  backdrop-filter: blur(8rpx);
+}
+.img-badge-dot {
+  width: 12rpx; height: 12rpx; border-radius: 50%;
+  background: #34D277; animation: blink 1.2s infinite;
+}
+
+@keyframes float-img {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
 
 /* 步骤卡片 */
