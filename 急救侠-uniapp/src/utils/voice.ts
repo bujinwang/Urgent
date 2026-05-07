@@ -73,15 +73,20 @@ class VoiceManager {
     return voices[0] || null
   }
 
-  /** 常规播报 — 排队播放 */
+  /** 常规播报 — 排队播放，URGENT 优先打断 */
   speak(text: string, options: VoiceOptions = {}) {
     if (!isSpeechSupported()) return
 
-    const { rate = 1.05, pitch = 1.0, volume = 1.0 } = options
+    const { rate = 1.05, pitch = 1.0, volume = 1.0, priority = 'NORMAL' } = options
     const processed = String(text)
       .replace(/A\s*E\s*D/gi, 'AED')
       .replace(/C\s*P\s*R/gi, 'CPR')
       .replace(/!/g, '，')
+
+    // URGENT 优先级：清空队列直接插播（用于 CPR 报数等时效性场景）
+    if (priority === 'URGENT') {
+      this.stop()
+    }
 
     const u = new SpeechSynthesisUtterance(processed)
     u.voice = this.ensureVoice()
@@ -139,7 +144,6 @@ class VoiceManager {
   comfort(text: string) {
     this.speak(text, { rate: 0.9, pitch: 0.95, volume: 0.8 })
   }
-}
 
   /** 多句连续播报（自动停顿） */
   speakSequence(phrases: Array<string | { text: string; rate?: number; pitch?: number; pause?: number }>, callback?: () => void) {
