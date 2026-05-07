@@ -191,7 +191,11 @@ watch(current, (val) => {
   if (s) setTimeout(() => voice.command(s.title + "，" + s.detail), 300)
 })
 
-function goBack() { uni.navigateBack() }
+function goBack() {
+  const pages = getCurrentPages()
+  if (pages.length > 1) uni.navigateBack()
+  else uni.switchTab({ url: '/pages/home/index' })
+}
 function call120() {
   uni.makePhoneCall({ phoneNumber: '120' }).catch(() => {
     uni.showToast({ title: '演示模式：正在呼叫 120...', icon: 'none' })

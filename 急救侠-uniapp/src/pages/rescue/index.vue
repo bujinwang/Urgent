@@ -296,7 +296,11 @@ function startCpr() {
 }
 
 function backToDecision() { stopVoice(); stage.value = 'decision'; stopAll() }
-function goBack() { uni.navigateBack() }
+function goBack() {
+  const pages = getCurrentPages()
+  if (pages.length > 1) uni.navigateBack()
+  else uni.switchTab({ url: '/pages/home/index' })
+}
 
 function abort(reason: string) {
   stopAll()
