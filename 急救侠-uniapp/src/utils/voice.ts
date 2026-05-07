@@ -77,6 +77,11 @@ class VoiceManager {
   speak(text: string, options: VoiceOptions = {}) {
     if (!isSpeechSupported()) return
 
+    // Chrome 在某些情况下会暂停 speechSynthesis，需恢复
+    if (speechSynthesis.paused) {
+      speechSynthesis.resume()
+    }
+
     const { rate = 1.05, pitch = 1.0, volume = 1.0, priority = 'NORMAL' } = options
     const processed = String(text)
       .replace(/A\s*E\s*D/gi, 'AED')

@@ -70,7 +70,7 @@ const trainings = [
 
 function startTraining(id: string) {
   const routes: Record<string, string> = {
-    cpr: '/pages/rescue/index',
+    cpr: '/pages/rescue/index?mode=drill',
     aed: '/pages/aed/index',
     heimlich: '/pages/guide/index?type=heimlich',
     scenario: '/pages/guide/index?type=bleeding',
