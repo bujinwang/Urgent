@@ -72,6 +72,18 @@
       <text v-if="item.body" class="detail-content-full">{{ item.body }}</text>
       <text v-else class="detail-content-full">这是一篇关于急救救援的新闻报道。{{ item.excerpt }} 标签：{{ item.tags.join('、') }}。更多详情请关注急救侠后续报道。</text>
 
+      <!-- 救援案例入口：当新闻关联了救援案例时显示 -->
+      <view v-if="item.caseId && item.tags.includes('成功案例')" class="detail-case-entry" @click="goCaseDetail">
+        <view class="detail-case-entry-left">
+          <text class="detail-case-entry-icon">📋</text>
+          <view>
+            <text class="detail-case-entry-title">查看救援详情</text>
+            <text class="detail-case-entry-sub">完整时间线 · 参与者信息</text>
+          </view>
+        </view>
+        <text class="detail-case-entry-arrow">→</text>
+      </view>
+
       <!-- 位置卡 -->
       <view class="detail-location-card">
         <text class="detail-loc-icon">📍</text>
@@ -116,6 +128,11 @@ onMounted(() => {
 })
 
 function goBack() { uni.navigateBack() }
+function goCaseDetail() {
+  if (item.value.caseId) {
+    uni.navigateTo({ url: `/pages/case-detail/index?id=${item.value.caseId}` })
+  }
+}
 function formatCount(n: number): string {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w'
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k'
@@ -261,6 +278,21 @@ function formatCount(n: number): string {
 .detail-content-full {
   font-size: 28rpx; line-height: 1.85; color: var(--ink-mute); display: block; margin-bottom: 32rpx;
 }
+
+/* 救援案例入口 */
+.detail-case-entry {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 28rpx 32rpx; margin-bottom: 28rpx;
+  background: linear-gradient(135deg, rgba(192,57,43,0.06), rgba(139,42,31,0.03));
+  border: 1.5px solid rgba(192,57,43,0.2);
+  border-radius: 24rpx;
+}
+.detail-case-entry-left { display: flex; align-items: center; gap: 16rpx; }
+.detail-case-entry-icon { font-size: 40rpx; }
+.detail-case-entry-title { display: block; font-size: 26rpx; font-weight: 700; color: var(--rescue-red); }
+.detail-case-entry-sub { display: block; font-size: 22rpx; color: var(--ink-mute); margin-top: 2rpx; }
+.detail-case-entry-arrow { font-size: 28rpx; color: var(--rescue-red); font-weight: 700; }
+
 .detail-location-card {
   display: flex; align-items: center; gap: 16rpx;
   padding: 28rpx; background: #F8F8F8; border-radius: 20rpx; margin-bottom: 32rpx;

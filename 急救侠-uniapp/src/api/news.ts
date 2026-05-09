@@ -44,6 +44,8 @@ export interface NewsItem {
   liveStats?: LiveStats
   featured?: boolean
   category: 'recommend' | 'video' | 'nearby' | 'volunteer'
+  /** 关联的救援案例 ID，用于跳转到 case-detail 结构化案例页 */
+  caseId?: string
 }
 
 const MOCK_NEWS: NewsItem[] = [
@@ -64,6 +66,7 @@ const MOCK_NEWS: NewsItem[] = [
     liveStats: { volunteers: 3, duration: '6 分钟', status: 'ongoing' },
     featured: true,
     category: 'recommend',
+    caseId: 'case_park',
   },
   // === 短视频 ===
   {
@@ -216,6 +219,7 @@ const MOCK_NEWS: NewsItem[] = [
     stats: { views: 3451, likes: 234, comments: 56 },
     tags: ['成功案例', '商场', '多志愿者'],
     category: 'recommend',
+    caseId: 'case_mall',
   },
   {
     id: 'article_003',
@@ -244,6 +248,7 @@ const MOCK_NEWS: NewsItem[] = [
     stats: { views: 2156, likes: 178, comments: 45 },
     tags: ['成功案例', '科技园', 'CPR'],
     category: 'recommend',
+    caseId: 'case_tech',
   },
   // === 扩展 8 条 ===
   {
