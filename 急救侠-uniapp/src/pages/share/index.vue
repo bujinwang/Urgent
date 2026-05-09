@@ -6,12 +6,13 @@
       <text class="share-hero-sub">CPR + AED 救援网络\n有人倒下，别慌 · 跟着做就能帮</text>
       <view class="share-hero-badge">
         <view class="share-badge-dot" />
-        <text>附近 3 名志愿者在线</text>
+        <text>{{ onlineLabel }}</text>
       </view>
       <view class="share-stats">
-        <view class="share-stat"><text class="share-stat-num">2,340+</text><text class="share-stat-label">累计志愿者</text></view>
-        <view class="share-stat"><text class="share-stat-num">89</text><text class="share-stat-label">成功救援</text></view>
-        <view class="share-stat"><text class="share-stat-num">1km</text><text class="share-stat-label">AED覆盖</text></view>
+        <view v-for="s in statsItems" :key="s.label" class="share-stat">
+          <text class="share-stat-num">{{ s.num }}</text>
+          <text class="share-stat-label">{{ s.label }}</text>
+        </view>
       </view>
     </view>
 
@@ -46,7 +47,26 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import LifeSparkLogo from '@/components/LifeSparkLogo/index.vue'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
+
+/** 格式化大数字为带逗号和 + 的字符串 */
+function fmt(n: number): string {
+  return n.toLocaleString('zh-CN') + '+'
+}
+
+const statsItems = computed(() => [
+  { num: fmt(userStore.stats.certifiedRescuers), label: '累计志愿者' },
+  { num: String(userStore.stats.monthlyRescues), label: '本月救援' },
+  { num: fmt(userStore.stats.networkedAeds), label: 'AED覆盖' },
+])
+
+const onlineLabel = computed(() =>
+  `附近 ${userStore.stats.onlineVolunteers} 名志愿者在线`
+)
 
 const features = [
   { icon: '❤', title: 'CPR指南', desc: '节拍器引导正确按压深度' },
