@@ -1,6 +1,7 @@
 <template>
   <view class="page-share">
     <view class="share-hero">
+      <view class="share-back" @click="goBack">‹</view>
       <LifeSparkLogo :size="176" color-bg="var(--rescue-red)" />
       <text class="share-hero-title">急救侠</text>
       <text class="share-hero-sub">CPR + AED 救援网络\n有人倒下，别慌 · 跟着做就能帮</text>
@@ -78,11 +79,21 @@ const features = [
 function enterApp() {
   uni.switchTab({ url: '/pages/home/index' })
 }
+
+function goBack() {
+  const pages = getCurrentPages()
+  if (pages.length > 1) {
+    uni.navigateBack()
+  } else {
+    uni.switchTab({ url: '/pages/home/index' })
+  }
+}
 </script>
 
 <style lang="scss" scoped>
 .page-share { background: linear-gradient(180deg, #FFF8F5 0%, var(--paper) 50%); min-height: 100vh; max-width: 480px; margin: 0 auto; }
 .share-hero { background: linear-gradient(165deg, var(--rescue-red) 0%, var(--rescue-red-deep) 100%); color: #fff; padding: 96rpx 48rpx 128rpx; text-align: center; position: relative; overflow: hidden; }
+.share-back { position: absolute; top: 24rpx; left: 24rpx; width: 72rpx; height: 72rpx; border-radius: 50%; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(12rpx); display: flex; align-items: center; justify-content: center; font-size: 44rpx; color: #fff; z-index: 10; }
 .share-hero-title { font-family: var(--serif); font-size: 68rpx; font-weight: 900; letter-spacing: -2rpx; margin: 40rpx 0 20rpx; display: block; line-height: 1.2; }
 .share-hero-sub { font-size: 28rpx; opacity: 0.9; line-height: 1.6; margin-bottom: 56rpx; display: block; }
 .share-hero-badge { display: inline-flex; align-items: center; gap: 12rpx; background: rgba(255,255,255,0.15); backdrop-filter: blur(20rpx); padding: 16rpx 36rpx; border-radius: 48rpx; font-size: 24rpx; font-weight: 600; border: 1px solid rgba(255,255,255,0.2); }
