@@ -69,7 +69,8 @@
 
       <!-- 正文 -->
       <text class="detail-content">{{ item.excerpt }}</text>
-      <text class="detail-content-full">在实际应用中，这里将展示完整的新闻内容，包括详细的救援过程描述、志愿者采访、专家点评、急救知识科普等丰富内容。图文并茂，帮助读者深入了解每一个救援故事背后的细节。</text>
+      <text v-if="item.body" class="detail-content-full">{{ item.body }}</text>
+      <text v-else class="detail-content-full">这是一篇关于急救救援的新闻报道。{{ item.excerpt }} 标签：{{ item.tags.join('、') }}。更多详情请关注急救侠后续报道。</text>
 
       <!-- 位置卡 -->
       <view class="detail-location-card">

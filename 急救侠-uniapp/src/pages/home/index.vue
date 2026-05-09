@@ -17,7 +17,7 @@
         <LifeSparkLogo :size="48" />
         <text class="home-logo-text">急救侠</text>
       </view>
-      <view class="home-notif-btn">🔔</view>
+      <view class="home-notif-btn" @click="goNews">🔔</view>
     </view>
 
     <!-- 在线状态栏 -->
@@ -109,7 +109,7 @@
     <!-- 最近动态 -->
     <view class="home-section-header">最近动态</view>
     <view class="home-activity-list">
-      <view v-for="item in activities" :key="item.id" class="home-activity-item">
+      <view v-for="item in activities" :key="item.id" class="home-activity-item" @click="goNewsDetail(item.id)">
         <view class="home-activity-icon" :style="{ background: item.bg }">{{ item.icon }}</view>
         <view class="home-activity-body">
           <text class="home-activity-title">{{ item.title }}</text>
@@ -125,18 +125,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import LifeSparkLogo from '@/components/LifeSparkLogo/index.vue'
 import SosButton from '@/components/SosButton/index.vue'
 import MissionBanner from '@/components/MissionBanner/index.vue'
 import { useUserStore } from '@/stores/user'
 import { useTaskStore } from '@/stores/task'
+import { useNewsStore } from '@/stores/news'
 import { voice } from '@/utils/voice'
 import { playAlertSound } from '@/utils/audio'
 
 // --- stores ---
 const userStore = useUserStore()
 const taskStore = useTaskStore()
+const newsStore = useNewsStore()
 
 const user = userStore.profile
 const stats = userStore.stats
@@ -165,11 +167,11 @@ function animateNumber(key: keyof typeof animatedStats, target: number) {
 }
 
 onMounted(() => {
-  // 数字滚动入场
+  // 数字滚动入场 — 使用 store 真实数据
   requestAnimationFrame(() => {
-    animateNumber('certifiedRescuers', 12847)
-    animateNumber('networkedAeds', 3256)
-    animateNumber('monthlyRescues', 89)
+    animateNumber('certifiedRescuers', stats.certifiedRescuers)
+    animateNumber('networkedAeds', stats.networkedAeds)
+    animateNumber('monthlyRescues', stats.monthlyRescues)
   })
 
 
@@ -229,11 +231,22 @@ const modules: Module[] = [
   },
 ]
 
-const activities = [
-  { id: 1, icon: '📡', bg: '#FFE8E5', title: '深圳福田区新增 12 台联网 AED', meta: '2 小时前 · 系统消息' },
-  { id: 2, icon: '❤️', bg: '#E8F5EF', title: '本周成功救援 4 例 · 全部已送医', meta: '本周 · 救援网络' },
-  { id: 3, icon: '🎓', bg: '#EEF2FF', title: '您的 CPR 认证将于 30 天后到期', meta: '提醒 · 前往复训' },
-]
+/** 从新闻 store 驱动最近动态，取前 3 条 */
+const categoryIcon: Record<string, string> = {
+  video: '▶️', photo: '🖼️', live: '🔴', story: '📖', article: '📰', map: '🗺️',
+}
+const categoryBg: Record<string, string> = {
+  video: '#FFF3E0', photo: '#E8F5EF', live: '#FFE8E5', story: '#EEF2FF', article: '#FFF8E0', map: '#E8F5EF',
+}
+const activities = computed(() =>
+  newsStore.items.slice(0, 3).map((n) => ({
+    id: n.id,
+    icon: n.isLive ? '🔴' : (categoryIcon[n.type] || '📰'),
+    bg: n.tags.includes('成功案例') ? '#E8F5EF' : (categoryBg[n.type] || '#FFF8E0'),
+    title: n.title,
+    meta: `${n.time} · ${n.location.name}`,
+  }))
+)
 
 // --- 导航 ---
 function goPage(route: string) {
@@ -258,6 +271,10 @@ function goMediaAlert() {
 
 function goNews() {
   uni.navigateTo({ url: '/pages/news/index' })
+}
+
+function goNewsDetail(id: string) {
+  uni.navigateTo({ url: `/pages/news/detail?id=${id}` })
 }
 
 function goMission() {

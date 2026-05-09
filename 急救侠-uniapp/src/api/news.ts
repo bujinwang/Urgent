@@ -28,6 +28,7 @@ export interface NewsItem {
   type: 'video' | 'photo' | 'live' | 'story' | 'article' | 'map'
   title: string
   excerpt: string
+  body?: string
   coverImage?: string
   videoUrl?: string
   videoDuration?: string
@@ -52,6 +53,7 @@ const MOCK_NEWS: NewsItem[] = [
     type: 'live',
     title: '直播 · 深圳湾公园心脏骤停救援',
     excerpt: '3 名急救侠已响应，1 人正在 CPR 按压，AED 已送达现场。系统持续更新救援进展…',
+    body: '下午 3 点 12 分，深圳湾公园南门附近一名约 50 岁男性突然倒地失去意识。\n\n3 点 13 分，急救侠系统通过智能调度，向事发地 1km 内的 8 名注册志愿者同时发送求助通知。\n\n3 点 14 分，3 名志愿者确认响应：王志愿（CPR 按压手，距离 240m）、张急救（AED 手，距离 100m）、赵老师（记录员，距离 310m）。\n\n3 点 17 分，张急救携带 AED 到达现场，设备开机并完成电极片贴附。\n\n3 点 18 分，AED 分析建议电击，一次电击后患者恢复自主心律。\n\n3 点 25 分，120 急救车到达，患者被送往南山医院进一步治疗。\n\n本次救援从系统响应到 AED 电击仅用时 5 分钟，远低于全国平均 8.2 分钟的院外救援响应时间。',
     coverImage: '/static/news/live_rescue.png',
     location: { name: '深圳湾公园南门', distance: 1.2 },
     time: '2 分钟前',
@@ -69,6 +71,7 @@ const MOCK_NEWS: NewsItem[] = [
     type: 'video',
     title: '60 秒学会胸外按压：真人演示正确手势与发力',
     excerpt: '两乳头连线中点，掌根交叠，手臂伸直，借上半身重量垂直下压 5-6 厘米。跟着节拍器练起来！',
+    body: '胸外按压（CPR）是抢救心脏骤停患者最重要的技能。\n\n第一步：定位。找到两乳头连线的中点，即胸骨中下段。\n\n第二步：手势。双手掌根交叠，十指相扣，手臂完全伸直。\n\n第三步：发力。借上半身重量垂直下压，深度 5-6 厘米，频率 100-120 次/分钟。\n\n第四步：回弹。每次按压后让胸廓完全回弹，掌根不要离开胸壁。\n\n记住口诀：「用力压、快快压、少中断、全回弹」。每 30 次按压配合 2 次人工呼吸，持续循环直到 AED 到达或 120 接手。\n\n研究表明，高质量的胸外按压可以使院外心脏骤停的生存率提高 2-3 倍。现在就跟着视频练习吧！',
     coverImage: '/static/news/video_cpr.png',
     videoUrl: '/static/news/video_cpr.mp4',
     videoDuration: '01:02',
@@ -84,6 +87,7 @@ const MOCK_NEWS: NewsItem[] = [
     type: 'video',
     title: 'AED 使用全流程：3 分钟从开机到电击',
     excerpt: '看完就会用！揭开盖子自动开机 → 贴电极片 → 听语音分析心律 → 按下电击键。全程跟练。',
+    body: 'AED（自动体外除颤器）是普通人也能使用的救命设备，全程有语音提示。\n\n第一步：开机。打开 AED 盖子或按下电源键，设备会自动开机并开始语音引导。\n\n第二步：贴电极片。取出电极片，按照图示贴在患者裸露的胸部——一片在右锁骨下方，一片在左胸外侧。\n\n第三步：分析心律。AED 会自动分析患者心律，此时所有人必须离开患者。设备会判断是否需要电击。\n\n第四步：电击。如 AED 提示建议电击，确保无人接触患者后按下闪烁的电击按钮。\n\n第五步：立即恢复 CPR。电击后不要等待心跳恢复，立即从胸外按压开始，持续 2 分钟后再让 AED 分析。\n\n记住：AED 不会电击不需要电击的人，请放心使用！每延迟 1 分钟除颤，生存率下降 7-10%。',
     coverImage: '/static/news/video_aed.png',
     videoUrl: '/static/news/video_aed.mp4',
     videoDuration: '03:15',

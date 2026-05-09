@@ -156,14 +156,10 @@
     "custom": {
       "^ls-(.*)": "@/components/LifeSparkLogo/index.vue",
       "^sos-btn": "@/components/SosButton/index.vue",
-      "^cpr-flow": "@/components/CprFlow/index.vue",
-      "^aed-flow": "@/components/AedFlow/index.vue",
       "^metronome": "@/components/Metronome/index.vue",
       "^voice-mgr": "@/components/VoiceManager/index.vue",
       "^mission-banner": "@/components/MissionBanner/index.vue",
-      "^bottom-sheet": "@/components/BottomSheet/index.vue",
-      "^tab-bar": "@/components/TabBar/index.vue",
-      "^aed-map": "@/components/AedMap/index.vue"
+      "^bottom-sheet": "@/components/BottomSheet/index.vue"
     }
   }
 }
