@@ -1,5 +1,23 @@
 <template>
-  <view class="page-news-detail">
+  <!-- 加载中 -->
+  <view v-if="loading" class="page-news-detail" />
+
+  <!-- 未找到/错误状态 -->
+  <view v-else-if="notFound" class="page-news-detail not-found-page">
+    <view class="detail-topbar">
+      <view class="detail-back" @click="goBack">‹</view>
+      <text class="detail-topbar-title">资讯详情</text>
+    </view>
+    <view class="not-found-body">
+      <view class="not-found-icon">📰</view>
+      <text class="not-found-title">内容未找到</text>
+      <text class="not-found-sub">该资讯可能已被删除或链接无效</text>
+      <view class="not-found-btn" @click="goBack">返回列表</view>
+    </view>
+  </view>
+
+  <!-- 正常内容 -->
+  <view v-else class="page-news-detail">
     <!-- 顶栏 -->
     <view class="detail-topbar">
       <view class="detail-back" @click="goBack">‹</view>
@@ -115,7 +133,9 @@ import { ref, onMounted } from 'vue'
 import { getNewsById } from '@/api/news'
 import type { NewsItem } from '@/api/news'
 
-const item = ref<NewsItem>({} as NewsItem)
+const item = ref<NewsItem | null>(null)
+const loading = ref(true)
+const notFound = ref(false)
 
 onMounted(() => {
   const pages = getCurrentPages()
@@ -123,13 +143,20 @@ onMounted(() => {
   const id = page?.options?.id
   if (id) {
     const found = getNewsById(id)
-    if (found) item.value = found
+    if (found) {
+      item.value = found
+    } else {
+      notFound.value = true
+    }
+  } else {
+    notFound.value = true
   }
+  loading.value = false
 })
 
 function goBack() { uni.navigateBack() }
 function goCaseDetail() {
-  if (item.value.caseId) {
+  if (item.value?.caseId) {
     uni.navigateTo({ url: `/pages/case-detail/index?id=${item.value.caseId}` })
   }
 }
@@ -307,5 +334,49 @@ function formatCount(n: number): string {
 }
 .detail-action {
   font-size: 28rpx; color: var(--ink-soft);
+}
+
+/* 未找到状态 */
+.not-found-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.not-found-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 48rpx;
+  text-align: center;
+}
+.not-found-icon {
+  font-size: 96rpx;
+  margin-bottom: 32rpx;
+  opacity: 0.6;
+}
+.not-found-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 16rpx;
+}
+.not-found-sub {
+  font-size: 26rpx;
+  color: var(--ink-mute);
+  margin-bottom: 48rpx;
+  line-height: 1.6;
+}
+.not-found-btn {
+  padding: 20rpx 64rpx;
+  background: var(--rescue-red);
+  color: #fff;
+  border-radius: 48rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  &:active {
+    opacity: 0.85;
+  }
 }
 </style>

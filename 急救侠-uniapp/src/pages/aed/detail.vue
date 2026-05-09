@@ -1,5 +1,23 @@
 <template>
-  <view class="page-aed-detail">
+  <!-- 加载中 -->
+  <view v-if="loading" class="page-aed-detail" />
+
+  <!-- 未找到/错误状态 -->
+  <view v-else-if="notFound" class="page-aed-detail not-found-page">
+    <view class="detail-hero not-found-hero">
+      <view class="detail-hero-back" @click="goBack">‹</view>
+      <view class="detail-hero-gradient" />
+    </view>
+    <view class="not-found-body">
+      <view class="not-found-icon">🫀</view>
+      <text class="not-found-title">设备未找到</text>
+      <text class="not-found-sub">该 AED 设备可能已被移除或链接无效</text>
+      <view class="not-found-btn" @click="goBack">返回 AED 地图</view>
+    </view>
+  </view>
+
+  <!-- 正常内容 -->
+  <view v-else class="page-aed-detail">
     <!-- 演习横幅 -->
     <view class="drill-banner">
       <text class="drill-banner-icon">⚠️</text>
@@ -182,13 +200,16 @@ import type { AedDevice } from '@/api/aed'
 
 const aedStore = useAedStore()
 
-const aed = ref<AedDevice>({} as AedDevice)
+const aed = ref<AedDevice | null>(null)
+const loading = ref(true)
+const notFound = ref(false)
 const checkinState = ref<'idle' | 'taking_photo' | 'photo_done'>('idle')
 const checkinPhoto = ref('')
 const checkinStatus = ref<'ok' | 'issue'>('ok')
 const checkinTip = ref('')
 
 const statusLabel = computed(() => {
+  if (!aed.value) return ''
   if (aed.value.status === 'maintenance') return '🔧 维护中'
   return aed.value.verified ? '✅ 已验证' : aed.value.discovered ? '📍 已发现' : '⚡ 可用'
 })
@@ -203,9 +224,15 @@ onMounted(() => {
     if (found) {
       aed.value = found
       aedStore.discoverAed(id)
+    } else {
+      notFound.value = true
     }
+  } else {
+    notFound.value = true
   }
-  if (action === 'checkin' && id) {
+  loading.value = false
+
+  if (action === 'checkin' && id && aed.value) {
     setTimeout(() => startCheckIn(), 500)
   }
 })
@@ -221,6 +248,7 @@ function isExpiring(date: string): boolean {
 }
 
 function startNavigate() {
+  if (!aed.value) return
   aedStore.navigateToAed(aed.value)
 }
 
@@ -249,7 +277,7 @@ function resetCheckIn() {
 }
 
 function submitCheckIn() {
-  if (!checkinPhoto.value) return
+  if (!checkinPhoto.value || !aed.value) return
   const comment = checkinStatus.value === 'ok' ? '设备完好，功能正常' : '设备存在问题，需要维护'
   aedStore.checkInAed(aed.value.id, checkinPhoto.value, checkinStatus.value, comment, checkinTip.value || undefined)
   uni.showToast({
@@ -263,7 +291,7 @@ function submitCheckIn() {
 }
 
 function notifyOwner() {
-  if (!aed.value.custodian) return
+  if (!aed.value?.custodian) return
   aedStore.notifyCustodian(aed.value.id)
 }
 </script>
@@ -446,4 +474,53 @@ function notifyOwner() {
 .detail-empty-icon { font-size: 56rpx; display: block; margin-bottom: 16rpx; }
 .detail-empty-text { font-size: 24rpx; color: rgba(255, 255, 255, 0.4); display: block; margin-bottom: 8rpx; }
 .detail-empty-sub { font-size: 20rpx; color: rgba(255, 255, 255, 0.25); display: block; }
+
+/* 未找到状态（暗色主题） */
+.not-found-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.not-found-hero {
+  height: 200rpx;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+}
+.not-found-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 48rpx;
+  text-align: center;
+}
+.not-found-icon {
+  font-size: 96rpx;
+  margin-bottom: 32rpx;
+  opacity: 0.4;
+}
+.not-found-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 16rpx;
+}
+.not-found-sub {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 48rpx;
+  line-height: 1.6;
+}
+.not-found-btn {
+  padding: 20rpx 64rpx;
+  background: rgba(59, 130, 246, 0.25);
+  border: 1.5px solid rgba(59, 130, 246, 0.4);
+  color: #60A5FA;
+  border-radius: 48rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  &:active {
+    background: rgba(59, 130, 246, 0.4);
+  }
+}
 </style>
