@@ -111,6 +111,12 @@
         "navigationStyle": "custom",
         "navigationBarTitleText": ""
       }
+    },
+    {
+      "path": "pages/records/index",
+      "style": {
+        "navigationBarTitleText": "救援记录"
+      }
     }
   ],
   "globalStyle": {

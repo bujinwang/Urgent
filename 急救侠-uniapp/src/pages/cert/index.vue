@@ -88,7 +88,7 @@ function showCerts() {
   uni.showModal({ title: '认证记录', content: user.profile.certifications.join('\n') + '\n\n所有认证均在有效期内。', showCancel: false, confirmText: '知道了' })
 }
 function showRescueStats() {
-  uni.showModal({ title: '救援统计', content: `参与救援：${user.profile.rescueCount} 次\n累计积分：${user.profile.points.toLocaleString()}\n等级：${tierLabel.value}\n发现 AED：${aedStore.discoveredCount} 台\n打卡验证：${aedStore.verifiedCount} 台`, showCancel: false, confirmText: '知道了' })
+  uni.navigateTo({ url: '/pages/records/index' })
 }
 function goVolunteer() { uni.navigateTo({ url: '/pages/volunteer/index' }) }
 function goAtlas() { uni.navigateTo({ url: '/pages/atlas/index' }) }
