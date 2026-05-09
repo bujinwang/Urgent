@@ -190,7 +190,7 @@ const liveItem = computed(() =>
 )
 
 const displayItems = computed(() =>
-  store.filteredItems.filter((n) => n.type !== 'live')
+  store.filteredItems.filter((n) => n.id !== liveItem.value?.id)
 )
 
 function goDetail(id: string) {
