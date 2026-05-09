@@ -138,6 +138,10 @@ const pinMap = new Map<string, { x: number; y: number }>([
   ['aed_002', { x: 62, y: 22 }],
   ['aed_003', { x: 22, y: 68 }],
   ['aed_004', { x: 75, y: 72 }],
+  ['aed_005', { x: 15, y: 42 }],
+  ['aed_006', { x: 55, y: 58 }],
+  ['aed_007', { x: 40, y: 15 }],
+  ['aed_008', { x: 85, y: 40 }],
 ])
 
 function aedPinStyle(aed: AedDevice) {
