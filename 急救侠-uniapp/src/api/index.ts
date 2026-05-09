@@ -5,15 +5,15 @@
  */
 
 // #ifdef H5
-const BASE_URL = '/api'
+var BASE_URL = '/api'
 // #endif
 
 // #ifdef MP-WEIXIN
-const BASE_URL = 'https://api.jiujiaxia.com'
+var BASE_URL = 'https://api.jiujiaxia.com'
 // #endif
 
 // #ifdef APP-PLUS
-const BASE_URL = 'https://api.jiujiaxia.com'
+var BASE_URL = 'https://api.jiujiaxia.com'
 // #endif
 
 interface RequestOptions {

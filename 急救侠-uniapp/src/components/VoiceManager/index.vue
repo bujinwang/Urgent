@@ -10,36 +10,36 @@ import { onUnmounted } from 'vue'
 // #ifdef H5 || APP-PLUS
 import { voice } from '@/utils/voice'
 
-function speak(text: string, opts?: { rate?: number; pitch?: number; volume?: number; priority?: 'NORMAL' | 'URGENT' }) {
+var speak = function(text: string, opts?: { rate?: number; pitch?: number; volume?: number; priority?: 'NORMAL' | 'URGENT' }) {
   voice.speak(text, opts || {})
 }
 
-function stop() {
+var stop = function() {
   voice.stop()
 }
 
-function command(text: string) {
+var command = function(text: string) {
   voice.command(text)
 }
 
-function guide(text: string) {
+var guide = function(text: string) {
   voice.guide(text)
 }
 
-function comfort(text: string) {
+var comfort = function(text: string) {
   voice.comfort(text)
 }
 
 // #endif
 
 // #ifdef MP-WEIXIN
-function speak(_text: string, _opts?: Record<string, unknown>) {
+var speak = function(_text: string, _opts?: { rate?: number; pitch?: number; volume?: number; priority?: 'NORMAL' | 'URGENT' }) {
   console.log('[Voice] 小程序端语音需预录音频')
 }
-function stop() {}
-function command(_text: string) {}
-function guide(_text: string) {}
-function comfort(_text: string) {}
+var stop = function() {}
+var command = function(_text: string) {}
+var guide = function(_text: string) {}
+var comfort = function(_text: string) {}
 // #endif
 
 onUnmounted(() => stop())

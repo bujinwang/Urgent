@@ -208,7 +208,8 @@ function takePhoto() {
     count: 3,
     sourceType: ['camera'],
     success: (res) => {
-      store.addMedia(res.tempFilePaths.map((path) => ({ type: 'image' as const, path })))
+      const paths = (res.tempFilePaths as string[]).map((path) => ({ type: 'image' as const, path }))
+      store.addMedia(paths)
     },
     fail: () => {
       uni.showToast({ title: '演习模式 · 相机权限未开启', icon: 'none' })
@@ -221,7 +222,8 @@ function pickFromGallery() {
     count: 3,
     sourceType: ['album'],
     success: (res) => {
-      store.addMedia(res.tempFilePaths.map((path) => ({ type: 'image' as const, path })))
+      const paths = (res.tempFilePaths as string[]).map((path) => ({ type: 'image' as const, path }))
+      store.addMedia(paths)
     },
   })
 }

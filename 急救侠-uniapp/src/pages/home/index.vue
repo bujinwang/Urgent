@@ -176,7 +176,7 @@ onMounted(() => {
 
 
   // 紧急任务语音告警
-  watch(activeTask, (task) => {
+  watch(() => taskStore.activeTask, (task) => {
     if (task) {
       setTimeout(() => {
         playAlertSound(); voice.command('紧急任务！' + task.distance + '米外需要 C P R 协作！')
