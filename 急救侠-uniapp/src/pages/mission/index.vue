@@ -16,10 +16,10 @@
 
     <!-- 主任务卡：标题 + 核心信息 + 小队一行 -->
     <view class="mission-main-card">
-      <text class="mission-main-headline">取 AED · 送到现场</text>
-      <text class="mission-main-desc">80m 取设备 → 280m 送现场</text>
+      <text class="mission-main-headline">{{ taskHeadline }}</text>
+      <text class="mission-main-desc">{{ taskDesc }}</text>
       <view class="mission-squad-line">
-        <text>小队已就位：</text>
+        <text>小队 {{ squadFilled }}/{{ squadNeeded }}：</text>
         <text class="squad-role compress">按压</text>
         <text class="squad-role aed">你·AED</text>
         <text class="squad-role record">记录</text>
@@ -40,16 +40,17 @@
 
     <!-- 路径：压缩为一行 -->
     <view class="mission-path-compact">
-      <text class="path-dot step-1">1</text><text>取 AED（80m）</text>
+      <text class="path-dot step-1">1</text><text>取 AED（{{ aedDistance }}m）</text>
       <text class="path-arrow">→</text>
       <text class="path-dot step-2">2</text><text>已远程开柜</text>
       <text class="path-arrow">→</text>
-      <text class="path-dot step-3">3</text><text>送现场（280m）</text>
+      <text class="path-dot step-3">3</text><text>送现场（{{ sceneDistance }}m）</text>
     </view>
 
     <!-- 现场摘要：只保留关键 3 条 -->
     <view class="mission-scene">
-      <text class="mission-scene-item">👤 男，约60岁 · ❤ 心脏骤停，CPR 进行中</text>
+      <text class="mission-scene-item">📍 {{ sceneAddress }}</text>
+      <text class="mission-scene-item">{{ sceneType }}</text>
       <text class="mission-scene-item">⏱ 每 2 分钟轮替 · 📞 120 预计 8 分钟到</text>
     </view>
 
@@ -108,19 +109,64 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import BottomSheet from '@/components/BottomSheet/index.vue'
 
 const taskStore = useTaskStore()
 
-const countdown = ref(23)
+const countdown = ref(30)
 const confirmVisible = ref(false)
 let timer: number | null = null
 
+// --- 从 store 读取真实任务数据 ---
+const task = computed(() => taskStore.activeTask)
+const aedDistance = computed(() => {
+  if (!task.value) return 80
+  // 取 AED 距离约为任务距离的 30%
+  return Math.round(task.value.distance * 0.3)
+})
+const sceneDistance = computed(() => task.value?.distance ?? 280)
+
+const taskHeadline = computed(() => {
+  const map: Record<string, string> = {
+    cpr: 'CPR 协作 · 携带 AED',
+    aed: '取 AED · 送到现场',
+    assist: '协助救援现场',
+  }
+  return task.value ? (map[task.value.type] || '紧急任务') : '取 AED · 送到现场'
+})
+
+const taskDesc = computed(() => {
+  if (!task.value) return '80m 取设备 → 280m 送现场'
+  const aed = aedDistance.value
+  const scene = sceneDistance.value
+  return `${aed}m 取设备 → ${scene}m 送现场`
+})
+
+const squadFilled = computed(() => task.value?.volunteersResponded ?? 3)
+const squadNeeded = computed(() => task.value?.volunteersNeeded ?? 3)
+const sceneAddress = computed(() => task.value?.address ?? '事发地点')
+const sceneType = computed(() => {
+  if (!task.value) return '❤ 心脏骤停，CPR 进行中'
+  const map: Record<string, string> = {
+    cpr: '❤ 心脏骤停，CPR 进行中',
+    aed: '⚡ 需要 AED 支援',
+    assist: '🆘 需要急救协助',
+  }
+  return map[task.value.type] || '❤ 心脏骤停，CPR 进行中'
+})
+
+const initialCountdown = computed(() => {
+  if (!task.value) return 30
+  // 倒计时与距离相关：100m ≈ 23s, 动态区间 20-35s
+  return Math.min(35, Math.max(20, Math.round(task.value.distance / 4)))
+})
+
 onMounted(() => {
+  countdown.value = initialCountdown.value
   timer = setInterval(() => {
-    countdown.value = countdown.value > 0 ? countdown.value - 1 : 23
+    countdown.value = countdown.value > 0 ? countdown.value - 1 : initialCountdown.value
   }, 1000) as unknown as number
 })
 

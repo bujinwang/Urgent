@@ -41,8 +41,10 @@ export const useTaskStore = defineStore('task', () => {
   function acceptMission() {
     missionAccepted.value = true
     missionPhase.value = 'running'
-    runningDistance.value = 240
-    runningTimeRemaining.value = 100
+    // 使用实际任务距离，而非硬编码
+    const baseDist = activeTask.value?.distance ?? 240
+    runningDistance.value = baseDist
+    runningTimeRemaining.value = Math.round(baseDist / 2.4)
   }
 
   function updateRunning(distance: number, time: number) {

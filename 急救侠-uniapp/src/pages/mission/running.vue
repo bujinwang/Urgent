@@ -95,6 +95,9 @@ function tick() {
   distance.value -= 6
   timeRemaining.value -= 1
 
+  // 同步回 store
+  taskStore.updateRunning(distance.value, timeRemaining.value)
+
   // 里程碑语音
   if (distance.value <= 180 && distance.value > 174) {
     voiceTip.value = '继续保持步伐，距离现场 180 米'
