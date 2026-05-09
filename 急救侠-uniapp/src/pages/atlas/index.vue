@@ -1,9 +1,9 @@
 <template>
   <view class="page-atlas">
     <view class="atlas-grid">
-      <view v-for="card in cards" :key="card.id"
+      <view v-for="card in atlasStore.cards" :key="card.id"
         class="atlas-card" :class="{ featured: card.featured }"
-        @click="showDetail(card.id)">
+        @click="atlasStore.showDetail(card.id)">
         <text class="atlas-card-num">{{ card.num }}</text>
         <text class="atlas-card-icon">{{ card.icon }}</text>
         <text class="atlas-card-title">{{ card.title }}</text>
@@ -13,7 +13,7 @@
     </view>
 
     <!-- AED 巡检快捷入口 -->
-    <view class="atlas-patrol" @click="goAedPatrol">
+    <view class="atlas-patrol" @click="atlasStore.goAedPatrol()">
       <text class="atlas-patrol-icon">🔍</text>
       <view class="atlas-patrol-body">
         <text class="atlas-patrol-title">AED 设备巡检</text>
@@ -25,38 +25,9 @@
 </template>
 
 <script setup lang="ts">
-const cards = [
-  { id: 'cpr', num: '01', icon: '❤️', title: '心脏骤停', desc: 'CPR + AED 全流程', featured: true },
-  { id: 'choking', num: '02', icon: '🫁', title: '异物窒息', desc: '海姆立克急救法', badge: '分人群' },
-  { id: 'aed', num: '03', icon: '⚡', title: 'AED 使用', desc: '自动体外除颤器' },
-  { id: 'bleeding', num: '04', icon: '🩸', title: '出血止血', desc: '加压包扎+止血带' },
-  { id: 'fracture', num: '05', icon: '🦴', title: '骨折固定', desc: '原位固定与搬运' },
-  { id: 'epilepsy', num: '06', icon: '🧠', title: '癫痫急救', desc: '保护与侧卧位' },
-  { id: 'psychological', num: '07', icon: '💬', title: '心理干预', desc: '情绪安抚与陪伴', badge: '新增' },
-  { id: 'transport', num: '08', icon: '🚑', title: '伤员搬运', desc: '轴线翻身与平移', badge: '新增' },
-]
+import { useAtlasStore } from '@/stores/atlas'
 
-function showDetail(id: string) {
-  const routes: Record<string, string> = {
-    cpr: '/pages/rescue/index',
-    choking: '/pages/guide/index?type=heimlich',
-    aed: '/pages/aed/index',
-    bleeding: '/pages/guide/index?type=bleeding',
-    fracture: '/pages/guide/index?type=fracture',
-    epilepsy: '/pages/guide/index?type=seizure',
-    psychological: '/pages/guide/index?type=psychological',
-    transport: '/pages/guide/index?type=transport',
-  }
-  const url = routes[id]
-  if (url) {
-    if (id === 'aed') uni.switchTab({ url })
-    else uni.navigateTo({ url })
-  }
-}
-
-function goAedPatrol() {
-  uni.switchTab({ url: '/pages/aed/index' })
-}
+const atlasStore = useAtlasStore()
 </script>
 
 <style lang="scss" scoped>
