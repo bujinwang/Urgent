@@ -2,8 +2,14 @@
   <view class="page-aed-go">
     <!-- 演习横幅 -->
     <view class="aed-drill-banner">
-      <text class="aed-drill-icon">⚠️</text>
-      <text class="aed-drill-text">演习模式 · 探索 AED 随时可取</text>
+      <view class="aed-drill-left">
+        <text class="aed-drill-icon">⚠️</text>
+        <text class="aed-drill-text">演习模式 · 探索 AED 随时可取</text>
+      </view>
+      <view class="aed-home-btn" @click="goHome">
+        <text class="aed-home-icon">🏠</text>
+        <text class="aed-home-label">首页</text>
+      </view>
     </view>
 
     <!-- 顶部探索状态 -->
@@ -163,6 +169,10 @@ function quickCheckIn(aed: AedDevice) {
   previewAed.value = null
   uni.navigateTo({ url: `/pages/aed/detail?id=${aed.id}&action=checkin` })
 }
+
+function goHome() {
+  uni.switchTab({ url: '/pages/home/index' })
+}
 </script>
 
 <style lang="scss" scoped>
@@ -176,14 +186,24 @@ function quickCheckIn(aed: AedDevice) {
 .aed-drill-banner {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10rpx;
+  justify-content: space-between;
   padding: 14rpx 32rpx;
   background: rgba(245, 158, 11, 0.1);
   border-bottom: 1px solid rgba(245, 158, 11, 0.15);
 }
+.aed-drill-left { display: flex; align-items: center; gap: 10rpx; }
 .aed-drill-icon { font-size: 24rpx; }
 .aed-drill-text { font-size: 20rpx; color: #F59E0B; font-weight: 600; }
+.aed-home-btn {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 20rpx;
+  background: rgba(192, 57, 43, 0.12);
+}
+.aed-home-icon { font-size: 22rpx; }
+.aed-home-label { font-size: 20rpx; color: var(--rescue-red); font-weight: 600; }
 
 /* ============ 顶部探索状态 ============ */
 .aed-header {

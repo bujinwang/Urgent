@@ -165,8 +165,6 @@ const MOCK_AEDS: AedDevice[] = [
     discovered: false,
     verified: false,
   },
-]
-
   // === 新增 4 台 ===
   {
     id: 'aed_005',
