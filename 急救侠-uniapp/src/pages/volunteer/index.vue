@@ -70,12 +70,14 @@
 import { ref, computed } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useAedStore } from '@/stores/aed'
+import { useVolunteerStore } from '@/stores/volunteer'
 
 const user = useUserStore()
 const aedStore = useAedStore()
+const volStore = useVolunteerStore()
 const tab = ref('points')
 
-const rank = computed(() => user.profile.points > 3000 ? 8 : 12)
+const rank = computed(() => volStore.myRank)
 
 function hasTier(tier: string) {
   const tiers = ['bronze', 'silver', 'gold', 'diamond']
@@ -84,16 +86,37 @@ function hasTier(tier: string) {
   return userIdx >= checkIdx && user.profile.tier !== 'bronze'
 }
 
-const leaderboard = [
-  { id: 1, avatar: '张', name: '张医生', meta: 'SZ-001 · 32次', score: '5,890', me: false, color: 'linear-gradient(135deg,#C0392B,#8B2A1F)' },
-  { id: 2, avatar: '李', name: '李护士', meta: 'SZ-005 · 28次', score: '4,720', me: false, color: 'linear-gradient(135deg,#1F8A5B,#147547)' },
-  { id: 3, avatar: '王', name: '王教练', meta: 'SZ-018 · 19次', score: '3,450', me: false, color: 'linear-gradient(135deg,#4A90E2,#2563EB)' },
-  { id: 4, avatar: '赵', name: '赵老师', meta: 'SZ-007 · 15次', score: '2,980', me: false, color: 'linear-gradient(135deg,#C8A656,#B8941A)' },
-  { id: 5, avatar: user.profile.avatar, name: user.profile.name, meta: `${user.profile.volunteerId} · ${user.profile.rescueCount}次`, score: user.profile.points.toLocaleString(), me: true, color: 'linear-gradient(135deg,var(--rescue-red),var(--rescue-red-deep))' },
-  { id: 6, avatar: '陈', name: '陈同学', meta: 'SZ-031 · 9次', score: '1,890', me: false, color: 'linear-gradient(135deg,#6B7280,#4B5563)' },
-]
+/** 从 store 驱动排行榜，替换第 5 位为用户自身 */
 
-function rankClass(i: number) { return i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '' }
+const leaderboard = computed(() =>
+  volStore.leaderboard.map((entry, i) => {
+    if (entry.me) {
+      return {
+        ...entry,
+        avatar: user.profile.avatar,
+        name: user.profile.name,
+        meta: `${user.profile.volunteerId} · ${user.profile.rescueCount}次`,
+        score: user.profile.points.toLocaleString(),
+        color: 'linear-gradient(135deg,var(--rescue-red),var(--rescue-red-deep))',
+      }
+    }
+    return { ...entry, color: leaderboardColor(i) }
+  })
+)
+
+function leaderboardColor(i: number): string {
+  const colors = [
+    'linear-gradient(135deg,#C0392B,#8B2A1F)',
+    'linear-gradient(135deg,#1F8A5B,#147547)',
+    'linear-gradient(135deg,#4A90E2,#2563EB)',
+    'linear-gradient(135deg,#C8A656,#B8941A)',
+    'linear-gradient(135deg,var(--rescue-red),var(--rescue-red-deep))',
+    'linear-gradient(135deg,#6B7280,#4B5563)',
+  ]
+  return colors[i] || 'linear-gradient(135deg,#6B7280,#4B5563)'
+}
+
+function rankClass(i: number) { return volStore.rankClass(i) }
 
 function openAed(id: string) {
   uni.navigateTo({ url: `/pages/aed/detail?id=${id}` })

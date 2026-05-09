@@ -90,8 +90,8 @@ function showCerts() {
 function showRescueStats() {
   uni.showModal({ title: '救援统计', content: `参与救援：${user.profile.rescueCount} 次\n累计积分：${user.profile.points.toLocaleString()}\n等级：${tierLabel.value}\n发现 AED：${aedStore.discoveredCount} 台\n打卡验证：${aedStore.verifiedCount} 台`, showCancel: false, confirmText: '知道了' })
 }
-function goVolunteer() { uni.switchTab({ url: '/pages/volunteer/index' }) }
-function goAtlas() { uni.switchTab({ url: '/pages/atlas/index' }) }
+function goVolunteer() { uni.navigateTo({ url: '/pages/volunteer/index' }) }
+function goAtlas() { uni.navigateTo({ url: '/pages/atlas/index' }) }
 function goAed() { uni.switchTab({ url: '/pages/aed/index' }) }
 function openAed(id: string) { uni.navigateTo({ url: `/pages/aed/detail?id=${id}` }) }
 </script>
