@@ -30,13 +30,13 @@
 
     <!-- Tab -->
     <view class="lb-tabs">
-      <view class="lb-tab" :class="{ active: tab === 'points' }" @click="tab = 'points'">积分排行</view>
-      <view class="lb-tab" :class="{ active: tab === 'rescue' }" @click="tab = 'rescue'">救援次数</view>
+      <view class="lb-tab" :class="{ active: volStore.currentTab === 'points' }" @click="volStore.setTab('points')">积分排行</view>
+      <view class="lb-tab" :class="{ active: volStore.currentTab === 'rescue' }" @click="volStore.setTab('rescue')">救援次数</view>
     </view>
 
     <!-- 排行榜 -->
     <view class="leaderboard">
-      <view v-for="(item, i) in leaderboard" :key="item.id" class="lb-item" :class="{ me: item.me }">
+      <view v-for="(item, i) in volStore.leaderboard" :key="item.id" class="lb-item" :class="{ me: item.me }">
         <text class="lb-rank" :class="rankClass(i)">{{ i + 1 }}</text>
         <view class="lb-avatar" :style="{ background: item.color || 'var(--rescue-red-soft)' }">{{ item.avatar }}</view>
         <view class="lb-info">
@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useAedStore } from '@/stores/aed'
 import { useVolunteerStore } from '@/stores/volunteer'
@@ -75,7 +75,6 @@ import { useVolunteerStore } from '@/stores/volunteer'
 const user = useUserStore()
 const aedStore = useAedStore()
 const volStore = useVolunteerStore()
-const tab = ref('points')
 
 const rank = computed(() => volStore.myRank)
 
@@ -84,36 +83,6 @@ function hasTier(tier: string) {
   const userIdx = tiers.indexOf(user.profile.tier)
   const checkIdx = tiers.indexOf(tier)
   return userIdx >= checkIdx && user.profile.tier !== 'bronze'
-}
-
-/** 从 store 驱动排行榜，替换第 5 位为用户自身 */
-
-const leaderboard = computed(() =>
-  volStore.leaderboard.map((entry, i) => {
-    if (entry.me) {
-      return {
-        ...entry,
-        avatar: user.profile.avatar,
-        name: user.profile.name,
-        meta: `${user.profile.volunteerId} · ${user.profile.rescueCount}次`,
-        score: user.profile.points.toLocaleString(),
-        color: 'linear-gradient(135deg,var(--rescue-red),var(--rescue-red-deep))',
-      }
-    }
-    return { ...entry, color: leaderboardColor(i) }
-  })
-)
-
-function leaderboardColor(i: number): string {
-  const colors = [
-    'linear-gradient(135deg,#C0392B,#8B2A1F)',
-    'linear-gradient(135deg,#1F8A5B,#147547)',
-    'linear-gradient(135deg,#4A90E2,#2563EB)',
-    'linear-gradient(135deg,#C8A656,#B8941A)',
-    'linear-gradient(135deg,var(--rescue-red),var(--rescue-red-deep))',
-    'linear-gradient(135deg,#6B7280,#4B5563)',
-  ]
-  return colors[i] || 'linear-gradient(135deg,#6B7280,#4B5563)'
 }
 
 function rankClass(i: number) { return volStore.rankClass(i) }
