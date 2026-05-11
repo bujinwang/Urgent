@@ -116,7 +116,6 @@ class VoiceManager {
   guide(text: string) { this.speak(text, { rate: 1.05, pitch: 1.0, volume: 0.9 }) }
   comfort(text: string) { this.speak(text, { rate: 0.9, pitch: 0.95, volume: 0.8 }) }
 
-  // backup-comfort { this.speak(text, { rate: 0.9, pitch: 0.95, volume: 0.8 }) }
 
   speakSequence(phrases: Array<string | { text: string; rate?: number; pitch?: number; pause?: number }>, callback?: () => void) {
     if (!phrases || phrases.length === 0) { if (callback) callback(); return }
