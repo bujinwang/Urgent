@@ -2,7 +2,7 @@
  * 用户 API — Mock
  */
 
-interface UserProfile {
+export interface UserProfile {
   id: string
   name: string
   avatar: string

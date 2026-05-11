@@ -1,19 +1,16 @@
 /**
- * API 层入口 — 封装请求
- *
- * 当前使用 Mock 数据。后端就绪后，切换 baseURL 即可。
+ * API 层 — 统一请求封装
  */
 
+let BASE_URL: string
 // #ifdef H5
-var BASE_URL = '/api'
+BASE_URL = 'http://localhost:3001/api'
 // #endif
-
 // #ifdef MP-WEIXIN
-var BASE_URL = 'https://api.jiujiaxia.com'
+BASE_URL = 'https://api.jiujiaxia.com/api'
 // #endif
-
 // #ifdef APP-PLUS
-var BASE_URL = 'https://api.jiujiaxia.com'
+BASE_URL = 'https://api.jiujiaxia.com/api'
 // #endif
 
 interface RequestOptions {
@@ -23,13 +20,41 @@ interface RequestOptions {
   header?: Record<string, string>
 }
 
-async function request<T>(options: RequestOptions): Promise<T> {
+interface ApiResponse<T> {
+  code: number
+  data: T
+  message: string
+}
+
+function getAuthHeader(): Record<string, string> {
+  const token = uni.getStorageSync('jwt_token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+export async function request<T>(options: RequestOptions): Promise<T> {
   const { url, method = 'GET', data, header = {} } = options
 
-  // TODO: 接入真实后端后，替换为 uni.request
-  // 当前使用 Mock 模块
-  const mockModule = await import(`./mock/${url.replace(/\//g, '_')}`)
-  return mockModule.default(data) as T
+  try {
+    const res = await uni.request({
+      url: BASE_URL + url,
+      method,
+      data,
+      header: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+        ...header,
+      },
+    })
+
+    const body = res.data as ApiResponse<T>
+    if (body.code !== 0) {
+      console.warn('[API] 业务错误:', body.message)
+    }
+    return body.data
+  } catch (e: any) {
+    console.warn('[API] 请求失败，使用 mock 数据:', e.errMsg || e.message)
+    throw e
+  }
 }
 
 export default request

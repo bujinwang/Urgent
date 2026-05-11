@@ -2,7 +2,7 @@
  * 任务 API — Mock
  */
 
-interface RescueTask {
+export interface RescueTask {
   id: string
   type: 'cpr' | 'aed' | 'assist'
   address: string

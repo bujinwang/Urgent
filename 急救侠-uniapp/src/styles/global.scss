@@ -10,7 +10,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
+html, body, page {
   font-family: var(--sans);
   background: var(--paper);
   color: var(--ink);
@@ -51,7 +51,12 @@ button {
   top: 12px;
   right: 12px;
   background: rgba(0, 0, 0, 0.8);
+  /* #ifndef MP-WEIXIN */
   backdrop-filter: blur(8px);
+  /* #endif */
+  /* #ifdef MP-WEIXIN */
+  background: rgba(0, 0, 0, 0.9);
+  /* #endif */
   color: white;
   padding: 4px 10px;
   border-radius: 10px;
@@ -81,6 +86,5 @@ button {
 
 /* 安全区适配 */
 .safe-bottom {
-  padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
 }

@@ -1,48 +1,92 @@
-<!-- VoiceManager — 语音播报组件
-     从 utils/voice.ts 导入 voice 实例，暴露 speak/stop/command/guide/comfort 方法
-     本身不渲染 UI -->
+<!-- VoiceManager -- voice broadcast component (no UI) -->
 <template>
   <view style="display:none" />
 </template>
 
 <script setup lang="ts">
 import { onUnmounted } from 'vue'
-// #ifdef H5 || APP-PLUS
-import { voice } from '@/utils/voice'
 
-var speak = function(text: string, opts?: { rate?: number; pitch?: number; volume?: number; priority?: 'NORMAL' | 'URGENT' }) {
-  voice.speak(text, opts || {})
+// Runtime platform check: WeChat Mini Program has no Web Speech API
+const isWechat = typeof wx !== 'undefined' && typeof (wx as any).createInnerAudioContext === 'function'
+
+let voiceModule: { voice: any } | null = null
+
+// Lazy-load voice module for H5/App only
+async function getVoiceModule() {
+  if (voiceModule) return voiceModule
+  if (isWechat) return null
+  try {
+    voiceModule = await import('@/utils/voice')
+  } catch {
+    voiceModule = null
+  }
+  return voiceModule
 }
 
-var stop = function() {
-  voice.stop()
+// Preload on module init
+getVoiceModule()
+
+async function speak(text: string, opts?: { rate?: number; pitch?: number; volume?: number; priority?: 'NORMAL' | 'URGENT' }) {
+  const vm = await getVoiceModule()
+  if (vm) {
+    vm.voice.speak(text, opts || {})
+  } else {
+    console.log('[Voice]', text.slice(0, 50))
+  }
 }
 
-var command = function(text: string) {
-  voice.command(text)
+async function stop() {
+  const vm = await getVoiceModule()
+  vm?.voice?.stop()
 }
 
-var guide = function(text: string) {
-  voice.guide(text)
+async function command(text: string) {
+  const vm = await getVoiceModule()
+  if (vm) {
+    vm.voice.command(text)
+  } else {
+    console.log('[Voice]', text.slice(0, 50))
+  }
 }
 
-var comfort = function(text: string) {
-  voice.comfort(text)
+async function guide(text: string) {
+  const vm = await getVoiceModule()
+  if (vm) {
+    vm.voice.guide(text)
+  } else {
+    console.log('[Voice]', text.slice(0, 50))
+  }
 }
 
-// #endif
-
-// #ifdef MP-WEIXIN
-var speak = function(_text: string, _opts?: { rate?: number; pitch?: number; volume?: number; priority?: 'NORMAL' | 'URGENT' }) {
-  console.log('[Voice] 小程序端语音需预录音频')
+async function comfort(text: string) {
+  const vm = await getVoiceModule()
+  if (vm) {
+    vm.voice.comfort(text)
+  } else {
+    console.log('[Voice]', text.slice(0, 50))
+  }
 }
-var stop = function() {}
-var command = function(_text: string) {}
-var guide = function(_text: string) {}
-var comfort = function(_text: string) {}
-// #endif
 
-onUnmounted(() => stop())
+async function count(text: string) {
+  const vm = await getVoiceModule()
+  if (vm) {
+    vm.voice.count(text)
+  } else {
+    console.log('[Voice] count:', text)
+  }
+}
 
-defineExpose({ speak, stop, command, guide, comfort })
+async function speakSequence(phrases: Array<string | { text: string; rate?: number; pitch?: number; pause?: number }>, callback?: () => void) {
+  const vm = await getVoiceModule()
+  if (vm) {
+    vm.voice.speakSequence(phrases, callback)
+  } else {
+    console.log('[Voice] speakSequence:', phrases.length, 'phrases')
+    if (callback) callback()
+  }
+}
+
+onUnmounted(() => { stop() })
+
+defineExpose({ speak, stop, command, guide, comfort, count, speakSequence })
 </script>

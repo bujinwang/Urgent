@@ -153,26 +153,36 @@ const animatedStats = reactive({
 
 function animateNumber(key: keyof typeof animatedStats, target: number) {
   const duration = 1200
-  const start = performance.now()
-  const update = () => {
-    const elapsed = performance.now() - start
+  const start = Date.now()
+  const timer = setInterval(() => {
+    const elapsed = Date.now() - start
     const progress = Math.min(elapsed / duration, 1)
     const eased = 1 - Math.pow(1 - progress, 3)
     const current = Math.floor(target * eased)
     ;(animatedStats as any)[key] = current.toLocaleString()
-    if (progress < 1) requestAnimationFrame(update)
-    else (animatedStats as any)[key] = target.toLocaleString()
-  }
-  update()
+    if (progress >= 1) {
+      ;(animatedStats as any)[key] = target.toLocaleString()
+      clearInterval(timer)
+    }
+  }, 16)
 }
 
 onMounted(() => {
   // 数字滚动入场 — 使用 store 真实数据
+  // #ifndef MP-WEIXIN
   requestAnimationFrame(() => {
     animateNumber('certifiedRescuers', stats.certifiedRescuers)
     animateNumber('networkedAeds', stats.networkedAeds)
     animateNumber('monthlyRescues', stats.monthlyRescues)
   })
+  // #endif
+  // #ifdef MP-WEIXIN
+  setTimeout(() => {
+    animateNumber('certifiedRescuers', stats.certifiedRescuers)
+    animateNumber('networkedAeds', stats.networkedAeds)
+    animateNumber('monthlyRescues', stats.monthlyRescues)
+  }, 0)
+  // #endif
 
 
   // 紧急任务语音告警

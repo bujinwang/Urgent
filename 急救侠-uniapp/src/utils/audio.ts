@@ -6,10 +6,10 @@ let audioCtx: AudioContext | null = null
 
 export function initAudio() {
   try {
-    if (!audioCtx) {
+    if (!audioCtx && typeof window !== 'undefined') {
       audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
     }
-    if (audioCtx.state === 'suspended') {
+    if (audioCtx && audioCtx.state === 'suspended') {
       audioCtx.resume()
     }
   } catch (e) {

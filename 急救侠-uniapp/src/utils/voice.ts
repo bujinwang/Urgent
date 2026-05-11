@@ -73,14 +73,10 @@ class VoiceManager {
     return voices[0] || null
   }
 
-  /** 常规播报 — 排队播放，URGENT 优先打断 */
   speak(text: string, options: VoiceOptions = {}) {
     if (!isSpeechSupported()) return
 
-    // Chrome 在某些情况下会暂停 speechSynthesis，需恢复
-    if (speechSynthesis.paused) {
-      speechSynthesis.resume()
-    }
+    if (speechSynthesis.paused) speechSynthesis.resume()
 
     const { rate = 1.05, pitch = 1.0, volume = 1.0, priority = 'NORMAL' } = options
     const processed = String(text)
@@ -88,10 +84,7 @@ class VoiceManager {
       .replace(/C\s*P\s*R/gi, 'CPR')
       .replace(/!/g, '，')
 
-    // URGENT 优先级：清空队列直接插播（用于 CPR 报数等时效性场景）
-    if (priority === 'URGENT') {
-      this.stop()
-    }
+    if (priority === 'URGENT') this.stop()
 
     const u = new SpeechSynthesisUtterance(processed)
     u.voice = this.ensureVoice()
@@ -103,25 +96,11 @@ class VoiceManager {
     speechSynthesis.speak(u)
   }
 
-  /** 立即播报 — 取消所有排队，立刻说话（用于 CPR 报数） */
-  speakNow(text: string, rate = 1.3, pitch = 1.1) {
+  stop() {
     if (!isSpeechSupported()) return
-
     speechSynthesis.cancel()
-    const processed = String(text)
-    // Chrome 在 cancel() 后立即 speak() 会静默丢弃 —— 需要微任务延迟
-    setTimeout(() => {
-      this.currentUtterance = new SpeechSynthesisUtterance(processed)
-      this.currentUtterance.voice = this.ensureVoice()
-      this.currentUtterance.lang = 'zh-CN'
-      this.currentUtterance.rate = rate
-      this.currentUtterance.pitch = pitch
-      this.currentUtterance.volume = 0.95
-      speechSynthesis.speak(this.currentUtterance)
-    }, 5)
   }
 
-  /** 快速报数 — 不 cancel，直接说话（数字短，自然排队） */
   count(text: string) {
     if (!isSpeechSupported()) return
     this.currentUtterance = new SpeechSynthesisUtterance(String(text))
@@ -133,29 +112,14 @@ class VoiceManager {
     speechSynthesis.speak(this.currentUtterance)
   }
 
-  stop() {
-    if (!isSpeechSupported()) return
-    speechSynthesis.cancel()
-  }
+  command(text: string) { this.speak(text, { rate: 1.25, pitch: 1.1 }) }
+  guide(text: string) { this.speak(text, { rate: 1.05, pitch: 1.0, volume: 0.9 }) }
+  comfort(text: string) { this.speak(text, { rate: 0.9, pitch: 0.95, volume: 0.8 }) }
 
-  command(text: string) {
-    this.speak(text, { rate: 1.25, pitch: 1.1 })
-  }
+  // backup-comfort { this.speak(text, { rate: 0.9, pitch: 0.95, volume: 0.8 }) }
 
-  guide(text: string) {
-    this.speak(text, { rate: 1.05, pitch: 1.0, volume: 0.9 })
-  }
-
-  comfort(text: string) {
-    this.speak(text, { rate: 0.9, pitch: 0.95, volume: 0.8 })
-  }
-
-  /** 多句连续播报（自动停顿） */
   speakSequence(phrases: Array<string | { text: string; rate?: number; pitch?: number; pause?: number }>, callback?: () => void) {
-    if (!phrases || phrases.length === 0) {
-      if (callback) callback()
-      return
-    }
+    if (!phrases || phrases.length === 0) { if (callback) callback(); return }
     phrases.forEach((p, idx) => {
       const isLast = idx === phrases.length - 1
       const opts: any = typeof p === 'string' ? {} : { ...p }
@@ -168,6 +132,7 @@ class VoiceManager {
       this.speak(text, opts)
     })
   }
+
 }
 
 export const voice = new VoiceManager()

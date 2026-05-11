@@ -38,7 +38,9 @@
     "appid": "",
     "setting": {
       "urlCheck": false,
-      "miniprogramRoot": ""
+      "miniprogramRoot": "",
+      "es6": true,
+      "minified": false
     },
     "usingComponents": true,
     "permission": {
@@ -46,7 +48,14 @@
         "desc": "获取位置信息用于定位附近 AED 设备和调度志愿者"
       }
     },
-    "requiredBackgroundModes": ["audio"]
+    "requiredBackgroundModes": [
+      "audio"
+    ],
+    "libVersion": "3.5.0",
+    "requiredPrivateInfos": [
+      "getLocation",
+      "chooseLocation"
+    ]
   },
   "mp-alipay": {
     "usingComponents": true

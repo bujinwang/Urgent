@@ -134,26 +134,26 @@
       {
         "pagePath": "pages/home/index",
         "text": "首页",
-        "iconPath": "static/tab/home.svg",
-        "selectedIconPath": "static/tab/home-active.svg"
+        "iconPath": "static/tab/home.png",
+        "selectedIconPath": "static/tab/home-active.png"
       },
       {
         "pagePath": "pages/aed/index",
         "text": "AED",
-        "iconPath": "static/tab/aed.svg",
-        "selectedIconPath": "static/tab/aed-active.svg"
+        "iconPath": "static/tab/aed.png",
+        "selectedIconPath": "static/tab/aed-active.png"
       },
       {
         "pagePath": "pages/learn/index",
         "text": "学习",
-        "iconPath": "static/tab/learn.svg",
-        "selectedIconPath": "static/tab/learn-active.svg"
+        "iconPath": "static/tab/learn.png",
+        "selectedIconPath": "static/tab/learn-active.png"
       },
       {
         "pagePath": "pages/cert/index",
         "text": "我的",
-        "iconPath": "static/tab/cert.svg",
-        "selectedIconPath": "static/tab/cert-active.svg"
+        "iconPath": "static/tab/cert.png",
+        "selectedIconPath": "static/tab/cert-active.png"
       }
     ]
   },
