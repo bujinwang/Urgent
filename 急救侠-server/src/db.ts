@@ -4,16 +4,19 @@ import fs from 'fs'
 
 const DB_PATH = process.env.DB_PATH || './data/jiujiaxia.db'
 
-// Ensure data directory exists
-const dir = path.dirname(DB_PATH)
-if (!fs.existsSync(dir)) {
-  fs.mkdirSync(dir, { recursive: true })
+let db: Database.Database
+
+if (DB_PATH === ':memory:') {
+  db = new Database(':memory:')
+} else {
+  const dir = path.dirname(DB_PATH)
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+  }
+  db = new Database(DB_PATH)
+  db.pragma('journal_mode = WAL')
 }
 
-const db = new Database(DB_PATH)
-
-// Enable WAL mode for better concurrency
-db.pragma('journal_mode = WAL')
 db.pragma('foreign_keys = ON')
 
 export function initDb() {
@@ -133,7 +136,11 @@ export function initDb() {
       aeds_within_1km INTEGER NOT NULL DEFAULT 0
     );
   `)
-  console.log('[DB] Tables initialized')
+}
+
+/** Clear all data (for testing) */
+export function clearAll() {
+  db.exec("DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM aed_devices; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM atlas_cards;")
 }
 
 export default db
