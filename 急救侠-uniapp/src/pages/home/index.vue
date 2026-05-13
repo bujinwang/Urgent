@@ -26,62 +26,37 @@
       <view class="home-notif-btn" @click="goNews">🔔</view>
     </view>
 
-    <!-- 在线状态栏 -->
-    <view class="home-status-bar">
-      <view class="home-status-live">
-        <view class="home-status-green-dot" />
-        <text>附近 {{ stats.onlineVolunteers }} 名志愿者在线</text>
+    <!-- 紧急操作行 -->
+    <view class="home-emergency-row">
+      <view class="home-sos-compact" @click="goRescue">
+        <text class="home-sos-icon">🆘</text>
+        <text class="home-sos-label">急救</text>
       </view>
-      <text class="home-status-aed">⚡ 1km 内 {{ stats.aedsWithin1km }} 台 AED</text>
-    </view>
-
-    <!-- SOS 按钮（组件） -->
-    <view class="home-sos-wrap">
-      <SosButton
-        title="紧急处理"
-        subtitle="语音引导 · 召唤志愿者 · 联动 120"
-        @click="goRescue"
-      />
-    </view>
-
-    <!-- 一键图片视频报警 -->
-    <view class="home-media-alert" @click="goMediaAlert">
-      <view class="home-media-pulse" />
-      <view class="home-media-content">
-        <text class="home-media-icon">📸</text>
-        <view class="home-media-body">
-          <text class="home-media-title">一键图片视频报警</text>
-          <text class="home-media-sub">拍照/录像 · 发送现场给 120</text>
-        </view>
-        <text class="home-media-arrow">→</text>
+      <view class="home-emergency-item" @click="goMediaAlert">
+        <text class="home-emergency-icon">📸</text>
+        <text class="home-emergency-label">报警</text>
+      </view>
+      <view class="home-emergency-stat">
+        <text class="home-emergency-num">{{ animatedStats.certifiedRescuers }}</text>
+        <text class="home-emergency-lbl">认证</text>
+      </view>
+      <view class="home-emergency-stat">
+        <text class="home-emergency-num">{{ animatedStats.networkedAeds }}</text>
+        <text class="home-emergency-lbl">AED</text>
+      </view>
+      <view class="home-emergency-stat">
+        <text class="home-emergency-num">{{ animatedStats.monthlyRescues }}</text>
+        <text class="home-emergency-lbl">救援</text>
       </view>
     </view>
 
-    <!-- 紧急任务 Banner（组件） -->
+    <!-- 紧急任务 Banner -->
     <MissionBanner
       v-if="activeTask"
       :distance="activeTask.distance"
       :volunteers="activeTask.volunteersNeeded"
       @click="goMission"
     />
-
-    <!-- 数据概览 -->
-    <view class="home-stats-strip">
-      <view class="home-strip-item">
-        <text class="home-strip-num">{{ animatedStats.certifiedRescuers }}</text>
-        <text class="home-strip-lbl">认证急救侠</text>
-      </view>
-      <view class="home-strip-divider" />
-      <view class="home-strip-item">
-        <text class="home-strip-num">{{ animatedStats.networkedAeds }}</text>
-        <text class="home-strip-lbl">联网 AED</text>
-      </view>
-      <view class="home-strip-divider" />
-      <view class="home-strip-item">
-        <text class="home-strip-num">{{ animatedStats.monthlyRescues }}</text>
-        <text class="home-strip-lbl">本月救援</text>
-      </view>
-    </view>
 
     <!-- 功能模块（横向滑动） -->
     <view class="home-section-header">功能</view>
@@ -337,6 +312,20 @@ function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
   background: var(--paper);
   padding-bottom: 120rpx;
 }
+
+/* 紧凑布局 */
+.home-topbar-compact { padding: 10rpx 20rpx 6rpx; }
+.home-stat-inline { font-size: 18rpx; color: var(--ink-mute); }
+.home-emergency-row { display: flex; align-items: center; gap: 8rpx; padding: 6rpx 16rpx; }
+.home-sos-compact { display: flex; align-items: center; gap: 8rpx; background: #C0392B; border-radius: 24rpx; padding: 14rpx 20rpx; }
+.home-sos-icon { font-size: 32rpx; }
+.home-sos-label { font-size: 24rpx; color: #fff; font-weight: 700; }
+.home-emergency-item { display: flex; align-items: center; gap: 6rpx; background: #FFE8E5; border-radius: 24rpx; padding: 14rpx 20rpx; }
+.home-emergency-icon { font-size: 24rpx; }
+.home-emergency-label { font-size: 22rpx; color: #C0392B; font-weight: 600; }
+.home-emergency-stat { flex: 1; text-align: center; padding: 6rpx 4rpx; }
+.home-emergency-num { font-size: 26rpx; font-weight: 900; font-family: 'SF Mono', Menlo, monospace; display: block; }
+.home-emergency-lbl { font-size: 16rpx; color: var(--ink-mute); display: block; }
 
 /* 顶部导航 */
 .home-topbar {
