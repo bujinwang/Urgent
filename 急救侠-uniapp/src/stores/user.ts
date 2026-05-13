@@ -23,7 +23,7 @@ function guestProfile(): UserProfile {
 export const useUserStore = defineStore('user', () => {
   const isLoggedIn = !!uni.getStorageSync('jwt_token')
   const profile = ref<UserProfile>(isLoggedIn ? getProfile() : guestProfile())
-  const stats = ref(isLoggedIn ? getStats() : { certifiedRescuers:0, networkedAeds:0, monthlyRescues:0, onlineVolunteers:0, aedsWithin1km:0 })
+  const stats = ref(getStats())
   const orgRoles = ref<UserOrgRole[]>([])
 
   const isOrgManager = computed(() => orgRoles.value.length > 0)
