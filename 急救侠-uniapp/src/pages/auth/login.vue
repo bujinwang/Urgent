@@ -6,8 +6,8 @@
         <text :style="tabStyle('login')" @click="curTab='login'">登录</text>
         <text :style="tabStyle('register')" @click="curTab='register'">注册</text>
       </view>
-      <input style="width:100%;height:44px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:16px;margin-bottom:12px;box-sizing:border-box" :value="phone" @input="phone=$event.target.value" placeholder="手机号" type="tel" />
-      <input v-if="curTab==='register'" style="width:100%;height:44px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:16px;margin-bottom:12px;box-sizing:border-box" :value="name" @input="name=$event.target.value" placeholder="姓名（选填）" />
+      <input style="width:100%;height:44px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:16px;margin-bottom:12px;box-sizing:border-box" :value="phone" @input="onPhoneInput" placeholder="手机号" type="tel" />
+      <input v-if="curTab==='register'" style="width:100%;height:44px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:16px;margin-bottom:12px;box-sizing:border-box" :value="name" @input="name=$event.detail?.value ?? $event.target?.value ?? ''" placeholder="姓名（选填）" />
       <view v-if="curTab==='register'" style="margin-bottom:12px;font-size:12px;color:#8E8E8E">选择兴趣方向（可多选）</view>
       <view v-if="curTab==='register'" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
         <text v-for="opt in interestOpts" :key="opt.key" :style="interestStyle(opt.key)" @click="toggle(opt.key)">{{opt.label}}</text>
@@ -20,7 +20,7 @@
         <text style="font-size:20px">{{isBlueSkyLeader?'👑':'◻️'}}</text>
         <text style="font-size:13px;color:#991B1B;font-weight:600">我是队长</text>
       </view>
-      <input style="width:100%;height:44px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:16px;margin-bottom:12px;box-sizing:border-box" :value="pwd" @input="pwd=$event.target.value" placeholder="密码" type="password" />
+      <input style="width:100%;height:44px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:16px;margin-bottom:12px;box-sizing:border-box" :value="pwd" @input="pwd=$event.detail?.value ?? $event.target?.value ?? ''" placeholder="密码" type="password" />
       <view style="padding:14px;background:#C0392B;color:#fff;text-align:center;border-radius:24px;font-size:18px;font-weight:700;margin-top:8px" @click="submit">{{curTab==='login'?'登录':'注册并登录'}}</view>
       <text style="display:block;margin-top:16px;text-align:center;color:#C0392B;font-size:14px;font-weight:600;padding:14px;border:1px dashed #C0392B;border-radius:12px" @click="demoLogin">🔑 Demo 体验登录</text>
     </view>
@@ -51,6 +51,10 @@ function tabStyle(tab: string) {
 
 function interestStyle(key: string) {
   return `padding:6px 14px;border-radius:20px;font-size:13px;${selected.includes(key)?'background:#C0392B;color:#fff':'background:#f0f0f0;color:#666'}`
+}
+
+function onPhoneInput(e: any) {
+  phone.value = (e.detail?.value ?? e.target?.value ?? '')
 }
 
 function toggle(k: string) {
