@@ -59,6 +59,36 @@ authRouter.post('/wechat-login', async (req, res) => {
   }
 })
 
+/** 手机号注册 */
+authRouter.post('/register', (req, res) => {
+  try {
+    const { phone, password, name } = req.body
+    if (!phone || !password) return res.json(error('手机号和密码不能为空'))
+    const existing = db.prepare('SELECT id FROM users WHERE id = ?').get('u_' + phone) as any
+    if (existing) return res.json(error('该手机号已注册'))
+    const id = 'u_' + phone
+    db.prepare('INSERT INTO users (id, name, avatar, tier, points, city, volunteer_id, certifications, rescue_count, public_id, is_leader, affiliation, volunteer_type, is_organizer, is_public) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(
+      id, name || '急救侠' + phone.slice(-4), (name || '侠').charAt(0), 'bronze', 0, '', 'PH-' + phone.slice(0,4),
+      '[]', 0, 'PU' + phone.slice(-6), 0, '', 'medical', 0, 0
+    )
+    const token = 'token_' + phone + '_' + Date.now()
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
+    res.json(success({ token, user: { id: user.id, name: user.name, avatar: user.avatar, tier: user.tier, points: user.points, city: user.city, volunteerId: user.volunteer_id, certifications: JSON.parse(user.certifications||'[]'), rescueCount: user.rescue_count } }, '注册成功'))
+  } catch (e: any) { res.status(500).json(error(e.message)) }
+})
+
+/** 手机号登录 */
+authRouter.post('/login', (req, res) => {
+  try {
+    const { phone, password } = req.body
+    if (!phone || !password) return res.json(error('手机号和密码不能为空'))
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get('u_' + phone) as any
+    if (!user) return res.json(error('用户不存在，请先注册'))
+    const token = 'token_' + phone + '_' + Date.now()
+    res.json(success({ token, user: { id: user.id, name: user.name, avatar: user.avatar, tier: user.tier, points: user.points, city: user.city, volunteerId: user.volunteer_id, certifications: JSON.parse(user.certifications||'[]'), rescueCount: user.rescue_count } }, '登录成功'))
+  } catch (e: any) { res.status(500).json(error(e.message)) }
+})
+
 /** 获取当前用户信息 */
 authRouter.get('/me', authMiddleware, (_req, res) => {
   try {

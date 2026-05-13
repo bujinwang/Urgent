@@ -64,3 +64,13 @@ export async function wechatLogin(): Promise<LoginResult> {
 export async function fetchCurrentUser(): Promise<UserProfile> {
   return request({ url: '/auth/me' })
 }
+
+/** 手机号注册 */
+export async function phoneRegister(phone: string, password: string, name?: string): Promise<LoginResult> {
+  return request({ url: '/auth/register', method: 'POST', data: { phone, password, name } })
+}
+
+/** 手机号登录 */
+export async function phoneLogin(phone: string, password: string): Promise<LoginResult> {
+  return request({ url: '/auth/login', method: 'POST', data: { phone, password } })
+}
