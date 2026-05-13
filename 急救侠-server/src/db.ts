@@ -410,21 +410,6 @@ export function initDb() {
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
-    CREATE TABLE IF NOT EXISTS video_streams (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      user_name TEXT NOT NULL DEFAULT '',
-      user_avatar TEXT NOT NULL DEFAULT '',
-      title TEXT NOT NULL DEFAULT '',
-      description TEXT NOT NULL DEFAULT '',
-      thumbnail TEXT NOT NULL DEFAULT '',
-      stream_url TEXT NOT NULL DEFAULT '',
-      is_live INTEGER NOT NULL DEFAULT 0,
-      view_count INTEGER NOT NULL DEFAULT 0,
-      like_count INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
     CREATE TABLE IF NOT EXISTS public_inquiries (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL DEFAULT '',
