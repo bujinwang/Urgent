@@ -195,6 +195,12 @@
       "style": {
         "navigationBarTitleText": "登录"
       }
+    },
+    {
+      "path": "pages/auth/change-pwd",
+      "style": {
+        "navigationBarTitleText": "修改密码"
+      }
     }
   ],
   "globalStyle": {

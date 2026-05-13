@@ -30,6 +30,7 @@
       <view v-if="user.isOrgManager" class="cert-action cert-action-mgr" @click="goOrg"><text class="cert-action-icon">🏢</text><text class="cert-action-label">机构管理</text><text class="cert-action-sub">{{ user.orgRoles[0]?.orgName }}</text></view>
     </view>
     <view class="cert-logout" @click="doLogout"><text>退出登录</text></view>
+    <view class="cert-logout" style="background:#F0F0F0;border-color:#DDD;color:#666;margin-bottom:8rpx" @click="goChangePwd"><text>修改密码</text></view>
     <view class="cert-section"><text class="cert-section-title">我的 AED 打卡</text>
       <view v-for="aed in checkedAeds" :key="aed.id" class="cert-checkin-item" @click="openAed(aed.id)"><view class="cert-checkin-icon">✓</view><view class="cert-checkin-info"><text class="cert-checkin-name">{{ aed.name }}</text><text class="cert-checkin-date">{{ aed.lastCheck }}</text></view><text class="cert-checkin-count">{{ aed.checkIns.length }} 次</text></view>
       <view v-if="checkedAeds.length===0" class="cert-empty"><text>还没有 AED 打卡记录</text><text class="cert-empty-link" @click="goAed">去探索 AED →</text></view>
@@ -68,6 +69,7 @@ function openAed(id:string){uni.navigateTo({url:`/pages/aed/detail?id=${id}`})}
 function goOrg(){const id=user.orgRoles[0]?.orgId;if(id)uni.navigateTo({url:`/pages/org/dashboard?id=${id}`})}
 function goInterests(){uni.navigateTo({url:'/pages/cert/interests'})}
 function goUpload(){uni.navigateTo({url:'/pages/cert/upload'})}
+function goChangePwd(){uni.navigateTo({url:'/pages/auth/change-pwd'})}
 function goLogin(){uni.navigateTo({url:'/pages/auth/login'})}
 function doLogout(){authStore.logout();uni.showToast({title:'已退出登录',icon:'none'});setTimeout(()=>uni.reLaunch({url:'/pages/home/index'}),800)}
 onMounted(()=>{user.loadOrgRoles()})

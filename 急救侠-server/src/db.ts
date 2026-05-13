@@ -562,6 +562,9 @@ export function initDb() {
     );
   `)
 
+  // Safe migration: add password column
+  try { db.exec("ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT ''") } catch (_) {}
+
   // Safe migration: add coach columns (ignore if already exist)
   const coachMigrations = [
     "ALTER TABLE volunteers ADD COLUMN role TEXT NOT NULL DEFAULT 'volunteer'",

@@ -22,7 +22,8 @@
       </view>
       <input style="width:100%;height:44px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:16px;margin-bottom:12px;box-sizing:border-box" :value="pwd" @input="pwd=$event.detail?.value ?? $event.target?.value ?? ''" placeholder="密码" type="password" />
       <view style="padding:14px;background:#C0392B;color:#fff;text-align:center;border-radius:24px;font-size:18px;font-weight:700;margin-top:8px" @click="submit">{{curTab==='login'?'登录':'注册并登录'}}</view>
-      <text style="display:block;margin-top:16px;text-align:center;color:#C0392B;font-size:14px;font-weight:600;padding:14px;border:1px dashed #C0392B;border-radius:12px" @click="demoLogin">🔑 Demo 体验登录</text>
+      <text v-if="curTab==='login'" style="display:block;margin-top:12px;text-align:center;color:#8E8E8E;font-size:13px" @click="forgotPwd">忘记密码？</text>
+      <text style="display:block;margin-top:12px;text-align:center;color:#C0392B;font-size:14px;font-weight:600;padding:14px;border:1px dashed #C0392B;border-radius:12px" @click="demoLogin">🔑 Demo 体验登录</text>
     </view>
   </view>
 </template>
@@ -30,6 +31,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { phoneRegister, phoneLogin } from '@/api/auth'
+import { request } from '@/api/index'
 
 const curTab = ref<'login'|'register'>('login')
 const phone = ref(''), name = ref(''), pwd = ref('')
@@ -79,6 +81,16 @@ async function submit() {
   } catch (e: any) {
     uni.showToast({ title: '操作失败，请用 Demo 登录', icon: 'none' })
   }
+}
+
+async function forgotPwd() {
+  const p = phone.value
+  if (!p || p.length < 11) { uni.showToast({ title:'请先输入手机号', icon:'none' }); return }
+  const { value: np } = await uni.showModal({ title:'重置密码', content:`为 ${p} 设置新密码？`, editable:true, placeholderText:'新密码（至少2位）' }) as any
+  if (!np) return
+  await request({ url:'/auth/reset-password', method:'POST', data:{ phone:p, newPassword:np } })
+  pwd.value = np
+  uni.showToast({ title:'密码已重置，请登录', icon:'success' })
 }
 
 function demoLogin() {
