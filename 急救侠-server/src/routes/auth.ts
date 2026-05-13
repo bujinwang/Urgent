@@ -69,9 +69,14 @@ authRouter.post('/register', (req, res) => {
     const id = 'u_' + phone
     const { interests, affiliation, isLeader } = req.body as { interests?: string, affiliation?: string, isLeader?: boolean }
     const volunteerType = interests || 'medical'
+    const isBsm = affiliation === '蓝天救援队'
+    const tier = isBsm ? 'silver' : 'bronze'
+    const points = isBsm ? 500 : 0
+    const rescueCount = isBsm ? 3 : 0
+    const certs = isBsm ? '["CPR / AED","Basic Life Support","野外急救"]' : '[]'
     db.prepare('INSERT INTO users (id, name, avatar, tier, points, city, volunteer_id, certifications, rescue_count, public_id, is_leader, affiliation, volunteer_type, is_organizer, is_public) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(
-      id, name || '急救侠' + phone.slice(-4), (name || '侠').charAt(0), 'bronze', 0, '', 'PH-' + phone.slice(0,4),
-      '[]', 0, 'PU' + phone.slice(-6), isLeader ? 1 : 0, affiliation || '', volunteerType, 0, 0
+      id, name || '急救侠' + phone.slice(-4), (name || '侠').charAt(0), tier, points, '', 'PH-' + phone.slice(0,4),
+      certs, rescueCount, 'PU' + phone.slice(-6), isLeader ? 1 : 0, affiliation || '', volunteerType, 0, 0
     )
     const token = 'token_' + phone + '_' + Date.now()
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
