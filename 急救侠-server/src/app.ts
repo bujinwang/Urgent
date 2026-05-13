@@ -64,13 +64,13 @@ const uploadsDir = path.join(__dirname, '..', 'public', 'uploads')
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
 app.use('/uploads', express.static(uploadsDir))
 
-// Image upload (base64)
+// Image upload (base64) — accepts image or file key
 app.post('/api/upload', (req, res) => {
   try {
-    const { image } = req.body
-    if (!image) return res.status(400).json({ code: -1, message: '缺少图片数据' })
-    const base64Data = image.replace(/^data:image\/\w+;base64,/, '')
-    const ext = image.includes('png') ? 'png' : 'jpg'
+    const raw = req.body.image || req.body.file
+    if (!raw) return res.status(400).json({ code: -1, message: '缺少图片数据' })
+    const base64Data = raw.replace(/^data:image\/\w+;base64,/, '')
+    const ext = raw.includes('png') ? 'png' : 'jpg'
     const filename = `upload_${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`
     fs.writeFileSync(path.join(uploadsDir, filename), base64Data, 'base64')
     res.json({ code: 0, data: { url: `/uploads/${filename}` }, message: 'ok' })

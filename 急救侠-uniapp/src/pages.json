@@ -185,6 +185,12 @@
       }
     },
     {
+      "path": "pages/cert/upload",
+      "style": {
+        "navigationBarTitleText": "登记证书"
+      }
+    },
+    {
       "path": "pages/auth/login",
       "style": {
         "navigationBarTitleText": "登录"
