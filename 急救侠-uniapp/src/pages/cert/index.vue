@@ -118,6 +118,7 @@ const authStore = useAuthStore()
 function doLogout() {
   authStore.logout()
   uni.showToast({ title: '已退出登录', icon: 'none' })
+  setTimeout(() => uni.reLaunch({ url: '/pages/home/index' }), 800)
 }
 
 onMounted(() => {
