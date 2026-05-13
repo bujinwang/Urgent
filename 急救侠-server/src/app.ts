@@ -18,6 +18,7 @@ import { pushRouter } from './routes/push'
 import { orgRouter } from './routes/org'
 import { adminRouter } from './routes/admin'
 import { publicRouter } from './routes/public'
+import { videoRouter } from './routes/video'
 import { communityRouter } from './routes/community'
 import { rescueRouter } from './routes/rescue'
 import { trailRouter } from './routes/trail'
@@ -50,6 +51,7 @@ app.use('/api/media-alert', mediaAlertRouter)
 app.use('/api/org', orgRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/public', publicRouter)
+app.use('/api/video', videoRouter)
 app.use('/api/community', communityRouter)
 app.use('/api/rescue', rescueRouter)
 app.use('/api/trail', trailRouter)

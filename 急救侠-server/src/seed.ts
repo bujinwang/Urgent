@@ -2,6 +2,9 @@ import db, { initDb } from './db'
 
 initDb()
 
+// Temporarily disable FK checks for seeding
+db.pragma('foreign_keys = OFF')
+
 // Clear existing data
 db.exec('DELETE FROM users; DELETE FROM tasks; DELETE FROM aed_devices; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM atlas_cards; DELETE FROM stats;')
 
@@ -350,6 +353,15 @@ db.prepare('INSERT OR IGNORE INTO animal_care_records (id, animal_id, user_id, u
 
 // ---- Animal Health Records ----
 db.prepare('INSERT OR IGNORE INTO animal_health_records (id, animal_id, user_id, user_name, check_type, findings, vet_name, created_at) VALUES (?,?,?,?,?,?,?,?)').run('ahr_001', 'sa_001', 'v003', '王芳', 'general', '左后腿软组织挫伤，无骨折。已做简单包扎，建议限制活动一周', '瑞鹏宠物医院·李医生', '2025-05-12 14:00:00')
+
+// ---- Video Streams ----
+db.prepare('INSERT OR IGNORE INTO video_streams (id, user_id, user_name, user_avatar, title, description, is_live) VALUES (?,?,?,?,?,?,?)').run('vid_001', 'v002', '李强', '李', 'CPR 现场教学', '在深圳湾体育中心进行心肺复苏现场演示，围观的市民都在认真学习', 1)
+db.prepare('INSERT OR IGNORE INTO video_streams (id, user_id, user_name, user_avatar, title, description, is_live) VALUES (?,?,?,?,?,?,?)').run('vid_002', 'v003', '王芳', '王', '救助流浪小狗', '福田区发现一只受伤的流浪小狗，正在现场进行救助', 1)
+db.prepare('INSERT OR IGNORE INTO video_streams (id, user_id, user_name, user_avatar, title, description, is_live) VALUES (?,?,?,?,?,?,?)').run('vid_003', 'v001', '陈敏', '陈', 'AHA BLS 训练营', '急救侠志愿者培训基地正在进行 BLS 认证训练', 1)
+db.prepare('INSERT OR IGNORE INTO video_streams (id, user_id, user_name, user_avatar, title, description, is_live) VALUES (?,?,?,?,?,?,?)').run('vid_004', 'v006', '张伟', '张', '徒步急救技巧', '梧桐山徒步途中分享户外急救小技巧', 0)
+db.prepare('INSERT OR IGNORE INTO video_streams (id, user_id, user_name, user_avatar, title, description, is_live) VALUES (?,?,?,?,?,?,?)').run('vid_005', 'v005', '赵丽', '赵', 'AED 使用演示', '教你如何快速找到并使用 AED，挽救生命的关键三分钟', 0)
+
+db.pragma('foreign_keys = ON')
 
 console.log('[Seed] Database seeded with mock data')
 process.exit(0)
