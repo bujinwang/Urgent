@@ -60,6 +60,9 @@
       </view>
     </view>
 
+    <!-- 退出登录 -->
+    <view class="cert-logout" @click="doLogout"><text>退出登录</text></view>
+
     <!-- AED 打卡记录 -->
     <view class="cert-section">
       <text class="cert-section-title">我的 AED 打卡</text>
@@ -83,6 +86,7 @@
 import { computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useAedStore } from '@/stores/aed'
+import { useAuthStore } from '@/stores/auth'
 
 const user = useUserStore()
 const aedStore = useAedStore()
@@ -109,6 +113,13 @@ function goOrg() {
   if (orgId) uni.navigateTo({ url: `/pages/org/dashboard?id=${orgId}` })
 }
 function goInterests() { uni.navigateTo({ url: '/pages/cert/interests' }) }
+
+const authStore = useAuthStore()
+function doLogout() {
+  uni.showModal({ title: '退出登录', content: '确定退出当前账号？', success: (res) => {
+    if (res.confirm) { authStore.logout(); uni.showToast({ title: '已退出', icon: 'none' }) }
+  }})
+}
 
 onMounted(() => {
   user.loadOrgRoles()
@@ -158,4 +169,5 @@ onMounted(() => {
 .cert-empty { text-align: center; padding: 40rpx 0; color: var(--ink-mute); font-size: 24rpx; }
 .cert-empty-link { color: var(--rescue-red); font-weight: 600; display: block; margin-top: 8rpx; }
 .cert-action-mgr { border-color: var(--gold); background: linear-gradient(135deg, #FFFDF5, #FFF8E1); }
+.cert-logout { margin: 0 40rpx 20rpx; padding: 20rpx; text-align: center; background: #FEE2E2; border: 1px solid #FECACA; border-radius: 16rpx; font-size: 24rpx; color: #991B1B; font-weight: 600; }
 </style>
