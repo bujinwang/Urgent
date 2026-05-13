@@ -116,9 +116,8 @@ function goInterests() { uni.navigateTo({ url: '/pages/cert/interests' }) }
 
 const authStore = useAuthStore()
 function doLogout() {
-  uni.showModal({ title: '退出登录', content: '确定退出当前账号？', success: (res) => {
-    if (res.confirm) { authStore.logout(); uni.showToast({ title: '已退出', icon: 'none' }) }
-  }})
+  authStore.logout()
+  uni.showToast({ title: '已退出登录', icon: 'none' })
 }
 
 onMounted(() => {
