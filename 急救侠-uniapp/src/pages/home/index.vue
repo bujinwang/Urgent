@@ -213,7 +213,7 @@ onMounted(() => {
 // --- 常量 ---
 const tierLabel = userStore.tierLabel
 const hasAnimalInterest = computed(() => {
-  const t = user.profile.volunteer_type || ''
+  const t = (user as any).volunteer_type || ''
   return t.includes('pet') || t.includes('wildlife')
 })
 
