@@ -4,9 +4,14 @@ import { success, error, UserProfile, Stats } from '../types'
 
 export const userRouter = Router()
 
-userRouter.get('/profile', (_req, res) => {
+userRouter.get('/profile', (req, res) => {
   try {
-    const row = db.prepare('SELECT * FROM users LIMIT 1').get() as any
+    const token = (req.headers.authorization || '').replace('Bearer ', '')
+    let userId = ''
+    if (token.startsWith('token_')) userId = 'u_' + token.split('_')[1]
+    const row = userId
+      ? (db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any)
+      : (db.prepare('SELECT * FROM users LIMIT 1').get() as any)
     if (!row) return res.json(error('用户不存在'))
     const user: UserProfile = {
       id: row.id, name: row.name, avatar: row.avatar,
