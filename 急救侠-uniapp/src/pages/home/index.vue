@@ -26,6 +26,12 @@
       <view class="home-notif-btn" @click="goNews">🔔</view>
     </view>
 
+    <!-- 紧急任务 Banner（置顶） -->
+    <view v-if="activeTask" class="home-mission-top" @click="goMission">
+      <view class="home-mission-pulse" />
+      <text class="home-mission-text">🚨 {{ activeTask.distance }} 米外需要 {{ activeTask.volunteersNeeded }} 人 CPR 协作 — 点击响应</text>
+    </view>
+
     <!-- 紧急操作行 -->
     <view class="home-emergency-row">
       <view class="home-sos-compact" @click="goRescue">
@@ -50,13 +56,7 @@
       </view>
     </view>
 
-    <!-- 紧急任务 Banner -->
-    <MissionBanner
-      v-if="activeTask"
-      :distance="activeTask.distance"
-      :volunteers="activeTask.volunteersNeeded"
-      @click="goMission"
-    />
+
 
     <!-- 功能模块（横向滑动） -->
     <view class="home-section-header">功能</view>
@@ -326,6 +326,10 @@ function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
 .home-emergency-stat { flex: 1; text-align: center; padding: 6rpx 4rpx; }
 .home-emergency-num { font-size: 26rpx; font-weight: 900; font-family: 'SF Mono', Menlo, monospace; display: block; }
 .home-emergency-lbl { font-size: 16rpx; color: var(--ink-mute); display: block; }
+.home-mission-top { display: flex; align-items: center; gap: 12rpx; padding: 16rpx 20rpx; margin: 4rpx 16rpx; background: linear-gradient(90deg,#C0392B,#E74C3C); border-radius: 16rpx; overflow: hidden; position: relative; }
+.home-mission-pulse { width: 12rpx; height: 12rpx; border-radius: 50%; background: #fff; animation: missionPulse 1s infinite; flex-shrink: 0; }
+@keyframes missionPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(1.6); } }
+.home-mission-text { font-size: 22rpx; color: #fff; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; }
 
 /* 顶部导航 */
 .home-topbar {
