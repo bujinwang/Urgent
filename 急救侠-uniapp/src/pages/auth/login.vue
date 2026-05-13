@@ -22,10 +22,10 @@ function doLogin(){
   if(phone.value.length<11){uni.showToast({title:'请输入11位手机号',icon:'none'});return}
   if(code.value.length<2){uni.showToast({title:'请输入验证码',icon:'none'});return}
   uni.setStorageSync('jwt_token','demo_token_'+phone.value);uni.showToast({title:'登录成功',icon:'none'})
-  setTimeout(()=>location.reload(),800)
+  setTimeout(()=>{window.location.href='/'},800)
 }
 function demoLogin(){
   uni.setStorageSync('jwt_token','demo_token_demo');uni.showToast({title:'Demo 登录成功',icon:'none'})
-  setTimeout(()=>location.reload(),500)
+  setTimeout(()=>{window.location.href='/'},500)
 }
 </script>
