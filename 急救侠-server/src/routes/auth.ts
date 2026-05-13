@@ -67,15 +67,15 @@ authRouter.post('/register', (req, res) => {
     const existing = db.prepare('SELECT id FROM users WHERE id = ?').get('u_' + phone) as any
     if (existing) return res.json(error('该手机号已注册'))
     const id = 'u_' + phone
-    const { interests } = req.body as { interests?: string }
+    const { interests, affiliation, isLeader } = req.body as { interests?: string, affiliation?: string, isLeader?: boolean }
     const volunteerType = interests || 'medical'
     db.prepare('INSERT INTO users (id, name, avatar, tier, points, city, volunteer_id, certifications, rescue_count, public_id, is_leader, affiliation, volunteer_type, is_organizer, is_public) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(
       id, name || '急救侠' + phone.slice(-4), (name || '侠').charAt(0), 'bronze', 0, '', 'PH-' + phone.slice(0,4),
-      '[]', 0, 'PU' + phone.slice(-6), 0, '', volunteerType, 0, 0
+      '[]', 0, 'PU' + phone.slice(-6), isLeader ? 1 : 0, affiliation || '', volunteerType, 0, 0
     )
     const token = 'token_' + phone + '_' + Date.now()
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
-    res.json(success({ token, user: { id: user.id, name: user.name, avatar: user.avatar, tier: user.tier, points: user.points, city: user.city, volunteerId: user.volunteer_id, certifications: JSON.parse(user.certifications||'[]'), rescueCount: user.rescue_count, volunteer_type: user.volunteer_type } }, '注册成功'))
+    res.json(success({ token, user: { id: user.id, name: user.name, avatar: user.avatar, tier: user.tier, points: user.points, city: user.city, volunteerId: user.volunteer_id, certifications: JSON.parse(user.certifications||'[]'), rescueCount: user.rescue_count, volunteer_type: user.volunteer_type, affiliation: user.affiliation, isLeader: user.is_leader === 1 } }, '注册成功'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
