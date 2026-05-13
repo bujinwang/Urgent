@@ -26,10 +26,10 @@
       <view class="home-notif-btn" @click="goNews">🔔</view>
     </view>
 
-    <!-- 紧急任务 Banner（置顶） -->
-    <view v-if="activeTask" class="home-mission-top" @click="goMission">
+    <!-- 紧急任务 Banner（置顶循环） -->
+    <view v-if="taskStore.tasks.length > 0" class="home-mission-top" @click="goMission">
       <view class="home-mission-pulse" />
-      <text class="home-mission-text">🚨 {{ activeTask.distance }} 米外需要 {{ activeTask.volunteersNeeded }} 人 CPR 协作 — 点击响应</text>
+      <text class="home-mission-text">{{ cycleText }}</text>
     </view>
 
     <!-- 紧急操作行 -->
@@ -116,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import LifeSparkLogo from '@/components/LifeSparkLogo/index.vue'
 import SosButton from '@/components/SosButton/index.vue'
 import MissionBanner from '@/components/MissionBanner/index.vue'
@@ -134,6 +134,24 @@ const newsStore = useNewsStore()
 const user = userStore.profile
 const stats = userStore.stats
 const activeTask = taskStore.activeTask
+
+// 任务循环滚动
+const cycleIndex = ref(0)
+const cycleText = computed(() => {
+  const t = taskStore.tasks[cycleIndex.value]
+  if (!t) return ''
+  const typeLabel = { cpr:'🧡CPR', aed:'⚡AED', assist:'🤝协助' }[t.type] || t.type
+  return `🚨 ${typeLabel} · ${t.address} · ${t.distance}m · 需 ${t.volunteersNeeded} 人`
+})
+let cycleTimer: any = null
+onMounted(() => {
+  if (taskStore.tasks.length > 1) {
+    cycleTimer = setInterval(() => {
+      cycleIndex.value = (cycleIndex.value + 1) % taskStore.tasks.length
+    }, 3000)
+  }
+})
+onUnmounted(() => { if (cycleTimer) clearInterval(cycleTimer) })
 
 // 数字滚动动画
 const animatedStats = reactive({
@@ -329,7 +347,7 @@ function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
 .home-mission-top { display: flex; align-items: center; gap: 12rpx; padding: 16rpx 20rpx; margin: 4rpx 16rpx; background: linear-gradient(90deg,#C0392B,#E74C3C); border-radius: 16rpx; overflow: hidden; position: relative; }
 .home-mission-pulse { width: 12rpx; height: 12rpx; border-radius: 50%; background: #fff; animation: missionPulse 1s infinite; flex-shrink: 0; }
 @keyframes missionPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(1.6); } }
-.home-mission-text { font-size: 22rpx; color: #fff; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; }
+.home-mission-text { font-size: 22rpx; color: #fff; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* 顶部导航 */
 .home-topbar {
