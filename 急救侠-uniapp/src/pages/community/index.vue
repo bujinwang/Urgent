@@ -45,7 +45,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 
-const API = 'http://localhost:3001/api/community'
+const API = '/api/community'
 const userStore = useUserStore()
 const tab = ref<'nearby'|'groups'|'msgs'>('nearby')
 const nearby = ref<any[]>([])

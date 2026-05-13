@@ -7,13 +7,13 @@ export default defineConfig({
   // 确保基础路径为根目录，解决 H5 端资源 404 问题
   base: '/',
   server: {
-    // 禁用严格的文件系统访问限制，UniApp 插件有时需要访问外部资源
-    fs: {
-      strict: false,
-    },
-    // 显式配置开发服务器
+    fs: { strict: false },
     host: true,
     port: 5173,
+    proxy: {
+      '/api': { target: 'http://localhost:3001', changeOrigin: true },
+      '/uploads': { target: 'http://localhost:3001', changeOrigin: true },
+    },
   },
   // 解决部分环境下的模块解析问题
   resolve: {

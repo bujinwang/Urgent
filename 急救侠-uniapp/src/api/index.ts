@@ -4,7 +4,7 @@
 
 let BASE_URL: string
 // #ifdef H5
-BASE_URL = 'http://localhost:3001/api'
+BASE_URL = '/api'
 // #endif
 // #ifdef MP-WEIXIN
 BASE_URL = 'https://api.jiujiaxia.com/api'

@@ -48,7 +48,7 @@
 import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 
-const API = 'http://localhost:3001/api/trail'
+const API = '/api/trail'
 const userStore = useUserStore()
 const tab = ref<'hikers'|'events'>('hikers')
 const hikers = ref<any[]>([])

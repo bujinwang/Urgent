@@ -27,7 +27,7 @@ const options=[
 const selected=ref<string[]>([])
 onMounted(()=>{const types=userStore.profile.volunteer_type||'medical';selected.value=types.split(',').filter(Boolean)})
 function toggle(v:string){const i=selected.value.indexOf(v);if(i>=0)selected.value.splice(i,1);else selected.value.push(v)}
-async function save(){await fetch('http://localhost:3001/api/user/interests',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:userStore.profile.id,interests:selected.value})});uni.showToast({title:'已保存',icon:'none'});setTimeout(()=>uni.navigateBack(),800)}
+async function save(){await fetch('/api/user/interests',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:userStore.profile.id,interests:selected.value})});uni.showToast({title:'已保存',icon:'none'});setTimeout(()=>uni.navigateBack(),800)}
 </script>
 
 <style lang="scss" scoped>

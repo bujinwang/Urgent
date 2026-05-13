@@ -15,7 +15,7 @@
       <view v-for="r in dr" :key="r.id" class="wl-card">
         <view class="wl-card-top"><text class="wl-species">{{r.category==='pet'?'🐱':'🦅'}} {{r.species}}</text><text class="wl-status" :style="{color:r.status==='reported'?'#F59E0B':'#34D277'}">{{r.status==='reported'?'待处理':'已分配'}}</text></view>
         <text class="wl-desc">{{r.description}}</text>
-        <view v-if="r.photos" class="wl-photos"><image v-for="(p,i) in r.photos.split(',')" :key="i" :src="'http://localhost:3001'+p" mode="aspectFill" class="wl-photo" @click="pv('http://localhost:3001'+p)"></image></view>
+        <view v-if="r.photos" class="wl-photos"><image v-for="(p,i) in r.photos.split(',')" :key="i" :src="p" mode="aspectFill" class="wl-photo" @click="pv(p)"></image></view>
         <view class="wl-meta"><text>📍 {{r.location}}</text><text>👤 {{r.userName}}</text></view>
         <view v-if="r.status==='reported'&&r.category==='pet'" class="wl-btn" @click="cr(r)">🚑 发起救援</view>
         <view v-else-if="r.status==='reported'&&r.category==='wildlife'" class="wl-btn-legal" @click="nc">📞 通知保护机构</view>
@@ -42,7 +42,7 @@
       <label>描述</label><textarea v-model="form.description"></textarea>
       <label>地点</label><input v-model="form.location">
       <label>照片</label>
-      <view class="wl-upload-row"><image v-for="(p,i) in form.photos" :key="i" :src="'http://localhost:3001'+p" class="wl-upload-pv" @click="rp(i)"></image><view class="wl-upload-btn" @click="tp">📷</view></view>
+      <view class="wl-upload-row"><image v-for="(p,i) in form.photos" :key="i" :src="p" class="wl-upload-pv" @click="rp(i)"></image><view class="wl-upload-btn" @click="tp">📷</view></view>
       <text v-if="form.category==='wildlife'" class="wl-legal-text" style="margin-bottom:10rpx;display:block">⚠️ 野生动物上报后将由保护机构处理，请勿私自捕捉或移动</text>
       <div class="modal-actions"><button class="btn btn-g" @click="showReport=false">取消</button><button class="btn btn-p" @click="sub">提交</button></div></div></div>
   </view>
@@ -51,7 +51,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
-const U='http://localhost:3001/api',s=useUserStore()
+const U='/api',s=useUserStore()
 const tab=ref<'wildlife'|'pet'|'rescue'>('wildlife'),ar=ref<any[]>([]),tasks=ref<any[]>([])
 const showReport=ref(false),form=ref({category:'pet',species:'',description:'',location:'',photos:[] as string[]})
 const dr=computed(()=>ar.value.filter(r=>r.category===tab.value))

@@ -64,7 +64,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
-const U='http://localhost:3001/api',userStore=useUserStore()
+const U='/api',userStore=useUserStore()
 const animals=ref<any[]>([]),detail=ref<any>(null),dt=ref('care'),showCreate=ref(false)
 const form=ref({name:'',species:'',color:'',size:'中型',features:'',location:''})
 

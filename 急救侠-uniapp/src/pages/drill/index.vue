@@ -55,7 +55,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 
-const API = 'http://localhost:3001/api/drill'
+const API = '/api/drill'
 const userStore = useUserStore()
 const tab = ref<'upcoming'|'completed'|'records'>('upcoming')
 const drills = ref<any[]>([])
@@ -66,7 +66,7 @@ const form = ref({ title:'', description:'', scenario:'cpr', date:'', location:'
 const displayDrills = computed(() => drills.value.filter(d => d.status === tab.value))
 
 async function load() { try{const r=await fetch(`${API}/events`).then(r=>r.json());drills.value=r.data||[]}catch(e){} }
-async function loadRecords() { try{const r=await fetch(`http://localhost:3001/api/user/training-records?userId=${userStore.profile.id}`).then(r=>r.json());records.value=r.data||[]}catch(e){} }
+async function loadRecords() { try{const r=await fetch(`/api/user/training-records?userId=${userStore.profile.id}`).then(r=>r.json());records.value=r.data||[]}catch(e){} }
 async function join(d: any) { await fetch(`${API}/events/${d.id}/join`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:userStore.profile.id,userName:userStore.profile.name})}); uni.showToast({title:'已报名',icon:'none'});load() }
 async function complete(d: any) { await fetch(`${API}/events/${d.id}/complete`, {method:'PUT'}); uni.showToast({title:'积分已发放',icon:'none'});load() }
 async function create() { const f=form.value; await fetch(`${API}/events`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...f,organizerId:userStore.profile.id,organizerName:userStore.profile.name,lat:22.517,lng:113.947})}); showCreate.value=false;uni.showToast({title:'已创建',icon:'none'});load() }

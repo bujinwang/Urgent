@@ -42,7 +42,7 @@
 import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 
-const API = 'http://localhost:3001/api/rescue'
+const API = '/api/rescue'
 const userStore = useUserStore()
 const mobilizations = ref<any[]>([])
 const showCreate = ref(false)
