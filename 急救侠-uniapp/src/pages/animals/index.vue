@@ -1,91 +1,104 @@
 <template>
-  <view class="page-animal">
-    <view class="am-header"><text class="am-title">🐾 动物档案</text></view>
-    <view class="am-list">
-      <view v-for="a in animals" :key="a.id" class="am-card" @click="openDetail(a)">
-        <view class="am-card-top">
-          <text class="am-name">{{a.name||'未命名'}}</text>
-          <text class="am-status" :style="{color:a.status==='stray'?'#F59E0B':'#34D277'}">{{a.status==='stray'?'流浪中':'已救助'}}</text>
+  <view class="pg">
+    <view class="hd"><text class="t">动物档案</text><text class="s">流浪猫狗信息 · 照料记录 · 健康检查</text></view>
+    <view class="list">
+      <view v-if="animals.length===0" class="empty">暂无动物档案</view>
+      <view v-for="a in animals" :key="a.id" class="card" @click="openDetail(a)">
+        <text class="ci">{{ animalIcon(a.species) }}</text>
+        <view class="cb">
+          <text class="cn">{{ a.name || a.species }}</text>
+          <text class="cs">{{ a.color }} {{ a.size }} · {{ a.status === 'active' ? '需照料' : a.status }}</text>
+          <text class="cl">{{ a.location }}</text>
         </view>
-        <text class="am-species">{{a.species}} · {{a.color}} · {{a.size}}</text>
-        <text class="am-features" v-if="a.features">{{a.features}}</text>
-        <view class="am-meta"><text>📍 {{a.location}}</text><text>📅 {{a.createdAt?.slice(0,10)}}</text></view>
+        <text class="ca">→</text>
       </view>
-      <view v-if="animals.length===0" class="am-empty">暂无动物档案</view>
     </view>
-    <view class="am-fab" @click="showCreate=true">➕</view>
+    <view class="fab" @click="showForm=!showForm">{{ showForm ? '✕' : '＋' }}</view>
 
-    <!-- Detail Modal -->
-    <div v-if="detail" class="modal-overlay" @click.self="detail=null">
-    <div class="modal" style="max-width:500px;max-height:85vh;overflow-y:auto">
-      <h3>{{detail.name||'未命名'}} <button class="btn btn-g" style="float:right;font-size:18px" @click="detail=null">✕</button></h3>
-      <div style="font-size:12px;line-height:2">
-        <div>物种: {{detail.species}} · {{detail.color}} · {{detail.size}}</div>
-        <div v-if="detail.features">特征: {{detail.features}}</div>
-        <div>位置: {{detail.location}}</div>
-        <div>状态: {{detail.status==='stray'?'流浪中':'已救助'}}</div>
-      </div>
-      <div class="am-tabs" style="margin-top:16px">
-        <view class="am-tab" :class="{active:dt==='care'}" @click="dt='care'">照料记录</view>
-        <view class="am-tab" :class="{active:dt==='health'}" @click="dt='health'">健康检查</view>
-      </div>
-      <div v-if="dt==='care'">
-        <div v-if="detail.careRecords?.length" v-for="c in detail.careRecords" :key="c.id" class="am-record">
-          <text class="am-rec-type">{{careLabel(c.careType)}}</text>
-          <text class="am-rec-desc">{{c.description}}</text>
-          <text class="am-rec-meta">{{c.userName}} · {{c.createdAt?.slice(0,16)}}</text>
-        </div>
-        <div v-else class="am-empty">暂无</div>
-        <button class="btn btn-p btn-sm" style="margin-top:8px" @click="logCare">📝 记录照料</button>
-      </div>
-      <div v-if="dt==='health'">
-        <div v-if="detail.healthRecords?.length" v-for="h in detail.healthRecords" :key="h.id" class="am-record">
-          <text class="am-rec-type">{{h.checkType==='general'?'常规检查':h.checkType}}</text>
-          <text class="am-rec-desc">{{h.findings}}</text>
-          <text class="am-rec-meta">{{h.vetName}} · {{h.userName}} · {{h.createdAt?.slice(0,16)}}</text>
-        </div>
-        <div v-else class="am-empty">暂无</div>
-      </div>
-    </div></div>
+    <view v-if="showForm" class="modalmask" @click="showForm=false"><view class="modal" @click.stop>
+      <text class="mt">登记动物</text>
+      <input class="mi" :value="form.species" @input="form.species=$event.target.value" placeholder="物种 * (猫/狗/其他)" />
+      <input class="mi" :value="form.name" @input="form.name=$event.target.value" placeholder="名字 (选填)" />
+      <input class="mi" :value="form.color" @input="form.color=$event.target.value" placeholder="颜色" />
+      <input class="mi" :value="form.size" @input="form.size=$event.target.value" placeholder="体型 (小/中/大)" />
+      <input class="mi" :value="form.features" @input="form.features=$event.target.value" placeholder="特征 (花纹/项圈/伤情)" />
+      <input class="mi" :value="form.location" @input="form.location=$event.target.value" placeholder="发现地点" />
+      <view class="mb"><view class="btn" @click="create">提交</view></view>
+    </view></view>
 
-    <!-- Create Modal -->
-    <div v-if="showCreate" class="modal-overlay" @click.self="showCreate=false">
-    <div class="modal"><h3>新建动物档案</h3>
-      <label>名字/昵称</label><input v-model="form.name" placeholder="如：小橘">
-      <label>物种</label><input v-model="form.species" placeholder="如：橘猫">
-      <label>颜色</label><input v-model="form.color" placeholder="如：橘色白腹">
-      <label>体型</label><select v-model="form.size"><option value="小型">小型</option><option value="中型">中型</option><option value="大型">大型</option></select>
-      <label>识别特征</label><input v-model="form.features" placeholder="如：左耳缺口，尾尖弯曲">
-      <label>常驻位置</label><input v-model="form.location" placeholder="如：南山社区北门">
-      <div class="modal-actions"><button class="btn btn-g" @click="showCreate=false">取消</button><button class="btn btn-p" @click="create">创建</button></div></div></div>
+    <view v-if="detail" class="modalmask" @click="detail=null"><view class="modal detail" @click.stop>
+      <text class="mt">{{ detailIcon }} {{ detail.name || detail.species }}</text>
+      <text class="ds">{{ detail.color }} {{ detail.size }} · {{ detail.features }}</text>
+      <text class="ds" style="margin-bottom:16px">{{ detail.location }}</text>
+      <text class="mt" style="font-size:24rpx;margin-top:12px">照料记录</text>
+      <view v-if="detail.careRecords?.length" class="rl">
+        <view v-for="r in detail.careRecords" :key="r.id" class="ri">
+          <text class="rt">{{ careLabel(r.careType) }} — {{ r.userName || '志愿者' }}</text>
+          <text class="rd">{{ r.description }} · {{ r.createdAt?.slice(0,10) }}</text>
+        </view>
+      </view>
+      <view v-else class="empty" style="padding:20rpx">暂无照料记录</view>
+      <text class="mt" style="font-size:24rpx;margin-top:12px">健康检查</text>
+      <view v-if="detail.healthRecords?.length" class="rl">
+        <view v-for="r in detail.healthRecords" :key="r.id" class="ri">
+          <text class="rt">{{ r.checkType }} — {{ r.userName || '志愿者' }}</text>
+          <text class="rd">{{ r.findings }} · {{ r.createdAt?.slice(0,10) }}</text>
+        </view>
+      </view>
+      <view v-else class="empty" style="padding:20rpx">暂无健康记录</view>
+      <view class="mb" style="display:flex;gap:12rpx">
+        <view class="btn" style="flex:1" @click="openCare">记录照料</view>
+        <view class="btn" style="flex:1" @click="openHealth">记录健康</view>
+      </view>
+    </view></view>
+
+    <view v-if="logMode" class="modalmask" @click="logMode=''"><view class="modal" @click.stop>
+      <text class="mt">{{ logMode==='care'?'记录照料':'健康检查' }}</text>
+      <input v-if="logMode==='care'" class="mi" :value="logForm.careType" @input="logForm.careType=$event.target.value" placeholder="类型 (feeding/check/other)" />
+      <input v-if="logMode==='health'" class="mi" :value="logForm.checkType" @input="logForm.checkType=$event.target.value" placeholder="检查类型" />
+      <input class="mi" :value="logForm.description" @input="logForm.description=$event.target.value" placeholder="描述" />
+      <input v-if="logMode==='health'" class="mi" :value="logForm.vetName" @input="logForm.vetName=$event.target.value" placeholder="兽医姓名 (选填)" />
+      <view class="mb"><view class="btn" @click="submitLog">提交</view></view>
+    </view></view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useUserStore } from '@/stores/user'
-const U='/api',userStore=useUserStore()
-const animals=ref<any[]>([]),detail=ref<any>(null),dt=ref('care'),showCreate=ref(false)
-const form=ref({name:'',species:'',color:'',size:'中型',features:'',location:''})
-
-async function load(){try{animals.value=(await fetch(`${U}/animals`).then(r=>r.json())).data||[]}catch(e){}}
-async function openDetail(a:any){const r=await fetch(`${U}/animals/${a.id}`).then(r=>r.json());detail.value=r.data;dt.value='care'}
-async function create(){const f=form.value;await fetch(`${U}/animals`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...f,createdBy:userStore.profile.id,lat:22.517,lng:113.947})});showCreate.value=false;load()}
-async function logCare(){if(!detail.value)return;uni.showModal({title:'记录照料',editable:true,placeholderText:'描述',success:async(res)=>{if(res.confirm&&res.content){await fetch(`${U}/animals/${detail.value.id}/care`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:userStore.profile.id,userName:userStore.profile.name,careType:'feeding',description:res.content})});openDetail(detail.value)}}})}
-function careLabel(t:string){return{feeding:'🍽 喂食',checkup:'🔍 观察',treatment:'💊 治疗',transport:'🚗 转运',other:'📝 其他'}[t]||t}
-onMounted(load)
+import { ref,onMounted } from 'vue';import { useUserStore } from '@/stores/user';import { request } from '@/api/index'
+const s=useUserStore()
+const animals=ref<any[]>([]),form=ref({species:'',name:'',color:'',size:'',features:'',location:''})
+const showForm=ref(false),detail=ref<any>(null),logMode=ref('')
+const logForm=ref({careType:'',checkType:'',description:'',vetName:''}),detailIcon=ref('')
+onMounted(()=>load())
+async function load(){try{animals.value=await request({url:'/animals'})}catch{}}
+function animalIcon(s:string){return s==='猫'?'🐱':s==='狗'?'🐕':'🐾'}
+function careLabel(t:string){return t==='feeding'?'🍽️ 喂食':t==='check'?'👀 查看':t==='rescue'?'🚑 救助':t||'照料'}
+async function create(){
+  if(!form.value.species){uni.showToast({title:'请填写物种',icon:'none'});return}
+  await request({url:'/animals',method:'POST',data:{...form.value,createdBy:s.profile.id}})
+  uni.showToast({title:'已登记',icon:'success'});showForm.value=false
+  form.value={species:'',name:'',color:'',size:'',features:'',location:''};load()
+}
+async function openDetail(a:any){try{detail.value=await request({url:`/animals/${a.id}`});detailIcon.value=animalIcon(detail.value.species)}catch{}}
+function openCare(){logMode.value='care';logForm.value={careType:'',checkType:'',description:'',vetName:''}}
+function openHealth(){logMode.value='health';logForm.value={careType:'',checkType:'',description:'',vetName:''}}
+async function submitLog(){
+  if(!logForm.value.description){uni.showToast({title:'请填写描述',icon:'none'});return}
+  const d=detail.value;if(!d)return
+  if(logMode.value==='care')await request({url:`/animals/${d.id}/care`,method:'POST',data:{userId:s.profile.id,userName:s.profile.name,careType:logForm.value.careType,description:logForm.value.description}})
+  else await request({url:`/animals/${d.id}/health`,method:'POST',data:{userId:s.profile.id,userName:s.profile.name,checkType:logForm.value.checkType,findings:logForm.value.description,vetName:logForm.value.vetName}})
+  uni.showToast({title:'已记录',icon:'success'});logMode.value=''
+  try{detail.value=await request({url:`/animals/${d.id}`});detailIcon.value=animalIcon(detail.value.species)}catch{}
+}
 </script>
 
-<style lang="scss" scoped>
-.page-animal{padding-bottom:80rpx}.am-header{padding:60rpx 40rpx 24rpx;background:linear-gradient(180deg,#FFF3E0,transparent)}.am-title{font-family:var(--serif);font-size:44rpx;font-weight:900}
-.am-list{padding:0 40rpx;display:flex;flex-direction:column;gap:16rpx}
-.am-card{background:#fff;border:1px solid var(--line);border-radius:16rpx;padding:20rpx}
-.am-card-top{display:flex;justify-content:space-between}.am-name{font-size:28rpx;font-weight:700}.am-status{font-size:20rpx}.am-species{font-size:22rpx;color:var(--ink-mute);margin-top:4rpx;display:block}.am-features{font-size:18rpx;color:var(--ink-mute);margin-top:4rpx;display:block}.am-meta{display:flex;gap:16rpx;margin-top:10rpx;font-size:18rpx;color:var(--ink-mute)}
-.am-tabs{display:flex;gap:8rpx}.am-tab{padding:8rpx 18rpx;border-radius:16rpx;font-size:12px;border:1px solid var(--line);color:var(--ink-mute)}.am-tab.active{background:var(--ink);color:#fff}
-.am-record{padding:12rpx 0;border-bottom:1px solid var(--line)}.am-rec-type{font-size:13px;font-weight:600;display:block}.am-rec-desc{font-size:12px;color:var(--ink-mute);margin-top:2rpx;display:block}.am-rec-meta{font-size:10px;color:#aaa;margin-top:2rpx}
-.am-fab{position:fixed;bottom:28rpx;right:28rpx;width:52px;height:52px;border-radius:50%;background:#F59E0B;color:#fff;font-size:24rpx;display:flex;align-items:center;justify-content:center;box-shadow:0 4rpx 16rpx rgba(245,158,11,0.4)}.am-empty{padding:80rpx;text-align:center;color:var(--ink-mute);font-size:22rpx}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:100}
-.modal{background:#fff;border-radius:16rpx;padding:28rpx;width:90%;max-width:400rpx;box-shadow:0 8rpx 40rpx rgba(0,0,0,0.15)}.modal h3{font-size:17px;margin-bottom:16rpx}.modal label{display:block;font-size:12px;color:#8E8E8E;margin-bottom:6rpx}
-.modal input,.modal select{width:100%;padding:10rpx 12rpx;border:1px solid #E5E5E0;border-radius:8rpx;font-size:13px;margin-bottom:14rpx;font-family:inherit}.modal-actions{display:flex;gap:10rpx;justify-content:flex-end}
-.btn{padding:10rpx 20rpx;border-radius:8rpx;font-size:13px;cursor:pointer;border:none}.btn-p{background:#10B981;color:#fff}.btn-g{background:transparent;color:#8E8E8E}.btn-sm{padding:6rpx 14rpx;font-size:12px}
+<style scoped>
+.pg{padding-bottom:60rpx}.hd{padding:40rpx 32rpx 24rpx;background:var(--rescue-red)}.t{font-size:40rpx;font-weight:900;color:#fff;display:block}.s{font-size:24rpx;color:rgba(255,255,255,.7);margin-top:8rpx;display:block}
+.list{padding:20rpx 32rpx}.empty{text-align:center;padding:60rpx 0;color:var(--ink-mute);font-size:24rpx}
+.card{display:flex;align-items:center;gap:16rpx;padding:24rpx;background:#fff;border:1px solid #E5E5E0;border-radius:16rpx;margin-bottom:12rpx}
+.ci{font-size:44rpx;flex-shrink:0}.cb{flex:1}.cn{font-size:28rpx;font-weight:700;display:block}.cs{font-size:20rpx;color:var(--ink-soft);display:block;margin-top:2rpx}.cl{font-size:18rpx;color:var(--ink-mute);margin-top:2rpx}.ca{color:var(--ink-mute);font-size:24rpx}
+.fab{position:fixed;right:32rpx;bottom:80rpx;width:96rpx;height:96rpx;border-radius:50%;background:var(--rescue-red);color:#fff;display:flex;align-items:center;justify-content:center;font-size:44rpx;font-weight:300;box-shadow:0 8rpx 32rpx rgba(192,57,43,.4);z-index:50}
+.modalmask{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;z-index:100}
+.modal{background:#fff;border-radius:24rpx 24rpx 0 0;padding:32rpx;width:100%;max-width:600rpx;max-height:80vh;overflow-y:auto}.mt{font-size:32rpx;font-weight:900;display:block;margin-bottom:16rpx}.mi{width:100%;height:44px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:14px;box-sizing:border-box;margin-bottom:12rpx}.mb{padding-top:8rpx}.btn{background:var(--rescue-red);color:#fff;text-align:center;padding:20rpx;border-radius:48rpx;font-size:26rpx;font-weight:700}
+.detail{max-height:70vh}.ds{font-size:22rpx;color:var(--ink-mute);display:block;margin-top:4rpx}.rl{margin-bottom:8rpx}.ri{padding:12rpx;background:#f8f8f6;border-radius:8rpx;margin-bottom:6rpx}.rt{font-size:22rpx;font-weight:600;display:block}.rd{font-size:18rpx;color:var(--ink-mute);margin-top:2rpx}
 </style>
