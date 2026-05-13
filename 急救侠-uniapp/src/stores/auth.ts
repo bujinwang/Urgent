@@ -25,7 +25,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function checkLogin() {
     if (!token.value) return false
-    if (token.value.startsWith('demo_')) return true
+    if (token.value.startsWith('demo_') || token.value.startsWith('token_')) return true
     try {
       const u = await fetchCurrentUser(); user.value = u; return true
     } catch {

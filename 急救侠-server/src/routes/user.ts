@@ -110,3 +110,13 @@ userRouter.post('/points', (req, res) => {
     res.status(500).json(error(e.message || '服务器错误'))
   }
 })
+
+/** PUT /api/user/interests — update user interests */
+userRouter.put('/interests', (req, res) => {
+  try {
+    const { userId, volunteerType } = req.body
+    if (!userId) return res.json(error('userId 不能为空'))
+    db.prepare('UPDATE users SET volunteer_type = ? WHERE id = ?').run(volunteerType || 'medical', userId)
+    res.json(success(null, '兴趣已更新'))
+  } catch (e: any) { res.status(500).json(error(e.message)) }
+})

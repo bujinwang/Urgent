@@ -66,8 +66,8 @@ export async function fetchCurrentUser(): Promise<UserProfile> {
 }
 
 /** 手机号注册 */
-export async function phoneRegister(phone: string, password: string, name?: string): Promise<LoginResult> {
-  return request({ url: '/auth/register', method: 'POST', data: { phone, password, name } })
+export async function phoneRegister(phone: string, password: string, name?: string, interests?: string): Promise<LoginResult> {
+  return request({ url: '/auth/register', method: 'POST', data: { phone, password, name, interests } })
 }
 
 /** 手机号登录 */

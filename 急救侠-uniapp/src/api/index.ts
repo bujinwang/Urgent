@@ -57,4 +57,8 @@ export async function request<T>(options: RequestOptions): Promise<T> {
   }
 }
 
+export async function put<T>(url: string, data?: Record<string, unknown>): Promise<T> {
+  return request({ url, method: 'PUT', data })
+}
+
 export default request

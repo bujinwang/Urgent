@@ -114,7 +114,6 @@
     <scroll-view v-if="hasAnimalInterest" class="home-modules-scroll" scroll-x :show-scrollbar="false">
       <view class="home-module-btn" @click="goPage('/pages/wildlife/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#E8F5E9;">🦅</view><text class="home-module-name">动物上报</text></view></view>
       <view class="home-module-btn" @click="goPage('/pages/animals/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#FFF3E0;">🐾</view><text class="home-module-name">动物档案</text></view></view>
-      <view class="home-module-btn" @click="goPage('/pages/drill/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#FFF8E0;">📋</view><text class="home-module-name">急救演习</text></view></view>
       <view class="home-module-btn" @click="goPage('/pages/trail/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#EBF5FB;">🥾</view><text class="home-module-name">徒友社区</text></view></view>
       <view class="home-module-btn" @click="goPage('/pages/rescue/mobilize')"><view class="home-module-inner"><view class="home-module-icon" style="background:#FFEBEE;">🚨</view><text class="home-module-name">救援动员</text></view></view>
       <view class="home-module-btn" @click="goPage('/pages/community/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#E8F5E9;">💬</view><text class="home-module-name">社区</text></view></view>
@@ -260,6 +259,11 @@ const modules: Module[] = [
     id: 'volunteer', name: '排行榜', route: '/pages/volunteer/index',
     bg: '#FEF3C7', color: '#D97706',
     path: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z',
+  },
+  {
+    id: 'drill', name: '急救演习', route: '/pages/drill/index',
+    bg: '#FFF8E0', color: '#C0392B',
+    path: 'M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z',
   },
 ]
 
