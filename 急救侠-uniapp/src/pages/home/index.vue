@@ -14,6 +14,9 @@
             {{ user.points.toLocaleString() }} 积分 · {{ user.city }}
             <text v-if="!user.id" class="home-login-link" @click.stop="goLogin">登录</text>
           </view>
+          <view v-if="user.id" class="home-interest-tags">
+            <text v-for="i in interestTags" :key="i" class="home-interest-tag">{{ i }}</text>
+          </view>
         </view>
       </view>
       <view class="home-logo">
@@ -214,6 +217,12 @@ onMounted(() => {
 
 // --- 常量 ---
 const tierLabel = userStore.tierLabel
+const interestIcons: Record<string, string> = { medical:'🩺', pet:'🐱', wildlife:'🦅', disaster:'🚨', trail:'🥾' }
+const interestTags = computed(() => {
+  if (!user.id) return []
+  const t = (user as any).volunteer_type || ''
+  return t.split(',').filter(Boolean).map(k => interestIcons[k] || '').filter(Boolean)
+})
 const hasAnimalInterest = computed(() => {
   if (!user.id) return true
   const t = (user as any).volunteer_type || ''
@@ -387,6 +396,8 @@ function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
   margin-top: 2rpx;
 }
 .home-login-link { color: var(--rescue-red); font-weight: 700; margin-left: 12rpx; }
+.home-interest-tags { display: flex; gap: 6rpx; margin-top: 4rpx; }
+.home-interest-tag { font-size: 16rpx; opacity: 0.7; }
 .home-logo {
   flex: 1;
   text-align: center;
