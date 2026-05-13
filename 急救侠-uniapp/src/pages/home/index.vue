@@ -10,7 +10,10 @@
             <text v-if="tierLabel" class="home-tier-badge">{{ tierLabel }}</text>
             <text v-if="user.volunteerId" class="home-vid-badge">{{ user.volunteerId }}</text>
           </view>
-          <view class="home-user-sub">{{ user.points.toLocaleString() }} 积分 · {{ user.city }}</view>
+          <view class="home-user-sub">
+            {{ user.points.toLocaleString() }} 积分 · {{ user.city }}
+            <text v-if="!user.id" class="home-login-link" @click.stop="goLogin">登录</text>
+          </view>
         </view>
       </view>
       <view class="home-logo">
@@ -308,6 +311,7 @@ function goNewsDetail(id: string) {
 function goMission() {
   uni.navigateTo({ url: '/pages/mission/index' })
 }
+function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
 </script>
 
 <style lang="scss" scoped>
@@ -377,6 +381,7 @@ function goMission() {
   color: var(--ink-mute);
   margin-top: 2rpx;
 }
+.home-login-link { color: var(--rescue-red); font-weight: 700; margin-left: 12rpx; }
 .home-logo {
   flex: 1;
   text-align: center;

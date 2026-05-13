@@ -183,6 +183,12 @@
       "style": {
         "navigationBarTitleText": "兴趣方向"
       }
+    },
+    {
+      "path": "pages/auth/login",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
     }
   ],
   "globalStyle": {
