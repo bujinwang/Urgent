@@ -32,7 +32,7 @@ onHide(() => {
 </script>
 
 <style lang="scss">
-@import '@/styles/variables.scss';
-@import '@/styles/animations.scss';
-@import '@/styles/global.scss';
+@use '@/styles/variables.scss';
+@use '@/styles/animations.scss';
+@use '@/styles/global.scss' as *;
 </style>
