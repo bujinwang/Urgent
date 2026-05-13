@@ -7,8 +7,8 @@
         <view>
           <view class="home-user-name-sm">
             <text>{{ user.name }}</text>
-            <text class="home-tier-badge">{{ tierLabel }}</text>
-            <text class="home-vid-badge">{{ user.volunteerId }}</text>
+            <text v-if="tierLabel" class="home-tier-badge">{{ tierLabel }}</text>
+            <text v-if="user.volunteerId" class="home-vid-badge">{{ user.volunteerId }}</text>
           </view>
           <view class="home-user-sub">{{ user.points.toLocaleString() }} 积分 · {{ user.city }}</view>
         </view>

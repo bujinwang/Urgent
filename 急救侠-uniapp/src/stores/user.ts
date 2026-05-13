@@ -17,7 +17,7 @@ export interface UserProfile {
 }
 
 function guestProfile(): UserProfile {
-  return { id:'', name:'游客', avatar:'?', tier:'bronze', points:0, city:'', volunteerId:'', certifications:[], rescueCount:0, volunteer_type:'medical' }
+  return { id:'', name:'游客', avatar:'?', tier:'' as any, points:0, city:'', volunteerId:'', certifications:[], rescueCount:0, volunteer_type:'medical' }
 }
 
 export const useUserStore = defineStore('user', () => {
