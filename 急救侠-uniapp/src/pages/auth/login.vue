@@ -3,8 +3,8 @@
     <view style="text-align:center;padding:60rpx 0 20rpx"><text style="font-size:80rpx;display:block">❤️</text><text style="font-size:44rpx;font-weight:900;display:block;margin-top:8rpx">急救侠</text></view>
     <view style="margin:0 40rpx;background:#fff;border-radius:24rpx;padding:30rpx">
       <view style="display:flex;margin-bottom:24rpx">
-        <text style="flex:1;text-align:center;padding:12rpx;font-size:28rpx;color:#C0392B;border-bottom:3px solid #C0392B">登录</text>
-        <text style="flex:1;text-align:center;padding:12rpx;font-size:28rpx;color:#8E8E8E;border-bottom:3px solid transparent" @click="mode='register'">注册</text>
+        <text :style="'flex:1;text-align:center;padding:12rpx;font-size:28rpx;border-bottom:3px solid '+(mode==='login'?'#C0392B':'transparent')+';color:'+(mode==='login'?'#C0392B':'#8E8E8E')" @click="mode='login'">登录</text>
+        <text :style="'flex:1;text-align:center;padding:12rpx;font-size:28rpx;border-bottom:3px solid '+(mode==='register'?'#C0392B':'transparent')+';color:'+(mode==='register'?'#C0392B':'#8E8E8E')" @click="mode='register'">注册</text>
       </view>
       <input style="width:100%;height:44px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:16px;margin-bottom:12px;box-sizing:border-box" v-model="phone" placeholder="手机号" />
       <input v-if="mode==='register'" style="width:100%;height:44px;border:1px solid #ddd;border-radius:8px;padding:0 12px;font-size:16px;margin-bottom:12px;box-sizing:border-box" v-model="name" placeholder="姓名（选填）" />
