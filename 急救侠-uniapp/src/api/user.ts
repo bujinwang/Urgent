@@ -24,6 +24,7 @@ const MOCK_USER: UserProfile = {
   volunteerId: 'SZ-012',
   certifications: ['CPR-AHA', 'AED-Operator'],
   rescueCount: 12,
+  volunteer_type: 'medical,wildlife,disaster',
 }
 
 export function getProfile(): UserProfile {
@@ -38,6 +39,16 @@ export function getStats() {
     onlineVolunteers: 3,
     aedsWithin1km: 12,
   }
+}
+
+
+import { request } from './index'
+
+/** Async API wrappers */
+export async function fetchProfile(): Promise<UserProfile> { return request({ url: '/user/profile' }) }
+export async function fetchStats() { return request({ url: '/user/stats' }) }
+export async function awardPointsApi(amount: number, reason: string) {
+  return request<{ points: number; tier: string; reason: string }>({ url: '/user/points', method: 'POST', data: { amount, reason } })
 }
 
 export default function (params?: Record<string, unknown>) {

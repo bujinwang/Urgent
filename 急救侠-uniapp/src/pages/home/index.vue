@@ -106,6 +106,17 @@
       </view>
     </scroll-view>
 
+    <!-- 动物救援模块 — 仅选了 pet/wildlife 兴趣的用户可见 -->
+    <view v-if="hasAnimalInterest" class="home-section-header" style="margin-top:8rpx;">🐾 动物救援</view>
+    <scroll-view v-if="hasAnimalInterest" class="home-modules-scroll" scroll-x :show-scrollbar="false">
+      <view class="home-module-btn" @click="goPage('/pages/wildlife/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#E8F5E9;">🦅</view><text class="home-module-name">动物上报</text></view></view>
+      <view class="home-module-btn" @click="goPage('/pages/animals/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#FFF3E0;">🐾</view><text class="home-module-name">动物档案</text></view></view>
+      <view class="home-module-btn" @click="goPage('/pages/drill/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#FFF8E0;">📋</view><text class="home-module-name">急救演习</text></view></view>
+      <view class="home-module-btn" @click="goPage('/pages/trail/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#EBF5FB;">🥾</view><text class="home-module-name">徒友社区</text></view></view>
+      <view class="home-module-btn" @click="goPage('/pages/rescue/mobilize')"><view class="home-module-inner"><view class="home-module-icon" style="background:#FFEBEE;">🚨</view><text class="home-module-name">救援动员</text></view></view>
+      <view class="home-module-btn" @click="goPage('/pages/community/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#E8F5E9;">💬</view><text class="home-module-name">社区</text></view></view>
+    </scroll-view>
+
     <!-- 最近动态 -->
     <view class="home-section-header">最近动态</view>
     <view class="home-activity-list">
@@ -168,6 +179,9 @@ function animateNumber(key: keyof typeof animatedStats, target: number) {
 }
 
 onMounted(() => {
+  // 预加载机构角色，避免「我的」页闪烁
+  userStore.loadOrgRoles()
+
   // 数字滚动入场 — 使用 store 真实数据
   // #ifndef MP-WEIXIN
   requestAnimationFrame(() => {
@@ -198,6 +212,10 @@ onMounted(() => {
 
 // --- 常量 ---
 const tierLabel = userStore.tierLabel
+const hasAnimalInterest = computed(() => {
+  const t = user.profile.volunteer_type || ''
+  return t.includes('pet') || t.includes('wildlife')
+})
 
 interface Module {
   id: string

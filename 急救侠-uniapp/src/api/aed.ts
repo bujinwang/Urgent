@@ -272,6 +272,17 @@ export function getTotalCount(): number {
   return MOCK_AEDS.length
 }
 
+
+import { request } from './index'
+
+export async function fetchAedList(lat?: number, lng?: number): Promise<AedDevice[]> {
+  const params = lat !== undefined ? `?lat=${lat}&lng=${lng}` : ''
+  return request({ url: `/aed/nearby${params}` })
+}
+export async function fetchAedById(id: string): Promise<AedDevice> {
+  return request({ url: `/aed/${id}` })
+}
+
 export default function (params?: Record<string, unknown>) {
   return {
     code: 0,

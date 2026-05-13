@@ -53,6 +53,13 @@ export function getLeaderboard(type: LeaderboardType = 'points'): VolunteerRankE
 }
 
 /** 默认导出：兼容 API 请求层 */
+
+import { request } from './index'
+
+export async function fetchLeaderboard(type: LeaderboardType = 'points'): Promise<VolunteerRankEntry[]> {
+  return request({ url: `/volunteer/rankings?type=${type}` })
+}
+
 export default function (params?: Record<string, unknown>) {
   const type = (params?.type as LeaderboardType) || 'points'
   return {

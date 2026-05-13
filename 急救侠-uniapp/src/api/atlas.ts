@@ -100,6 +100,11 @@ export function getFeaturedCard(): AtlasCard {
   return MOCK_CARDS.find((c) => c.featured) || MOCK_CARDS[0]
 }
 
+
+import { request } from './index'
+
+export async function fetchAtlasCards(): Promise<AtlasCard[]> { return request({ url: '/atlas/cards' }) }
+
 export default function () {
   return { code: 0, data: MOCK_CARDS, message: 'ok' }
 }

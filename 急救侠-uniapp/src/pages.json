@@ -49,6 +49,12 @@
       }
     },
     {
+      "path": "pages/aed/manage",
+      "style": {
+        "navigationBarTitleText": "我的 AED"
+      }
+    },
+    {
       "path": "pages/atlas/index",
       "style": {
         "navigationBarTitleText": "急救图谱"
@@ -70,6 +76,24 @@
       "path": "pages/volunteer/index",
       "style": {
         "navigationBarTitleText": "排行榜"
+      }
+    },
+    {
+      "path": "pages/coach/index",
+      "style": {
+        "navigationBarTitleText": "急救教练"
+      }
+    },
+    {
+      "path": "pages/coach/detail",
+      "style": {
+        "navigationBarTitleText": "教练详情"
+      }
+    },
+    {
+      "path": "pages/org/dashboard",
+      "style": {
+        "navigationBarTitleText": "机构管理"
       }
     },
     {
@@ -116,6 +140,48 @@
       "path": "pages/records/index",
       "style": {
         "navigationBarTitleText": "救援记录"
+      }
+    },
+    {
+      "path": "pages/community/index",
+      "style": {
+        "navigationBarTitleText": "社区"
+      }
+    },
+    {
+      "path": "pages/rescue/mobilize",
+      "style": {
+        "navigationBarTitleText": "救援动员"
+      }
+    },
+    {
+      "path": "pages/trail/index",
+      "style": {
+        "navigationBarTitleText": "徒友社区"
+      }
+    },
+    {
+      "path": "pages/drill/index",
+      "style": {
+        "navigationBarTitleText": "急救演习"
+      }
+    },
+    {
+      "path": "pages/wildlife/index",
+      "style": {
+        "navigationBarTitleText": "动物救援"
+      }
+    },
+    {
+      "path": "pages/animals/index",
+      "style": {
+        "navigationBarTitleText": "动物档案"
+      }
+    },
+    {
+      "path": "pages/cert/interests",
+      "style": {
+        "navigationBarTitleText": "兴趣方向"
       }
     }
   ],

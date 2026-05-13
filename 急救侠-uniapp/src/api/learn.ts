@@ -41,6 +41,15 @@ export function getTrainings(): Training[] {
   return MOCK_TRAININGS.map((t) => ({ ...t }))
 }
 
+
+import { request } from './index'
+
+export async function fetchLessons(): Promise<Lesson[]> { return request({ url: '/learn/courses' }) }
+export async function fetchTrainings(): Promise<Training[]> { return request({ url: '/learn/trainings' }) }
+export async function updateProgress(courseId: string, progress: number) {
+  return request({ url: '/learn/progress', method: 'POST', data: { courseId, progress } })
+}
+
 export default function (params?: Record<string, unknown>) {
   return {
     code: 0,

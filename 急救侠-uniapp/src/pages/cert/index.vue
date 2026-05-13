@@ -48,6 +48,16 @@
         <text class="cert-action-label">急救手册</text>
         <text class="cert-action-sub">6 种急症</text>
       </view>
+      <view class="cert-action" @click="goInterests">
+        <text class="cert-action-icon">🎯</text>
+        <text class="cert-action-label">兴趣方向</text>
+        <text class="cert-action-sub">选择你的模块</text>
+      </view>
+      <view v-if="user.isOrgManager" class="cert-action cert-action-mgr" @click="goOrg">
+        <text class="cert-action-icon">🏢</text>
+        <text class="cert-action-label">机构管理</text>
+        <text class="cert-action-sub">{{ user.orgRoles[0]?.orgName }}</text>
+      </view>
     </view>
 
     <!-- AED 打卡记录 -->
@@ -70,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useAedStore } from '@/stores/aed'
 
@@ -94,6 +104,15 @@ function goVolunteer() { uni.navigateTo({ url: '/pages/volunteer/index' }) }
 function goAtlas() { uni.navigateTo({ url: '/pages/atlas/index' }) }
 function goAed() { uni.switchTab({ url: '/pages/aed/index' }) }
 function openAed(id: string) { uni.navigateTo({ url: `/pages/aed/detail?id=${id}` }) }
+function goOrg() {
+  const orgId = user.orgRoles[0]?.orgId
+  if (orgId) uni.navigateTo({ url: `/pages/org/dashboard?id=${orgId}` })
+}
+function goInterests() { uni.navigateTo({ url: '/pages/cert/interests' }) }
+
+onMounted(() => {
+  user.loadOrgRoles()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -138,4 +157,5 @@ function openAed(id: string) { uni.navigateTo({ url: `/pages/aed/detail?id=${id}
 .cert-checkin-count { font-family: var(--mono); font-size: 22rpx; color: var(--gold); font-weight: 700; }
 .cert-empty { text-align: center; padding: 40rpx 0; color: var(--ink-mute); font-size: 24rpx; }
 .cert-empty-link { color: var(--rescue-red); font-weight: 600; display: block; margin-top: 8rpx; }
+.cert-action-mgr { border-color: var(--gold); background: linear-gradient(135deg, #FFFDF5, #FFF8E1); }
 </style>

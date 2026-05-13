@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getProfile, getStats } from '@/api/user'
+import { fetchUserOrgRoles, type UserOrgRole } from '@/api/org'
 
 export interface UserProfile {
   id: string
@@ -12,11 +13,16 @@ export interface UserProfile {
   volunteerId: string
   certifications: string[]
   rescueCount: number
+  volunteer_type?: string
 }
 
 export const useUserStore = defineStore('user', () => {
   const profile = ref<UserProfile>(getProfile())
   const stats = ref(getStats())
+  const orgRoles = ref<UserOrgRole[]>([])
+
+  /** 当前用户是否是机构管理者（admin 或 manager） */
+  const isOrgManager = computed(() => orgRoles.value.length > 0)
 
   const tierLabel = computed(() => {
     const map: Record<string, string> = {
@@ -40,7 +46,16 @@ export const useUserStore = defineStore('user', () => {
   function refresh() {
     profile.value = getProfile()
     stats.value = getStats()
+    loadOrgRoles()
   }
 
-  return { profile, stats, tierLabel, awardPoints, refresh }
+  async function loadOrgRoles() {
+    try {
+      orgRoles.value = await fetchUserOrgRoles(profile.value.id)
+    } catch (_) {
+      orgRoles.value = []
+    }
+  }
+
+  return { profile, stats, orgRoles, isOrgManager, tierLabel, awardPoints, refresh, loadOrgRoles }
 })

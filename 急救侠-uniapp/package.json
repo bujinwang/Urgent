@@ -50,6 +50,7 @@
     "@dcloudio/uni-stacktracey": "3.0.0-4080420251103001",
     "@dcloudio/vite-plugin-uni": "3.0.0-4080420251103001",
     "@vitejs/plugin-vue": "^6.0.6",
+    "@vitest/coverage-istanbul": "^3.2.4",
     "@vitest/coverage-v8": "^3.2.4",
     "@vue/runtime-core": "^3.4.21",
     "@vue/test-utils": "^2.4.10",

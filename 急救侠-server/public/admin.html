@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>急救侠 · 管理后台</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#FAFAF7;color:#1A1A1A}
+.top-nav{display:flex;gap:0;background:#1A1A1A;padding:0 20px;overflow-x:auto}
+.nv{padding:14px 20px;color:#8E8E8E;font-size:13px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+.nv.active{color:#fff;border-bottom-color:#C0392B}
+.header{padding:32px 40px;background:linear-gradient(180deg,#FEF3C7,transparent)}
+.header h1{font-size:26px;font-weight:900}.header p{color:#8E8E8E;font-size:13px;margin-top:4px}
+.stats{display:flex;gap:16px;padding:0 40px 24px;flex-wrap:wrap}
+.sc{flex:1;min-width:100px;padding:18px;background:#fff;border-radius:12px;border:1px solid #E5E5E0;text-align:center}
+.sc .n{font-size:28px;font-weight:700;font-family:'SF Mono',Menlo,monospace}
+.sc .l{font-size:11px;color:#8E8E8E;margin-top:4px}
+.n.g{color:#34D277}.n.w{color:#F59E0B}.n.r{color:#EF4444}.n.b{color:#4A90E2}
+.alert{margin:0 40px 24px;padding:14px 18px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.alert .ic{font-size:18px}.alert .tx{flex:1;font-size:13px;font-weight:600;color:#92400E}
+.tabs{display:flex;gap:8px;padding:0 40px 16px}
+.tb{padding:8px 18px;border-radius:20px;font-size:12px;border:1px solid #E5E5E0;color:#8E8E8E;cursor:pointer}
+.tb.active{background:#1A1A1A;color:#fff;border-color:#1A1A1A}
+.list{padding:0 40px}
+.row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #E5E5E0}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.body{flex:1;min-width:0}
+.tt{font-size:14px;font-weight:600}
+.sub{font-size:11px;color:#8E8E8E}
+.meta{font-size:11px;font-family:'SF Mono',Menlo,monospace;text-align:right;white-space:nowrap;flex-shrink:0}
+.badge{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;flex-shrink:0}
+.badge.gold{background:#FEF3C7;color:#92400E}
+.badge.blue{background:#EBF5FB;color:#2C5282}
+.badge.green{background:#D1FAE5;color:#065F46}
+.loading{text-align:center;padding:60px;color:#8E8E8E}
+.empty{text-align:center;padding:60px;color:#8E8E8E;font-size:13px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:#fff;border-radius:16px;padding:28px;width:90%;max-width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.15)}
+.modal h3{font-size:17px;margin-bottom:16px}
+.modal label{display:block;font-size:12px;color:#8E8E8E;margin-bottom:5px}
+.modal input,.modal select,.modal textarea{width:100%;padding:10px 12px;border:1px solid #E5E5E0;border-radius:8px;font-size:13px;margin-bottom:14px;font-family:inherit}
+.modal textarea{resize:vertical;min-height:50px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end}
+.btn{padding:10px 20px;border-radius:8px;font-size:13px;cursor:pointer;border:none}
+.btn-p{background:#C0392B;color:#fff}.btn-g{background:transparent;color:#8E8E8E}
+.btn-sm{padding:4px 10px;font-size:11px;border-radius:6px}
+.btn-e{background:#EBF5FB;color:#2C5282;border:1px solid #BEE3F8}
+.btn-d{background:#FEE2E2;color:#991B1B;border:1px solid #FECACA}
+.btn-a{position:fixed;bottom:28px;right:28px;width:52px;height:52px;border-radius:50%;background:#C0392B;color:#fff;font-size:24px;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(192,57,43,0.4);display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+<div id="app">
+<nav class="top-nav">
+  <div class="nv" :class="{active:nav==='dash'}" @click="nav='dash';loadDash()">📊 概览</div>
+  <div class="nv" :class="{active:nav==='users'}" @click="nav='users';loadUsers()">👤 用户</div>
+  <div class="nv" :class="{active:nav==='orgs'}" @click="nav='orgs';loadOrgs()">🏢 机构</div>
+  <div class="nv" :class="{active:nav==='coaches'}" @click="nav='coaches';loadCoaches()">🎓 教练</div>
+  <div class="nv" :class="{active:nav==='certs'}" @click="nav='certs';loadCerts()">📜 证书</div>
+  <div class="nv" :class="{active:nav==='aed'}" @click="nav='aed';loadAeds()">⚡ AED</div>
+</nav>
+
+<!-- DASHBOARD -->
+<template v-if="nav==='dash'">
+<div v-if="dLoading" class="loading">加载中...</div>
+<template v-else-if="dash">
+<div class="header"><h1>平台概览</h1><p>急救侠管理控制台</p></div>
+<div class="stats">
+  <div class="sc"><div class="n">{{dash.totalUsers}}</div><div class="l">用户</div></div>
+  <div class="sc"><div class="n b">{{dash.totalOrganizations}}</div><div class="l">机构</div></div>
+  <div class="sc"><div class="n w">{{dash.totalCoaches}}</div><div class="l">教练</div></div>
+  <div class="sc"><div class="n g">{{dash.totalAeds}}</div><div class="l">AED</div></div>
+  <div class="sc"><div class="n b">{{dash.totalCertificates}}</div><div class="l">证书</div></div>
+  <div class="sc"><div class="n" :class="dash.activePickups>0?'w':''">{{dash.activePickups}}</div><div class="l">AED 使用中</div></div>
+</div>
+</template>
+</template>
+
+<!-- USERS -->
+<template v-if="nav==='users'">
+<div v-if="uLoading" class="loading">加载中...</div>
+<template v-else>
+<div class="header"><h1>用户管理</h1><p>共 {{users.length}} 名用户</p></div>
+<div class="list">
+  <div v-for="u in users" :key="u.id" class="row" @click="showUser(u)">
+    <div class="dot" :style="{background:tierC(u.tier)}"></div>
+    <div class="body"><div class="tt">{{u.name}} <span class="badge blue">{{tierL(u.tier)}}</span><span v-if="u.isOrgAdmin" class="badge gold">机构管理</span></div><div class="sub">{{u.city}} · {{u.volunteerId}} · {{u.rescueCount}}次救援 · {{u.certCount}}证书</div></div>
+    <div class="meta">{{u.points}}分</div>
+  </div>
+</div>
+</template>
+</template>
+
+<!-- ORGANIZATIONS -->
+<template v-if="nav==='orgs'">
+<div v-if="oLoading" class="loading">加载中...</div>
+<template v-else>
+<div class="header"><h1>机构管理</h1><p>共 {{orgs.length}} 家机构</p></div>
+<div class="list">
+  <div v-for="o in orgs" :key="o.id" class="row" @click="openOrg(o.id)">
+    <div class="dot" :style="{background:o.type==='school'?'#4A90E2':'#D4A017'}"></div>
+    <div class="body"><div class="tt">{{o.name}} <span class="badge" :class="o.type==='school'?'blue':'gold'">{{o.type==='school'?'学校':'企业'}}</span></div><div class="sub">{{o.memberCount}} 成员 · {{o.certCount}} 证书</div></div>
+    <div class="meta">{{o.createdAt?.slice(0,10)}}</div>
+  </div>
+  <div v-if="orgs.length===0" class="empty">暂无机构</div>
+</div>
+</template>
+</template>
+
+<!-- COACHES -->
+<template v-if="nav==='coaches'">
+<div v-if="cLoading" class="loading">加载中...</div>
+<template v-else>
+<div class="header"><h1>教练管理</h1><p>共 {{coaches.length}} 名教练</p></div>
+<div class="list">
+  <div v-for="c in coaches" :key="c.id" class="row">
+    <div class="dot" :style="{background:tierC(c.tier)}"></div>
+    <div class="body">
+      <div class="tt">{{c.name}} <span class="badge blue">{{tierL(c.tier)}}</span><span v-if="!c.available" class="badge" style="background:#FEE2E2;color:#991B1B">暂不可约</span></div>
+      <div class="sub">{{c.city}} · {{c.rescueCount}}次救援 · {{c.points}}分</div>
+      <div class="sub" style="margin-top:2px">{{c.specialties.join(', ')}} · {{c.certifications.join(', ')}}</div>
+    </div>
+  </div>
+  <div v-if="coaches.length===0" class="empty">暂无教练</div>
+</div>
+</template>
+</template>
+
+<!-- CERTIFICATES -->
+<template v-if="nav==='certs'">
+<div v-if="certLoading" class="loading">加载中...</div>
+<template v-else>
+<div class="header"><h1>全局证书</h1><p>共 {{allCerts.length}} 张证书</p></div>
+<div class="tabs">
+  <div class="tb" :class="{active:certTab==='all'}" @click="certTab='all'">全部</div>
+  <div class="tb" :class="{active:certTab==='expiring'}" @click="certTab='expiring'">即将到期</div>
+  <div class="tb" :class="{active:certTab==='expired'}" @click="certTab='expired'">已过期</div>
+</div>
+<div class="list">
+  <div v-for="cert in filteredCerts" :key="cert.id" class="row">
+    <div class="dot" :style="{background:cert.status==='active'?'#34D277':cert.status==='expiring'?'#F59E0B':'#EF4444'}"></div>
+    <div class="body"><div class="tt">{{typeL(cert.type)}}</div><div class="sub">{{cert.userName}} · {{cert.issuer}}</div></div>
+    <div class="meta" :style="{color:cert.status==='expiring'?'#F59E0B':cert.status==='expired'?'#EF4444':'#8E8E8E'}">{{cert.status==='expired'?'已过期':cert.status==='expiring'?daysU(cert.expiryDate)+'天后到期':'至 '+cert.expiryDate}}</div>
+  </div>
+</div>
+</template>
+</template>
+
+<!-- AED -->
+<template v-if="nav==='aed'">
+<div v-if="aLoading" class="loading">加载中...</div>
+<template v-else>
+<div class="header"><h1>AED 管理</h1><p>{{aeds.length}} 台 · 可用 {{aeds.filter(a=>a.status==='available').length}} · 使用中 {{aeds.filter(a=>a.status==='in_use').length}} · 维护 {{aeds.filter(a=>a.status==='maintenance').length}}</p></div>
+<div class="list">
+  <div v-for="aed in aeds" :key="aed.id" class="row">
+    <div class="dot" :style="{background:aSColor(aed.status)}"></div>
+    <div class="body"><div class="tt">{{aed.name}}</div><div class="sub">{{aed.address}} · {{aed.model||'-'}}</div><div class="sub">电极 {{aed.electrodeExpiry||'-'}} · 电池 {{aed.batteryExpiry||'-'}}</div></div>
+    <div class="meta">{{aSLabel(aed.status)}}</div>
+    <button class="btn btn-sm btn-e" @click="showAedDetail(aed)">详情</button>
+    <button class="btn btn-sm btn-e" @click="editAed(aed)">编辑</button>
+    <button class="btn btn-sm btn-d" @click="delAed(aed.id)">删除</button>
+  </div>
+</div>
+<button class="btn-a" @click="showAedForm(null)">+</button>
+</template>
+</template>
+
+<!-- User Detail Modal -->
+<div v-if="showUserModal" class="modal-overlay" @click.self="showUserModal=false">
+<div class="modal">
+  <h3>{{selectedUser?.name}}</h3>
+  <div style="font-size:12px;line-height:2">
+    <div>ID: {{selectedUser?.id}}</div><div>等级: {{tierL(selectedUser?.tier)}}</div>
+    <div>城市: {{selectedUser?.city}}</div><div>积分: {{selectedUser?.points}}</div>
+    <div>救援: {{selectedUser?.rescueCount}}次</div>
+    <div>证书数: {{selectedUser?.certCount}}</div>
+    <div>认证: {{(selectedUser?.certifications||[]).join(', ')}}</div>
+    <div>机构管理: {{selectedUser?.isOrgAdmin?'是':'否'}}</div>
+  </div>
+  <div class="modal-actions" style="margin-top:16px"><button class="btn btn-g" @click="showUserModal=false">关闭</button></div>
+</div>
+</div>
+
+<!-- AED Detail Modal -->
+<div v-if="aedDetail" class="modal-overlay" @click.self="aedDetail=null">
+<div class="modal" style="max-width:600px">
+  <h3>{{aedDetail.name}} <button class="btn btn-g" style="float:right;font-size:18px" @click="aedDetail=null">✕</button></h3>
+  <div class="tabs" style="padding:0">
+    <div class="tb" :class="{active:adTab==='info'}" @click="adTab='info'">概览</div>
+    <div class="tb" :class="{active:adTab==='mt'}" @click="adTab='mt'">维护</div>
+    <div class="tb" :class="{active:adTab==='pu'}" @click="adTab='pu';loadLC(aedDetail.id)">取用</div>
+    <div class="tb" :class="{active:adTab==='mgr'}" @click="adTab='mgr';loadLC(aedDetail.id)">管理者</div>
+    <div class="tb" :class="{active:adTab==='cert'}" @click="adTab='cert';loadLC(aedDetail.id)">认证</div>
+    <div class="tb" :class="{active:adTab==='audit'}" @click="adTab='audit';loadLC(aedDetail.id)">审计</div>
+  </div>
+  <div v-if="adTab==='info'" style="font-size:12px;line-height:2">
+    <div>地址: {{aedDetail.address}}</div><div>型号: {{aedDetail.model||'-'}}</div>
+    <div>序列号: {{aedDetail.serialNumber||'-'}}</div><div>状态: <span :style="{color:aSColor(aedDetail.status)}">{{aSLabel(aedDetail.status)}}</span></div>
+    <div>电池到期: {{aedDetail.batteryExpiry||'-'}}</div><div>电极到期: {{aedDetail.electrodeExpiry||'-'}}</div>
+    <div>上次维护: {{aedDetail.lastMaintenance||'-'}}</div><div>上次检查: {{aedDetail.lastCheck||'-'}}</div>
+    <div>{{aedDetail.indoor?'室内':'室外'}} · {{aedDetail.floor||'-'}}楼 · {{aedDetail.openHours||'-'}}</div>
+    <div style="margin-top:4px">寻路: {{aedDetail.findingInstructions||'-'}}</div>
+    <div v-if="aedDetail.custodian">责任人: {{aedDetail.custodian.name}} {{aedDetail.custodian.phone}}</div>
+    <div v-if="aedDetail.reportedBy" style="color:#8E8E8E">上报: {{aedDetail.reportedBy}} · {{aedDetail.reportedAt}}</div>
+  </div>
+  <div v-if="adTab==='mt'"><div v-if="lc?.maintenance?.length"><div v-for="m in lc.maintenance" :key="m.id" class="row"><div class="dot" :style="{background:mtC(m.type)}"></div><div class="body"><div class="tt">{{mtL(m.type)}}</div><div class="sub">{{m.date}} · {{m.performedBy}} · {{m.notes}}</div></div><div class="meta">下次: {{m.nextDue||'-'}}</div></div></div><div v-else class="empty">暂无</div></div>
+  <div v-if="adTab==='pu'"><div v-if="lc?.recentPickups?.length"><div v-for="p in lc.recentPickups" :key="p.id" class="row"><div class="dot" :style="{background:p.isReturned?'#34D277':'#4A90E2'}"></div><div class="body"><div class="tt">{{p.userName}}</div><div class="sub">取: {{p.pickupTime}} {{p.returnTime?'· 还: '+p.returnTime:''}}</div></div><div class="meta">{{p.isReturned?'已归还':'使用中'}}</div></div></div><div v-else class="empty">暂无</div></div>
+  <div v-if="adTab==='mgr'"><div v-if="lc?.managers?.length"><div v-for="m in lc.managers" :key="m.id" class="row"><div class="dot" :style="{background:m.role==='primary'?'#D4A017':'#8BA3B5'}"></div><div class="body"><div class="tt">{{m.userName}}</div><div class="sub">{{m.role==='primary'?'主要':'备用'}} · {{m.assignedAt}}</div></div></div></div><div v-else class="empty">暂无</div></div>
+  <div v-if="adTab==='cert'"><div v-if="lc?.certifications?.length"><div v-for="c in lc.certifications" :key="c.id" class="row"><div class="dot" :style="{background:c.type==='manufacturer'?'#4A90E2':'#D4A017'}"></div><div class="body"><div class="tt">{{c.name}}</div><div class="sub">{{c.issuer}} · {{c.type==='manufacturer'?'制造商':'平台'}} · {{c.status==='active'?'有效':'过期'}}</div></div><div class="meta">至 {{c.expiryDate}}</div></div></div><div v-else class="empty">暂无</div></div>
+  <div v-if="adTab==='audit'"><div v-if="lc?.auditLog?.length"><div v-for="e in lc.auditLog" :key="e.id" class="row"><div class="dot" :style="{background:aeC(e.eventType)}"></div><div class="body"><div class="tt">{{aeL(e.eventType)}}</div><div class="sub">{{e.description}}</div><div class="sub" style="font-size:9px;color:#aaa">{{e.userName}} · {{e.createdAt}}</div></div></div></div><div v-else class="empty">暂无</div></div>
+</div>
+</div>
+
+<!-- AED Form Modal -->
+<div v-if="showAedF" class="modal-overlay" @click.self="showAedF=false">
+<div class="modal"><h3>{{editingAed?'编辑':'新增'}} AED</h3>
+<label>名称</label><input v-model="af.name">
+<label>地址</label><input v-model="af.address">
+<label>纬度</label><input type="number" step="any" v-model="af.lat">
+<label>经度</label><input type="number" step="any" v-model="af.lng">
+<label>状态</label><select v-model="af.status"><option value="available">可用</option><option value="in_use">使用中</option><option value="maintenance">维护中</option></select>
+<label>型号</label><input v-model="af.model">
+<label>序列号</label><input v-model="af.serialNumber">
+<label>电池到期</label><input type="date" v-model="af.batteryExpiry">
+<label>电极到期</label><input type="date" v-model="af.electrodeExpiry">
+<label>室内</label><select v-model="af.indoor"><option :value="true">是</option><option :value="false">否</option></select>
+<label>楼层</label><input v-model="af.floor">
+<label>开放时间</label><input v-model="af.openHours">
+<label>寻路说明</label><textarea v-model="af.findingInstructions"></textarea>
+<label>责任人</label><input v-model="af.custodianName">
+<label>责任人电话</label><input v-model="af.custodianPhone">
+<label>责任人职务</label><input v-model="af.custodianRole">
+<label>上报人</label><input v-model="af.reportedBy">
+<div class="modal-actions"><button class="btn btn-g" @click="showAedF=false">取消</button><button class="btn btn-p" @click="saveAed">{{editingAed?'保存':'添加'}}</button></div>
+</div>
+</div>
+
+<!-- Org Detail Modal -->
+<div v-if="showOrgModal" class="modal-overlay" @click.self="showOrgModal=false">
+<div class="modal" style="max-width:600px"><h3>{{orgDetail?.org?.name}} <button class="btn btn-g" style="float:right;font-size:18px" @click="showOrgModal=false">✕</button></h3>
+<div class="tabs" style="padding:0"><div class="tb" :class="{active:otab==='info'}" @click="otab='info'">概览</div><div class="tb" :class="{active:otab==='certs'}" @click="otab='certs';loadOrgDetail(orgDetail?.org?.id)">证书</div><div class="tb" :class="{active:otab==='members'}" @click="otab='members';loadOrgDetail(orgDetail?.org?.id)">成员</div><div class="tb" :class="{active:otab==='notif'}" @click="otab='notif';loadOrgDetail(orgDetail?.org?.id)">通知</div></div>
+<div v-if="otab==='info'" style="font-size:12px;line-height:2"><div>类型: {{orgDetail?.org?.type==='school'?'学校':'企业'}}</div><div>管理员: {{orgDetail?.org?.adminUserId}}</div><div>创建: {{orgDetail?.org?.createdAt}}</div></div>
+<div v-if="otab==='certs'"><div v-if="orgDetail?.certificates?.length"><div v-for="c in orgDetail.certificates" :key="c.id" class="row"><div class="dot" :style="{background:c.status==='active'?'#34D277':c.status==='expiring'?'#F59E0B':'#EF4444'}"></div><div class="body"><div class="tt">{{typeL(c.type)}}</div><div class="sub">{{c.userName}} · {{c.issuer}}</div></div><div class="meta">{{c.expiryDate}}</div></div></div><div v-else class="empty">暂无</div></div>
+<div v-if="otab==='members'"><div v-if="orgDetail?.members?.length"><div v-for="m in orgDetail.members" :key="m.id" class="row"><div class="dot" :style="{background:tierC(m.userTier)}"></div><div class="body"><div class="tt">{{m.userName}} <span class="badge blue">{{roleL(m.role)}}</span></div><div class="sub">{{m.activeCertificates}}有效 · {{m.expiringCertificates}}即将到期</div></div><div class="meta">{{m.rescueCount}}次救援</div></div></div><div v-else class="empty">暂无</div></div>
+<div v-if="otab==='notif'"><div v-if="orgDetail?.notifications?.length"><div v-for="n in orgDetail.notifications" :key="n.id" class="row"><div class="dot" :style="{background:n.isRead?'#ccc':'#F59E0B'}"></div><div class="body"><div class="tt">{{n.title}}</div><div class="sub">{{n.message}}</div><div class="sub" style="font-size:9px;color:#aaa">{{n.createdAt}}</div></div><div v-if="!n.isRead" class="badge" style="background:#FEF3C7;color:#92400E">未读</div></div></div><div v-else class="empty">暂无通知</div></div>
+</div>
+</div>
+</div>
+
+<script>
+const{createApp,ref,computed,onMounted}=Vue
+createApp({setup(){
+const API='http://localhost:3001/api'
+const nav=ref('dash')
+// Dashboard
+const dLoading=ref(false),dash=ref(null)
+// Users
+const uLoading=ref(false),users=ref([]),showUserModal=ref(false),selectedUser=ref(null)
+// Orgs
+const oLoading=ref(false),orgs=ref([]),showOrgModal=ref(false),orgDetail=ref(null),otab=ref('info')
+// Coaches
+const cLoading=ref(false),coaches=ref([])
+// Certs
+const certLoading=ref(false),allCerts=ref([]),certTab=ref('all')
+const filteredCerts=computed(()=>certTab.value==='expiring'?allCerts.value.filter(c=>c.status==='expiring'||(c.expiryDate&&new Date(c.expiryDate)<new Date(Date.now()+30*86400000))):certTab.value==='expired'?allCerts.value.filter(c=>c.status==='expired'):allCerts.value)
+// AED
+const aLoading=ref(false),aeds=ref([]),showAedF=ref(false),editingAed=ref(null),aedDetail=ref(null),adTab=ref('info'),lc=ref(null)
+const af=ref({name:'',address:'',lat:'',lng:'',status:'available',model:'',serialNumber:'',batteryExpiry:'',electrodeExpiry:'',indoor:true,floor:'',openHours:'',findingInstructions:'',custodianName:'',custodianPhone:'',custodianRole:'',reportedBy:'admin'})
+
+// Loaders
+async function loadDash(){if(dash.value)return;dLoading.value=true;try{const r=await fetch(API+'/admin/dashboard').then(r=>r.json());dash.value=r.data}catch(e){}finally{dLoading.value=false}}
+async function loadUsers(){if(users.value.length)return;uLoading.value=true;try{const r=await fetch(API+'/admin/users').then(r=>r.json());users.value=r.data||[]}catch(e){}finally{uLoading.value=false}}
+async function loadOrgs(){if(orgs.value.length)return;oLoading.value=true;try{const r=await fetch(API+'/admin/organizations').then(r=>r.json());orgs.value=r.data||[]}catch(e){}finally{oLoading.value=false}}
+async function loadCoaches(){if(coaches.value.length)return;cLoading.value=true;try{const r=await fetch(API+'/admin/coaches').then(r=>r.json());coaches.value=r.data||[]}catch(e){}finally{cLoading.value=false}}
+async function loadCerts(){if(allCerts.value.length)return;certLoading.value=true;try{const r=await fetch(API+'/admin/certificates').then(r=>r.json());allCerts.value=r.data||[]}catch(e){}finally{certLoading.value=false}}
+async function loadAeds(){if(aeds.value.length)return;aLoading.value=true;try{const r=await fetch(API+'/aed/nearby').then(r=>r.json());aeds.value=r.data||[]}catch(e){}finally{aLoading.value=false}}
+async function loadOrgDetail(id){try{const[d,c,m,n]=await Promise.all([fetch(`${API}/org/${id}`).then(r=>r.json()),fetch(`${API}/org/${id}/certificates`).then(r=>r.json()),fetch(`${API}/org/${id}/members`).then(r=>r.json()),fetch(`${API}/org/${id}/notifications`).then(r=>r.json())]);orgDetail.value={org:d.data,certificates:c.data,members:m.data,notifications:n.data}}catch(e){}}
+async function loadLC(id){if(lc.value)return;try{const r=await fetch(`${API}/aed/${id}/lifecycle`).then(r=>r.json());lc.value=r.data}catch(e){}}
+
+// Actions
+function showUser(u){selectedUser.value=u;showUserModal.value=true}
+function openOrg(id){showOrgModal.value=true;otab.value='info';orgDetail.value=null;loadOrgDetail(id)}
+function showAedDetail(a){aedDetail.value=a;adTab.value='info';lc.value=null}
+function showAedForm(a){editingAed.value=a;if(a){af.value={name:a.name,address:a.address,lat:a.lat,lng:a.lng,status:a.status,model:a.model||'',serialNumber:a.serialNumber||'',batteryExpiry:a.batteryExpiry||'',electrodeExpiry:a.electrodeExpiry||'',indoor:a.indoor,floor:a.floor||'',openHours:a.openHours||'',findingInstructions:a.findingInstructions||'',custodianName:a.custodian?.name||'',custodianPhone:a.custodian?.phone||'',custodianRole:a.custodian?.role||'',reportedBy:a.reportedBy||'admin'}}else{af.value={name:'',address:'',lat:'',lng:'',status:'available',model:'',serialNumber:'',batteryExpiry:'',electrodeExpiry:'',indoor:true,floor:'',openHours:'',findingInstructions:'',custodianName:'',custodianPhone:'',custodianRole:'',reportedBy:'admin'}};showAedF.value=true}
+async function saveAed(){const f=af.value;const b={name:f.name,address:f.address,lat:parseFloat(f.lat),lng:parseFloat(f.lng),status:f.status,model:f.model,serialNumber:f.serialNumber,batteryExpiry:f.batteryExpiry,electrodeExpiry:f.electrodeExpiry,indoor:f.indoor,floor:f.floor,openHours:f.openHours,findingInstructions:f.findingInstructions,custodianName:f.custodianName,custodianPhone:f.custodianPhone,custodianRole:f.custodianRole,reportedBy:f.reportedBy};if(editingAed.value){await fetch(`${API}/aed/${editingAed.value.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})}else{await fetch(`${API}/aed`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})};showAedF.value=false;editingAed.value=null;aeds.value=[];await loadAeds()}
+async function delAed(id){if(!confirm('确定删除？'))return;await fetch(`${API}/aed/${id}`,{method:'DELETE'});aeds.value=[];await loadAeds()}
+
+// Helpers
+function tierL(t){return{gold:'金牌',silver:'银牌',bronze:'铜牌',diamond:'钻石'}[t]||t}
+function tierC(t){return{gold:'#D4A017',silver:'#8BA3B5',bronze:'#B87333',diamond:'#4A90E2'}[t]||'#6B7280'}
+function typeL(t){return{CPR:'CPR',AED:'AED','First Aid':'急救',BLS:'BLS'}[t]||t}
+function roleL(r){return{admin:'管理员',manager:'主管',member:'成员'}[r]||r}
+function daysU(d){return Math.ceil((new Date(d)-new Date())/86400000)}
+function aSColor(s){return{available:'#34D277',in_use:'#4A90E2',maintenance:'#F59E0B'}[s]||'#6B7280'}
+function aSLabel(s){return{available:'可用',in_use:'使用中',maintenance:'维护中'}[s]||s}
+function mtL(t){return{battery_replacement:'换电池',electrode_replacement:'换电极',inspection:'巡检',repair:'维修',software_update:'升级',other:'其他'}[t]||t}
+function mtC(t){return{battery_replacement:'#F59E0B',electrode_replacement:'#4A90E2',inspection:'#34D277',repair:'#EF4444',software_update:'#8B5CF6',other:'#6B7280'}[t]||'#6B7280'}
+function aeL(t){return{device_created:'创建',status_change:'状态变更',pickup:'取用',return:'归还',maintenance:'维护',checkin:'打卡',certification_added:'添加认证',certification_removed:'移除认证',manager_assigned:'指派',manager_removed:'移除',device_deleted:'删除'}[t]||t}
+function aeC(t){return{device_created:'#34D277',status_change:'#F59E0B',pickup:'#4A90E2',return:'#34D277',maintenance:'#8B5CF6',checkin:'#10B981',certification_added:'#D4A017',certification_removed:'#EF4444',manager_assigned:'#D4A017',manager_removed:'#EF4444',device_deleted:'#EF4444'}[t]||'#6B7280'}
+
+onMounted(loadDash)
+return{nav,dLoading,dash,uLoading,users,showUserModal,selectedUser,oLoading,orgs,showOrgModal,orgDetail,otab,cLoading,coaches,certLoading,allCerts,certTab,filteredCerts,aLoading,aeds,showAedF,editingAed,aedDetail,adTab,lc,af,loadDash,loadUsers,loadOrgs,loadCoaches,loadCerts,loadAeds,loadOrgDetail,loadLC,showUser,openOrg,showAedDetail,showAedForm,saveAed,delAed,tierL,tierC,typeL,roleL,daysU,aSColor,aSLabel,mtL,mtC,aeL,aeC}
+}}).mount('#app')
+</script>
+</body>
+</html>

@@ -1,4 +1,6 @@
 import express from 'express'
+import path from 'path'
+import fs from 'fs'
 import cors from 'cors'
 import { userRouter } from './routes/user'
 import { taskRouter } from './routes/task'
@@ -13,6 +15,15 @@ import { mediaAlertRouter } from './routes/media-alert'
 import { initDb } from './db'
 import { authRouter } from './routes/auth'
 import { pushRouter } from './routes/push'
+import { orgRouter } from './routes/org'
+import { adminRouter } from './routes/admin'
+import { publicRouter } from './routes/public'
+import { communityRouter } from './routes/community'
+import { rescueRouter } from './routes/rescue'
+import { trailRouter } from './routes/trail'
+import { drillRouter } from './routes/drill'
+import { wildlifeRouter } from './routes/wildlife'
+import { animalRouter } from './routes/animals'
 
 const app = express()
 
@@ -36,6 +47,35 @@ app.use('/api/records', recordsRouter)
 app.use('/api/cases', casesRouter)
 app.use('/api/atlas', atlasRouter)
 app.use('/api/media-alert', mediaAlertRouter)
+app.use('/api/org', orgRouter)
+app.use('/api/admin', adminRouter)
+app.use('/api/public', publicRouter)
+app.use('/api/community', communityRouter)
+app.use('/api/rescue', rescueRouter)
+app.use('/api/trail', trailRouter)
+app.use('/api/drill', drillRouter)
+app.use('/api/wildlife', wildlifeRouter)
+app.use('/api/animals', animalRouter)
+
+// Static files — Web admin portal
+app.use('/admin', express.static(path.join(__dirname, '..', 'public')))
+// Serve uploaded images
+const uploadsDir = path.join(__dirname, '..', 'public', 'uploads')
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
+app.use('/uploads', express.static(uploadsDir))
+
+// Image upload (base64)
+app.post('/api/upload', (req, res) => {
+  try {
+    const { image } = req.body
+    if (!image) return res.status(400).json({ code: -1, message: '缺少图片数据' })
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, '')
+    const ext = image.includes('png') ? 'png' : 'jpg'
+    const filename = `upload_${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`
+    fs.writeFileSync(path.join(uploadsDir, filename), base64Data, 'base64')
+    res.json({ code: 0, data: { url: `/uploads/${filename}` }, message: 'ok' })
+  } catch (e: any) { res.status(500).json({ code: -1, message: e.message }) }
+})
 
 // Health check
 app.get('/api/health', (_req, res) => {

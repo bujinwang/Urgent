@@ -128,6 +128,12 @@ export function getCasesList(): RescueCase[] {
   return MOCK_CASES
 }
 
+
+import { request } from './index'
+
+export async function fetchCases(): Promise<RescueCase[]> { return request({ url: '/cases/list' }) }
+export async function fetchCaseByIdApi(id: string): Promise<RescueCase> { return request({ url: `/cases/${id}` }) }
+
 export default function () {
   return { code: 0, data: MOCK_CASES, message: 'ok' }
 }

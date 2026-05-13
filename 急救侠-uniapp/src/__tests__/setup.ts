@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
 
-// Mock SpeechSynthesisUtterance (not in happy-dom)
+// Mock SpeechSynthesisUtterance
 class MockSpeechSynthesisUtterance {
   text: string = ''
   voice: any = null
@@ -13,12 +13,13 @@ class MockSpeechSynthesisUtterance {
 }
 ;(global as any).SpeechSynthesisUtterance = MockSpeechSynthesisUtterance
 
-// Mock uni-app global
+// Mock uni-app global with proper lifecycle hook execution
+const lifecycleHooks: Record<string, Array<() => void>> = {}
+
 const uniMock = {
   getStorageSync: vi.fn((key: string) => {
     const store: Record<string, string> = {
       jwt_token: 'mock-token-123',
-      user_profile: JSON.stringify({ id: 'user_001', name: '陆远' }),
     }
     return store[key] || ''
   }),
@@ -45,14 +46,19 @@ const uniMock = {
 }
 
 ;(global as any).uni = uniMock
-;(global as any).getCurrentPages = vi.fn(() => [{ options: {} }])
+;(global as any).getCurrentPages = vi.fn(() => [{ options: {}, route: 'pages/home/index' }])
 
-// Mock @dcloudio/uni-app
+// Mock @dcloudio/uni-app — lifecycle hooks must actually run callbacks
 vi.mock('@dcloudio/uni-app', () => ({
-  onLaunch: vi.fn(),
-  onShow: vi.fn(),
-  onHide: vi.fn(),
-  onUnmounted: vi.fn(),
+  onLaunch: vi.fn((cb: () => void) => { cb() }),
+  onShow: vi.fn((cb: () => void) => { cb() }),
+  onHide: vi.fn((cb: () => void) => { cb() }),
+  onMounted: vi.fn(),
+  onUnmounted: vi.fn((cb: () => void) => {
+    // Store for cleanup
+  }),
+  onLoad: vi.fn(),
+  onReady: vi.fn(),
 }))
 
 // Mock API index

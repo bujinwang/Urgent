@@ -193,6 +193,12 @@ export function getRecordCount(): number {
   return MOCK_RECORDS.length
 }
 
+
+import { request } from './index'
+
+export async function fetchRecords(): Promise<RescueRecord[]> { return request({ url: '/records/list' }) }
+export async function fetchRecordById(id: string): Promise<RescueRecord> { return request({ url: `/records/${id}` }) }
+
 export default function () {
   return { code: 0, data: MOCK_RECORDS, message: 'ok' }
 }

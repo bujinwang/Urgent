@@ -38,6 +38,14 @@ export function getTaskList(): RescueTask[] {
   return MOCK_TASKS
 }
 
+
+import { request } from './index'
+
+export async function fetchActiveTask(): Promise<RescueTask | null> { return request({ url: '/task/active' }) }
+export async function fetchTaskList(): Promise<RescueTask[]> { return request({ url: '/task/list' }) }
+export async function acceptTaskApi(taskId: string) { return request({ url: '/task/accept', method: 'POST', data: { taskId } }) }
+export async function completeTaskApi(taskId: string) { return request({ url: '/task/complete', method: 'POST', data: { taskId } }) }
+
 export default function (params?: Record<string, unknown>) {
   return {
     code: 0,
