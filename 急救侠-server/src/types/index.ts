@@ -154,7 +154,7 @@ export const AedCertification = z.object({
   issuer: z.string(),
   issueDate: z.string(),
   expiryDate: z.string(),
-  status: CertificateStatus,
+  status: z.enum(['active', 'expiring', 'expired']),
   fileUrl: z.string().optional(),
   createdAt: z.string(),
 })
