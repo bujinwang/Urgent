@@ -29,6 +29,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { phoneRegister, phoneLogin } from '@/api/auth'
+
 const mode=ref<'login'|'register'>('login'),phone=ref(''),name=ref(''),pwd=ref('')
 const interestOptions = [
   { key:'medical', label:'🩺 CPR/急救' },
@@ -36,22 +38,22 @@ const interestOptions = [
   { key:'wildlife', label:'🦅 野生动物' },
   { key:'disaster', label:'🚨 规模救援' },
   { key:'trail', label:'🥾 徒步' },
-
 ]
 const selectedInterests = ref<string[]>(['medical'])
 const isBlueSky = ref(false), isBlueSkyLeader = ref(false)
 function toggleInterest(k: string) {
+  if (!selectedInterests.value) return
   const i = selectedInterests.value.indexOf(k)
   if (i >= 0) selectedInterests.value.splice(i, 1); else selectedInterests.value.push(k)
 }
-import { phoneRegister, phoneLogin } from '@/api/auth'
 async function submit(){
   if(phone.value.length<11){uni.showToast({title:'请输入11位手机号',icon:'none'});return}
   if(!pwd.value){uni.showToast({title:'请输入密码',icon:'none'});return}
   try{
+    const interests = (selectedInterests.value||['medical']).join(',')
     const affiliation = isBlueSky.value ? '蓝天救援队' : undefined
     const isLeader = isBlueSkyLeader.value ? true : undefined
-    const result=mode.value==='register'?await phoneRegister(phone.value,pwd.value,name.value,selectedInterests.value.join(','),affiliation,isLeader):await phoneLogin(phone.value,pwd.value)
+    const result=mode.value==='register'?await phoneRegister(phone.value,pwd.value,name.value,interests,affiliation,isLeader):await phoneLogin(phone.value,pwd.value)
     uni.setStorageSync('jwt_token',result.token);uni.showToast({title:mode.value==='register'?'注册成功':'登录成功',icon:'none'})
     setTimeout(()=>{window.location.href='/#/pages/home/index'},800)
   }catch(e:any){uni.showToast({title:'操作失败，请用 Demo 登录',icon:'none'})}
