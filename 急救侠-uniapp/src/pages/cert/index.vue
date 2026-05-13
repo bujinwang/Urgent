@@ -11,14 +11,20 @@
       </view>
     </view>
 
-    <view class="cert-card">
+    <view v-if="user.profile.certifications.length > 0" class="cert-card">
       <view class="cert-tier">{{ tierLabel }} 急救侠</view>
-      <text class="cert-name">CPR / AED 认证</text>
-      <text class="cert-issuer">深圳急救中心 · AHA 联合认证</text>
+      <text class="cert-name">{{ user.profile.certifications[0] || '急救认证' }}</text>
+      <text class="cert-issuer">急救侠平台认证</text>
       <view class="cert-meta">
-        <view class="cert-meta-item">签发日期<text class="cert-meta-value">2025-08-15</text></view>
-        <view class="cert-meta-item">到期日期<text class="cert-meta-value">2027-08-15</text></view>
+        <view class="cert-meta-item">持有证书<text class="cert-meta-value">{{ user.profile.certifications.length }} 项</text></view>
+        <view class="cert-meta-item">等级<text class="cert-meta-value">{{ tierLabel }}</text></view>
       </view>
+    </view>
+
+    <view v-else class="cert-card">
+      <view class="cert-tier">游客模式</view>
+      <text class="cert-name">暂无认证</text>
+      <text class="cert-issuer">登录后可查看和管理证书</text>
     </view>
 
     <view class="cert-qr">
