@@ -155,6 +155,12 @@
       }
     },
     {
+      "path": "pages/rescue/task-detail",
+      "style": {
+        "navigationBarTitleText": "任务详情"
+      }
+    },
+    {
       "path": "pages/trail/index",
       "style": {
         "navigationBarTitleText": "徒友社区"

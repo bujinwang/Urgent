@@ -82,3 +82,29 @@ rescueRouter.get('/team', (req, res) => {
     res.json(success(rows.map((r: any) => ({ id: r.id, name: r.name, avatar: r.avatar, tier: r.tier, rescueCount: r.rescue_count, city: r.city }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
+
+/* ──── Task Media (现场实时更新) ──── */
+
+// GET /api/rescue/mobilizations/:taskId/media
+rescueRouter.get('/mobilizations/:taskId/media', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT * FROM task_media WHERE task_id = ? ORDER BY created_at DESC LIMIT 50').all(req.params.taskId) as any[]
+    res.json(success(rows.map((r: any) => ({
+      id: r.id, taskId: r.task_id,
+      userId: r.user_id, userName: r.user_name, userAvatar: r.user_avatar,
+      type: r.type, content: r.content, mediaUrl: r.media_url,
+      lat: r.lat, lng: r.lng, createdAt: r.created_at,
+    }))))
+  } catch (e: any) { res.status(500).json(error(e.message)) }
+})
+
+// POST /api/rescue/mobilizations/:taskId/media
+rescueRouter.post('/mobilizations/:taskId/media', (req, res) => {
+  try {
+    const { userId, userName, userAvatar, type, content, mediaUrl, lat, lng } = req.body
+    if (!userId) return res.json(error('userId 不能为空'))
+    const mid = 'tm_' + Date.now()
+    db.prepare('INSERT INTO task_media (id, task_id, user_id, user_name, user_avatar, type, content, media_url, lat, lng) VALUES (?,?,?,?,?,?,?,?,?,?)').run(mid, req.params.taskId, userId, userName||'', userAvatar||'', type||'text', content||'', mediaUrl||'', lat||0, lng||0)
+    res.json(success({ id: mid }, '已发布'))
+  } catch (e: any) { res.status(500).json(error(e.message)) }
+})

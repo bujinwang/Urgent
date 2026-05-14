@@ -364,5 +364,15 @@ db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,
 db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_007','v003','王芳','王','流浪猫咪绝育全过程','TNR计划：诱捕-绝育-放归，控制流浪猫数量的科学方法','animal','08:00',2200,540)
 db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_008','v001','陈敏','陈','急救侠的一天','跟急救侠陈敏在医院急诊室和志愿者服务中度过的24小时','daily','12:00',9300,1890)
 
+// ---- Task Media (CPR task live updates) ----
+db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_001','task_001','v002','李强','李','status','📍 我已到达现场，正在评估患者状况','2026-05-13 23:10:00')
+db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_002','task_001','v002','李强','李','status','🫀 确认无意识无呼吸，立即开始 CPR 胸外按压','2026-05-13 23:10:30')
+db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_003','task_001','v006','张伟','张','status','⚡ AED 已取出，正在前往现场，预计1分钟','2026-05-13 23:11:00')
+db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_004','task_001','v006','张伟','张','status','✅ AED 到达！正在贴电极片，准备分析心律','2026-05-13 23:12:00')
+db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_005','task_001','v006','张伟','张','text','⚡ 建议电击！所有人离开患者——按下电击键！','2026-05-13 23:12:15')
+db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_006','task_001','v006','张伟','张','status','❤️ 电击成功！患者恢复自主心律，120 已到达','2026-05-13 23:14:00')
+db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_007','task_002','v001','陈敏','陈','status','⚡ 我是陈敏，AED 在手，距太平金融大厦 200m 跑步中','2026-05-13 23:15:00')
+db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_008','task_002','v001','陈敏','陈','status','✅ 已到达 15F，现场已有同事在做 CPR，我在准备 AED','2026-05-13 23:16:00')
+
 console.log('[Seed] Database seeded with mock data')
 process.exit(0)

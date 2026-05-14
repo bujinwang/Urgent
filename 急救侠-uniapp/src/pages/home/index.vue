@@ -371,7 +371,8 @@ function goNewsDetail(id: string) {
 }
 
 function goMission() {
-  uni.navigateTo({ url: '/pages/mission/index' })
+  const tid = currentTask.value?.id || ''
+  uni.navigateTo({ url: `/pages/rescue/task-detail?id=${tid}` })
 }
 function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
 </script>
