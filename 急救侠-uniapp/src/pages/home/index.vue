@@ -154,6 +154,29 @@
       <view v-if="loadingMore" class="feed-loading">加载中...</view>
       <view v-if="!hasMore" class="feed-end">— 已加载全部 —</view>
     </view>
+
+    <!-- 救援回放 -->
+    <view class="home-section-header">🎬 救援回放</view>
+    <view class="home-replays">
+      <view v-if="replays.length===0" class="feed-empty">暂无回放</view>
+      <view v-for="rp in replays" :key="rp.id" class="home-replay-card" @click="openReplay(rp)">
+        <view class="rpc-top">
+          <text class="rpc-icon">{{ outcomeIcon(rp.outcome) }}</text>
+          <view class="rpc-info">
+            <text class="rpc-title">{{ rp.title }}</text>
+            <text class="rpc-addr">📍 {{ rp.address }} · ⏱ {{ rp.duration }}</text>
+          </view>
+        </view>
+        <text class="rpc-desc">{{ rp.description }}</text>
+        <view class="rpc-stats">
+          <text class="rpc-stat">❤️ {{ rp.likeCount }}</text>
+          <text class="rpc-stat">💬 {{ rp.commentCount }}</text>
+          <text class="rpc-stat">🔖 {{ rp.bookmarkCount }}</text>
+          <text class="rpc-stat">👥 {{ rp.volunteersCount }}人</text>
+        </view>
+      </view>
+      <view class="feed-loading" v-if="replayLoading">加载中...</view>
+    </view>
   </view>
 </template>
 
@@ -279,6 +302,17 @@ function onScrollToLower() {
 }
 
 loadMoreFeed()
+
+// --- 救援回放 ---
+const replays = ref<any[]>([]), replayLoading = ref(false)
+async function loadReplays() {
+  replayLoading.value = true
+  try { replays.value = await request({ url: '/replay?limit=5' }) } catch {}
+  replayLoading.value = false
+}
+function outcomeIcon(o: string) { return o==='成功'?'✅':o==='进行中'?'🔴':'📋' }
+function openReplay(rp: any) { uni.navigateTo({ url: `/pages/rescue/replay-detail?id=${rp.id}` }) }
+loadReplays()
 
 // --- 常量 ---
 const tierLabel = userStore.tierLabel
@@ -724,4 +758,17 @@ function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
 .feed-tag { padding: 3rpx 12rpx; border-radius: 10rpx; font-size: 18rpx; background: #F0F0F0; color: var(--ink-soft); }
 .feed-loading { text-align: center; padding: 24rpx; font-size: 22rpx; color: var(--ink-mute); }
 .feed-end { text-align: center; padding: 32rpx 0 60rpx; font-size: 22rpx; color: var(--ink-mute); }
+.feed-empty { text-align: center; padding: 40rpx 0; color: #999; font-size: 22rpx; }
+
+/* 救援回放 */
+.home-replays { padding: 0 24rpx 24rpx; }
+.home-replay-card { background: linear-gradient(135deg,#1B2A1A,#0F1A0F); border: 1px solid rgba(52,210,119,.2); border-radius: 20rpx; padding: 20rpx 24rpx; margin-bottom: 16rpx; }
+.rpc-top { display: flex; align-items: center; gap: 12rpx; margin-bottom: 10rpx; }
+.rpc-icon { font-size: 32rpx; flex-shrink: 0; }
+.rpc-info { flex: 1; }
+.rpc-title { font-size: 26rpx; font-weight: 700; color: #fff; display: block; }
+.rpc-addr { font-size: 20rpx; color: rgba(255,255,255,.5); margin-top: 2rpx; display: block; }
+.rpc-desc { font-size: 22rpx; color: rgba(255,255,255,.6); display: block; margin-bottom: 12rpx; }
+.rpc-stats { display: flex; gap: 20rpx; }
+.rpc-stat { font-size: 20rpx; color: rgba(255,255,255,.4); }
 </style>

@@ -374,5 +374,14 @@ db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_
 db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_007','task_002','v001','陈敏','陈','status','⚡ 我是陈敏，AED 在手，距太平金融大厦 200m 跑步中','2026-05-13 23:15:00')
 db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_008','task_002','v001','陈敏','陈','status','✅ 已到达 15F，现场已有同事在做 CPR，我在准备 AED','2026-05-13 23:16:00')
 
+// ---- Rescue Replays ----
+db.prepare("INSERT OR IGNORE INTO rescue_replays (id,task_id,title,description,address,scene_type,patient_age,patient_gender,volunteers_count,duration,outcome,like_count,comment_count,bookmark_count) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run('rp_001','task_001','深圳湾公园心脏骤停救援','50岁男性游客跑步中突发心脏骤停，3名急救侠志愿者4分钟内完成CPR+AED，患者恢复自主心律后交120送医','深圳湾公园南门','outdoor','50','男',3,'4分钟','成功',156,23,89)
+db.prepare("INSERT OR IGNORE INTO rescue_replays (id,task_id,title,description,address,scene_type,patient_age,patient_gender,volunteers_count,duration,outcome,like_count,comment_count,bookmark_count) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run('rp_002','task_002','福田CBD AED紧急送达','35岁女性办公室晕倒，同事CPR+AED火速送达，教科书式办公楼救援','福田CBD太平金融大厦','office','35','女',2,'8分钟','成功',98,15,42)
+
+// ---- Replay Comments ----
+db.prepare("INSERT OR IGNORE INTO replay_comments (id,replay_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('rc_001','rp_001','v006','张伟','张','教科书般的救援！从响应到AED只有2分钟，为所有志愿者点赞 👍')
+db.prepare("INSERT OR IGNORE INTO replay_comments (id,replay_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('rc_002','rp_001','v005','赵丽','赵','看了回放学到了很多，特别是AED贴电极片的时机把握 💪')
+db.prepare("INSERT OR IGNORE INTO replay_comments (id,replay_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('rc_003','rp_002','v003','王芳','王','办公室急救太重要了，建议每个企业都配备AED')
+
 console.log('[Seed] Database seeded with mock data')
 process.exit(0)

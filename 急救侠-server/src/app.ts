@@ -19,6 +19,7 @@ import { orgRouter } from './routes/org'
 import { adminRouter } from './routes/admin'
 import { publicRouter } from './routes/public'
 import { videoRouter } from './routes/video'
+import { replayRouter } from './routes/replay'
 import { communityRouter } from './routes/community'
 import { rescueRouter } from './routes/rescue'
 import { trailRouter } from './routes/trail'
@@ -52,6 +53,7 @@ app.use('/api/org', orgRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/public', publicRouter)
 app.use('/api/video', videoRouter)
+app.use('/api/replay', replayRouter)
 app.use('/api/community', communityRouter)
 app.use('/api/rescue', rescueRouter)
 app.use('/api/trail', trailRouter)

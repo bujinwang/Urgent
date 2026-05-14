@@ -410,6 +410,34 @@ export function initDb() {
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
+    CREATE TABLE IF NOT EXISTS rescue_replays (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      address TEXT NOT NULL DEFAULT '',
+      scene_type TEXT NOT NULL DEFAULT '',
+      patient_age TEXT NOT NULL DEFAULT '',
+      patient_gender TEXT NOT NULL DEFAULT '',
+      volunteers_count INTEGER NOT NULL DEFAULT 0,
+      duration TEXT NOT NULL DEFAULT '',
+      outcome TEXT NOT NULL DEFAULT '',
+      like_count INTEGER NOT NULL DEFAULT 0,
+      comment_count INTEGER NOT NULL DEFAULT 0,
+      bookmark_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS replay_comments (
+      id TEXT PRIMARY KEY,
+      replay_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      user_name TEXT NOT NULL DEFAULT '',
+      user_avatar TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS task_media (
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL,
