@@ -27,7 +27,7 @@
     </view>
 
     <!-- 紧急任务 Banner（置顶循环） -->
-    <view v-if="taskStore.tasks.length > 0" class="home-mission-top" @click="goMission">
+    <view v-if="taskStore?.tasks?.length > 0" class="home-mission-top" @click="goMission">
       <view class="home-mission-pulse" />
       <text class="home-mission-text">{{ cycleText }}</text>
     </view>
@@ -132,6 +132,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { onReachBottom } from '@dcloudio/uni-app'
 import LifeSparkLogo from '@/components/LifeSparkLogo/index.vue'
 import SosButton from '@/components/SosButton/index.vue'
 import MissionBanner from '@/components/MissionBanner/index.vue'
@@ -153,14 +154,14 @@ const activeTask = taskStore.activeTask
 // 任务循环滚动
 const cycleIndex = ref(0)
 const cycleText = computed(() => {
-  const t = taskStore.tasks[cycleIndex.value]
+  const t = taskStore?.tasks?.[cycleIndex.value]
   if (!t) return ''
   const typeLabel = { cpr:'🧡CPR', aed:'⚡AED', assist:'🤝协助' }[t.type] || t.type
   return `🚨 ${typeLabel} · ${t.address} · ${t.distance}m · 需 ${t.volunteersNeeded} 人`
 })
 let cycleTimer: any = null
 onMounted(() => {
-  if (taskStore.tasks.length > 1) {
+  if ((taskStore?.tasks?.length ?? 0) > 1) {
     cycleTimer = setInterval(() => {
       cycleIndex.value = (cycleIndex.value + 1) % taskStore.tasks.length
     }, 3000)
@@ -214,7 +215,7 @@ onMounted(() => {
 
 
   // 紧急任务语音告警
-  watch(() => taskStore.activeTask, (task) => {
+  watch(() => taskStore?.activeTask, (task) => {
     if (task) {
       setTimeout(() => {
         playAlertSound(); voice.command('紧急任务！' + task.distance + '米外需要 C P R 协作！')
