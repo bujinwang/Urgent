@@ -40,7 +40,11 @@
       <label>类型</label><select v-model="form.category"><option value="pet">🐱 流浪宠物</option><option value="wildlife">🦅 野生动物（保护机构处理）</option></select>
       <label>物种</label><input v-model="form.species">
       <label>描述</label><textarea v-model="form.description"></textarea>
-      <label>地点</label><input v-model="form.location">
+      <view class="wl-gps-row">
+        <text class="wl-gps-icon" :class="{ok:gpsDone}">{{gpsDone?'📍':'⏳'}}</text>
+        <text class="wl-gps-text">{{gpsDone?`GPS 定位成功 (${form.lat.toFixed(4)}, ${form.lng.toFixed(4)})`:'正在获取 GPS 位置…'}}</text>
+      </view>
+      <label>备注（详细位置描述）</label><textarea v-model="form.notes" placeholder="例如：在深圳湾公园南门入口附近的花坛边" style="min-height:60rpx"></textarea>
       <label>照片</label>
       <view class="wl-upload-row"><image v-for="(p,i) in form.photos" :key="i" :src="p" class="wl-upload-pv" @click="rp(i)"></image><view class="wl-upload-btn" @click="tp">📷</view></view>
       <text v-if="form.category==='wildlife'" class="wl-legal-text" style="margin-bottom:10rpx;display:block">⚠️ 野生动物上报后将由保护机构处理，请勿私自捕捉或移动</text>
@@ -49,18 +53,59 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { getLocation } from '@/utils/location'
 const U='/api',s=useUserStore()
 const tab=ref<'wildlife'|'pet'|'rescue'>('wildlife'),ar=ref<any[]>([]),tasks=ref<any[]>([])
-const showReport=ref(false),form=ref({category:'pet',species:'',description:'',location:'',photos:[] as string[]})
+const showReport=ref(false),gpsDone=ref(false)
+const form=ref({category:'pet',species:'',description:'',notes:'',lat:22.517,lng:113.947,photos:[] as string[]})
+const formReset=()=>{form.value={category:'pet',species:'',description:'',notes:'',lat:22.517,lng:113.947,photos:[]};gpsDone.value=false}
+
+// 打开表单时自动获取 GPS
+watch(showReport,async (v)=>{if(!v)return
+  gpsDone.value=false
+  try{const loc=await getLocation();form.value.lat=loc.lat;form.value.lng=loc.lng;gpsDone.value=true}catch{}
+})
 const dr=computed(()=>ar.value.filter(r=>r.category===tab.value))
-async function lr(){try{ar.value=(await fetch(`${U}/wildlife/reports`).then(r=>r.json())).data||[]}catch(e){}}
+async function lr(){
+  try{
+    // 动物救援上报 (wildlife_reports)
+    const reports=(await fetch(`${U}/wildlife/reports`).then(r=>r.json())).data||[]
+    // 动物档案 (stray_animals) — 映射为 category='pet' 合并展示
+    let strays:any[]=[]
+    try{
+      const sa=await fetch(`${U}/animals`).then(r=>r.json())
+      strays=(sa.data||[]).map((a:any)=>({
+        id:a.id, userId:a.createdBy||'', userName:'志愿者',
+        category:'pet', species:a.species,
+        description:[a.name,a.color,a.size,a.features].filter(Boolean).join(' · '),
+        lat:a.lat, lng:a.lng, location:a.location, photos:a.photos||'',
+        status:a.status==='stray'?'reported':a.status||'reported',
+        createdAt:a.createdAt, _from:'stray',
+      }))
+    }catch{}
+    ar.value=[...reports,...strays]
+  }catch{}
+}
 async function lt(){try{tasks.value=(await fetch(`${U}/wildlife/rescue`).then(r=>r.json())).data||[]}catch(e){}}
 function tp(){uni.chooseImage({count:1,sizeType:['compressed'],success:async(res)=>{const f=res.tempFiles[0],fs=uni.getFileSystemManager(),b64=fs.readFileSync(f.path!,'base64'),m=f.path!.endsWith('.png')?'image/png':'image/jpeg';try{const r=await fetch(`${U}/upload`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:`data:${m};base64,${b64}`})}).then(r=>r.json());if(r.code===0)form.value.photos.push(r.data.url)}catch(e){uni.showToast({title:'上传失败',icon:'none'})}}})}
 function rp(i:number){form.value.photos.splice(i,1)}
 function pv(url:string){uni.previewImage({urls:[url]})}
-async function sub(){const f=form.value;await fetch(`${U}/wildlife/report`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...f,photos:f.photos.join(','),userId:s.profile.id,userName:s.profile.name,lat:22.517,lng:113.947})});showReport.value=false;form.value={category:'pet',species:'',description:'',location:'',photos:[]};lr()}
+async function sub(){
+  const f=form.value
+  const res=await fetch(`${U}/wildlife/report`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    category:f.category,species:f.species,description:f.description,
+    location:f.notes,lat:f.lat,lng:f.lng,
+    photos:f.photos.join(','),userId:s.profile.id,userName:s.profile.name,
+  })})
+  const body=await res.json()
+  if(body.code!==0){uni.showToast({title:body.message||'上报失败',icon:'none'});return}
+  uni.showToast({title:'已上报',icon:'success'})
+  showReport.value=false
+  formReset()
+  lr()
+}
 async function cr(r:any){await fetch(`${U}/wildlife/rescue`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:`${r.species}救助`,species:r.species,description:r.description,address:r.location,lat:r.lat,lng:r.lng,leaderId:s.profile.id,leaderName:s.profile.name,reportId:r.id})});lr();lt()}
 async function nc(){uni.showModal({title:'通知保护机构',content:'请拨打当地林业部门电话。\n\n深圳市野生动植物保护管理处：0755-xxxxxxx',showCancel:false,confirmText:'知道了'})}
 function sc(s:string){return{pending:'#F59E0B',active:'#34D277',completed:'#8E8E8E'}[s]||'#6B7280'}
@@ -79,6 +124,8 @@ onMounted(lr)
 .wl-btn{padding:12rpx 24rpx;border-radius:20rpx;font-size:22rpx;font-weight:600;background:#D1FAE5;color:#065F46;display:inline-block;margin-top:10rpx}
 .wl-btn-legal{padding:12rpx 24rpx;border-radius:20rpx;font-size:22rpx;font-weight:600;background:#FEF3C7;color:#92400E;display:inline-block;margin-top:10rpx}
 .wl-fab{position:fixed;bottom:28rpx;right:28rpx;width:52px;height:52px;border-radius:50%;background:#10B981;color:#fff;font-size:24rpx;display:flex;align-items:center;justify-content:center;box-shadow:0 4rpx 16rpx rgba(16,185,129,0.4)}.wl-empty{padding:80rpx;text-align:center;color:var(--ink-mute);font-size:22rpx}
+.wl-gps-row{display:flex;align-items:center;gap:8rpx;margin-bottom:14rpx;padding:10rpx 12rpx;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8rpx}
+.wl-gps-icon{font-size:16px}.wl-gps-icon.ok{font-size:16px}.wl-gps-text{font-size:12px;color:#166534}
 .wl-upload-row{display:flex;gap:8rpx;flex-wrap:wrap;margin-bottom:14rpx}.wl-upload-pv{width:80rpx;height:80rpx;border-radius:10rpx;background:#E5E5E0}.wl-upload-btn{width:80rpx;height:80rpx;border-radius:10rpx;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:28rpx;background:#FAFAF7}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:100}
 .modal{background:#fff;border-radius:16rpx;padding:28rpx;width:90%;max-width:400rpx;max-height:85vh;overflow-y:auto;box-shadow:0 8rpx 40rpx rgba(0,0,0,0.15)}.modal h3{font-size:17px;margin-bottom:16rpx}.modal label{display:block;font-size:12px;color:#8E8E8E;margin-bottom:6rpx}

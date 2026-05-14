@@ -476,7 +476,18 @@ export function initDb() {
       view_count INTEGER NOT NULL DEFAULT 0,
       like_count INTEGER NOT NULL DEFAULT 0,
       share_count INTEGER NOT NULL DEFAULT 0,
+      comment_count INTEGER NOT NULL DEFAULT 0,
       category TEXT NOT NULL DEFAULT 'rescue',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS video_comments (
+      id TEXT PRIMARY KEY,
+      video_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      user_name TEXT NOT NULL DEFAULT '',
+      user_avatar TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -677,11 +688,14 @@ export function initDb() {
   try { db.exec("ALTER TABLE users ADD COLUMN volunteer_type TEXT NOT NULL DEFAULT 'medical'") } catch (_) {}
   try { db.exec("ALTER TABLE users ADD COLUMN is_organizer INTEGER NOT NULL DEFAULT 0") } catch (_) {}
   try { db.exec("ALTER TABLE users ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0") } catch (_) {}
+
+  // Safe migration: add comment_count to video_posts
+  try { db.exec("ALTER TABLE video_posts ADD COLUMN comment_count INTEGER NOT NULL DEFAULT 0") } catch (_) {}
 }
 
 /** Clear all data (for testing) */
 export function clearAll() {
-  db.exec("DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM aed_certifications; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM atlas_cards;")
+  db.exec("DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM aed_certifications; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards;")
 }
 
 export default db

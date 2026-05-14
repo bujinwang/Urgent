@@ -364,6 +364,16 @@ db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,
 db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_007','v003','王芳','王','流浪猫咪绝育全过程','TNR计划：诱捕-绝育-放归，控制流浪猫数量的科学方法','animal','08:00',2200,540)
 db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_008','v001','陈敏','陈','急救侠的一天','跟急救侠陈敏在医院急诊室和志愿者服务中度过的24小时','daily','12:00',9300,1890)
 
+// ---- Video Comments ----
+db.prepare("INSERT OR IGNORE INTO video_comments (id,video_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('vc_001','vp_001','v006','张伟','张','这个CPR演示太清晰了，每个步骤都讲得很明白 👏')
+db.prepare("INSERT OR IGNORE INTO video_comments (id,video_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('vc_002','vp_001','v005','赵丽','赵','黄金四分钟真的很重要，希望大家都能学会')
+db.prepare("INSERT OR IGNORE INTO video_comments (id,video_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('vc_003','vp_001','v003','王芳','王','AED使用那一步是关键，建议大家多看几遍')
+db.prepare("INSERT OR IGNORE INTO video_comments (id,video_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('vc_004','vp_003','v002','李强','李','学会了AED使用，关键时候真的能救命')
+db.prepare("INSERT OR IGNORE INTO video_comments (id,video_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('vc_005','vp_003','v006','张伟','张','3分钟从开机到放电，这个比培训机构讲的还清楚')
+db.prepare("INSERT OR IGNORE INTO video_comments (id,video_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('vc_006','vp_004','v001','陈敏','陈','深圳湾公园AED覆盖率做得不错，为志愿者点赞！')
+db.prepare("INSERT OR IGNORE INTO video_comments (id,video_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('vc_007','vp_005','v003','王芳','赵','献血后确实要注意休息，这个小技巧很实用')
+db.prepare("INSERT OR IGNORE INTO video_comments (id,video_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('vc_008','vp_008','v002','李强','陈','一天跟拍记录得真好，急救侠们辛苦了 💪')
+
 // ---- Task Media (CPR task live updates) ----
 db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_001','task_001','v002','李强','李','status','📍 我已到达现场，正在评估患者状况','2026-05-13 23:10:00')
 db.prepare("INSERT OR IGNORE INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content,created_at) VALUES (?,?,?,?,?,?,?,?)").run('tm_002','task_001','v002','李强','李','status','🫀 确认无意识无呼吸，立即开始 CPR 胸外按压','2026-05-13 23:10:30')
