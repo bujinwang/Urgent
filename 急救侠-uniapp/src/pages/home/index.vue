@@ -143,9 +143,9 @@
             </view>
             <view class="feed-stats">
               <text>👁 {{ (item.stats?.views||0).toLocaleString() }}</text>
-              <text :class="item._liked?'feed-stat-active':''" @click.stop="toggleLike(item)">{{item._liked?'❤️':'🤍'}} {{ (item.stats?.likes||0)+(item._liked?1:0) }}</text>
-              <text @click.stop="openComment(item)">💬 {{ (item.stats?.comments||0) }}</text>
-              <text :class="item._bookmarked?'feed-stat-active':''" @click.stop="toggleBookmark(item)">{{item._bookmarked?'🔖':'🏷️'}}</text>
+              <view class="feed-stat-btn" :class="{active:item._liked}" @click.stop="toggleLike(item)"><text>{{item._liked?'❤️':'🤍'}} {{ (item.stats?.likes||0)+(item._liked?1:0) }}</text></view>
+              <view class="feed-stat-btn" @click.stop="openComment(item)"><text>💬 {{ (item.stats?.comments||0) }}</text></view>
+              <view class="feed-stat-btn" :class="{active:item._bookmarked}" @click.stop="toggleBookmark(item)"><text>{{item._bookmarked?'🔖':'🏷️'}}</text></view>
             </view>
           </view>
           <view class="feed-tags">
@@ -747,7 +747,8 @@ function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
 .feed-author-name { font-size: 20rpx; color: var(--ink-soft); }
 .feed-stats { display: flex; gap: 16rpx; font-size: 18rpx; color: var(--ink-mute); }
 .feed-stats text { cursor: pointer; padding: 4rpx; }
-.feed-stat-active { color: var(--rescue-red) !important; font-weight: 600; }
+.feed-stat-btn { padding: 6rpx 8rpx; cursor: pointer; }
+.feed-stat-btn.active { color: var(--rescue-red); font-weight: 700; }
 .feed-tags { display: flex; gap: 8rpx; flex-wrap: wrap; }
 .feed-tag { padding: 3rpx 12rpx; border-radius: 10rpx; font-size: 18rpx; background: #F0F0F0; color: var(--ink-soft); }
 .feed-loading { text-align: center; padding: 24rpx; font-size: 22rpx; color: var(--ink-mute); }
