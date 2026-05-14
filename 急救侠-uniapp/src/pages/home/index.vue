@@ -746,6 +746,7 @@ function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
 .feed-author-avatar { width: 36rpx; height: 36rpx; border-radius: 50%; background: var(--rescue-red); display: flex; align-items: center; justify-content: center; font-size: 20rpx; color: #fff; font-weight: 700; }
 .feed-author-name { font-size: 20rpx; color: var(--ink-soft); }
 .feed-stats { display: flex; gap: 16rpx; font-size: 18rpx; color: var(--ink-mute); }
+.feed-stats text { cursor: pointer; padding: 4rpx; }
 .feed-stat-active { color: var(--rescue-red) !important; font-weight: 600; }
 .feed-tags { display: flex; gap: 8rpx; flex-wrap: wrap; }
 .feed-tag { padding: 3rpx 12rpx; border-radius: 10rpx; font-size: 18rpx; background: #F0F0F0; color: var(--ink-soft); }
