@@ -26,10 +26,31 @@
       <view class="home-notif-btn" @click="goNews">🔔</view>
     </view>
 
-    <!-- 紧急任务 Banner（置顶循环） -->
-    <view v-if="taskStore?.tasks?.length > 0" class="home-mission-top" @click="goMission">
-      <view class="home-mission-pulse" />
-      <text class="home-mission-text">{{ cycleText }}</text>
+    <!-- 紧急任务卡片 -->
+    <view v-if="currentTask" class="home-mission-card" @click="goMission">
+      <view class="mc-header">
+        <view class="mc-pulse" />
+        <text class="mc-title">{{ currentTask.title }}</text>
+        <text class="mc-count">{{ cycleIndex+1 }}/{{ taskStore?.tasks?.length || 0 }}</text>
+      </view>
+      <text class="mc-desc">{{ currentTask.description }}</text>
+      <view class="mc-details">
+        <view class="mc-detail"><text class="mcd-lbl">📍</text><text class="mcd-val">{{ currentTask.address }}</text></view>
+        <view class="mc-detail"><text class="mcd-lbl">📏</text><text class="mcd-val">{{ currentTask.distance }}m · {{ sceneLabel(currentTask.sceneType) }}</text></view>
+        <view class="mc-detail" v-if="currentTask.patientAge"><text class="mcd-lbl">👤</text><text class="mcd-val">{{ currentTask.patientAge }}岁 {{ currentTask.patientGender }}</text></view>
+      </view>
+      <view class="mc-progress">
+        <view class="mc-progress-bar">
+          <view class="mc-progress-fill" :style="{ width: progressPct + '%' }" />
+        </view>
+        <text class="mc-progress-text">{{ currentTask.volunteersResponded }}/{{ currentTask.volunteersNeeded }} 已响应 · {{ currentTask.volunteersEnRoute }} 在路上</text>
+      </view>
+      <view class="mc-action">点击响应 →</view>
+    </view>
+
+    <view v-else-if="!currentTask && taskStore?.tasks?.length === 0" class="home-mission-card home-mission-empty">
+      <text class="mce-text">🟢 当前没有紧急任务</text>
+      <text class="mce-sub">附近出现求助时会自动推送</text>
     </view>
 
     <!-- 紧急操作行 -->
@@ -159,12 +180,13 @@ const activeTask = taskStore.activeTask
 
 // 任务循环滚动
 const cycleIndex = ref(0)
-const cycleText = computed(() => {
-  const t = taskStore?.tasks?.[cycleIndex.value]
-  if (!t) return ''
-  const typeLabel = { cpr:'🧡CPR', aed:'⚡AED', assist:'🤝协助' }[t.type] || t.type
-  return `🚨 ${typeLabel} · ${t.address} · ${t.distance}m · 需 ${t.volunteersNeeded} 人`
+const currentTask = computed(() => taskStore?.tasks?.[cycleIndex.value] || null)
+const progressPct = computed(() => {
+  const t = currentTask.value
+  if (!t || t.volunteersNeeded === 0) return 0
+  return Math.min(100, Math.round((t.volunteersResponded / t.volunteersNeeded) * 100))
 })
+function sceneLabel(s: string) { return { outdoor:'户外', office:'办公', road:'道路', home:'住宅', public:'公共' }[s] || s }
 let cycleTimer: any = null
 onMounted(() => {
   if ((taskStore?.tasks?.length ?? 0) > 1) {
@@ -377,10 +399,26 @@ function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
 .home-emergency-stat { flex: 1; text-align: center; padding: 6rpx 4rpx; }
 .home-emergency-num { font-size: 26rpx; font-weight: 900; font-family: 'SF Mono', Menlo, monospace; display: block; }
 .home-emergency-lbl { font-size: 16rpx; color: var(--ink-mute); display: block; }
-.home-mission-top { display: flex; align-items: center; gap: 12rpx; padding: 16rpx 20rpx; margin: 4rpx 16rpx; background: linear-gradient(90deg,#C0392B,#E74C3C); border-radius: 16rpx; overflow: hidden; position: relative; }
-.home-mission-pulse { width: 12rpx; height: 12rpx; border-radius: 50%; background: #fff; animation: missionPulse 1s infinite; flex-shrink: 0; }
-@keyframes missionPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(1.6); } }
-.home-mission-text { font-size: 22rpx; color: #fff; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-mission-card { margin: 8rpx 16rpx; padding: 20rpx 24rpx; background: linear-gradient(135deg,#2C1810,#1A0F08); border: 1px solid rgba(192,57,43,.3); border-radius: 20rpx; overflow: hidden; position: relative; }
+.home-mission-card::before { content:''; position:absolute; inset:0; background: radial-gradient(circle at 20% 30%, rgba(192,57,43,.15) 0%, transparent 70%); pointer-events:none; }
+.home-mission-empty { background: #f8f8f6; border-color: #e0e0e0; padding: 32rpx 24rpx; text-align: center; }
+.mce-text { font-size: 24rpx; font-weight: 600; color: #666; display: block; }
+.mce-sub { font-size: 20rpx; color: #999; margin-top: 4rpx; display: block; }
+.mc-header { display: flex; align-items: center; gap: 10rpx; margin-bottom: 12rpx; }
+.mc-pulse { width: 14rpx; height: 14rpx; border-radius: 50%; background: #E63946; animation: missionPulse 1s infinite; flex-shrink: 0; }
+@keyframes missionPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .3; transform: scale(2); } }
+.mc-title { font-size: 28rpx; font-weight: 800; color: #fff; flex: 1; }
+.mc-count { font-size: 18rpx; color: rgba(255,255,255,.4); background: rgba(255,255,255,.1); padding: 2rpx 10rpx; border-radius: 10rpx; }
+.mc-desc { font-size: 22rpx; color: rgba(255,255,255,.7); display: block; margin-bottom: 14rpx; line-height: 1.5; }
+.mc-details { margin-bottom: 14rpx; }
+.mc-detail { display: flex; align-items: center; gap: 8rpx; margin-bottom: 6rpx; }
+.mcd-lbl { font-size: 22rpx; flex-shrink: 0; }
+.mcd-val { font-size: 20rpx; color: rgba(255,255,255,.6); }
+.mc-progress { margin-bottom: 14rpx; }
+.mc-progress-bar { height: 8rpx; background: rgba(255,255,255,.1); border-radius: 4rpx; overflow: hidden; margin-bottom: 8rpx; }
+.mc-progress-fill { height: 100%; background: linear-gradient(90deg,#E63946,#FF6B6B); border-radius: 4rpx; transition: width .5s; }
+.mc-progress-text { font-size: 20rpx; color: rgba(255,255,255,.5); display: block; }
+.mc-action { text-align: center; padding: 12rpx; background: rgba(192,57,43,.3); border-radius: 12rpx; font-size: 24rpx; color: #FF6B6B; font-weight: 700; }
 
 /* 顶部导航 */
 .home-topbar {

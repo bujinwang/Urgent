@@ -5,14 +5,20 @@ import { getActiveTask, getTaskList } from '@/api/task'
 export interface RescueTask {
   id: string
   type: 'cpr' | 'aed' | 'assist'
+  title: string
+  description: string
   address: string
   distance: number
   lat: number
   lng: number
   volunteersNeeded: number
   volunteersResponded: number
+  volunteersEnRoute: number
   status: 'pending' | 'active' | 'completed'
   createdAt: string
+  sceneType: string
+  patientAge?: string
+  patientGender?: string
 }
 
 export type MissionPhase = 'idle' | 'confirming' | 'running' | 'arrived'
