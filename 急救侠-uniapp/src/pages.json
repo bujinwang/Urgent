@@ -201,6 +201,12 @@
       "style": {
         "navigationBarTitleText": "修改密码"
       }
+    },
+    {
+      "path": "pages/video/index",
+      "style": {
+        "navigationBarTitleText": "视频号"
+      }
     }
   ],
   "globalStyle": {

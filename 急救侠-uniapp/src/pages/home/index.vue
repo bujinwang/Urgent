@@ -79,6 +79,12 @@
           <text class="home-module-name">图片报警</text>
         </view>
       </view>
+      <view class="home-module-btn" @click="goPage('/pages/video/index')">
+        <view class="home-module-inner">
+          <view class="home-module-icon" style="background:#FFF0F5;">🎬</view>
+          <text class="home-module-name">视频号</text>
+        </view>
+      </view>
       <view class="home-module-btn" @click="goNews">
         <view class="home-module-inner">
           <view class="home-module-icon" style="background:#FFE8E5;">📰</view>

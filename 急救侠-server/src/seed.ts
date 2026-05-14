@@ -2,6 +2,9 @@ import db, { initDb } from './db'
 
 initDb()
 
+// Disable FK checks for seeding
+db.pragma('foreign_keys = OFF')
+
 // Clear existing data
 db.exec('DELETE FROM users; DELETE FROM tasks; DELETE FROM aed_devices; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM atlas_cards; DELETE FROM stats;')
 
@@ -350,6 +353,16 @@ db.prepare('INSERT OR IGNORE INTO animal_care_records (id, animal_id, user_id, u
 
 // ---- Animal Health Records ----
 db.prepare('INSERT OR IGNORE INTO animal_health_records (id, animal_id, user_id, user_name, check_type, findings, vet_name, created_at) VALUES (?,?,?,?,?,?,?,?)').run('ahr_001', 'sa_001', 'v003', '王芳', 'general', '左后腿软组织挫伤，无骨折。已做简单包扎，建议限制活动一周', '瑞鹏宠物医院·李医生', '2025-05-12 14:00:00')
+
+// ---- Video Posts ----
+db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_001','v002','李强','李','CPR 黄金四分钟完整演示','从判断意识到 AED 电击，完整还原一次成功的心脏骤停救援','training','04:32',8920,1340)
+db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_002','v003','王芳','王','救助被车撞伤的小狗','路人发现后立即呼叫急救侠，志愿者们合力将小狗送往宠物医院','animal','01:58',4560,890)
+db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_003','v001','陈敏','陈','AED 使用全流程','跟练！3分钟从开机到放电，普通人也能救命','training','03:15',12300,2100)
+db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_004','v006','张伟','张','深圳湾公园溺水救援','游客发现有人溺水，急救侠志愿者3分钟抵达现场施救','rescue','06:10',7800,1560)
+db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_005','v005','赵丽','赵','献血后的急救包','一次献血能救三个人？赵丽带你参观深圳血液中心','daily','02:45',3200,670)
+db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_006','v002','李强','李','户外徒步急救小技巧','崴脚、中暑、蛇咬伤——梧桐山徒步急救实战','training','05:20',5600,980)
+db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_007','v003','王芳','王','流浪猫咪绝育全过程','TNR计划：诱捕-绝育-放归，控制流浪猫数量的科学方法','animal','08:00',2200,540)
+db.prepare("INSERT OR IGNORE INTO video_posts (id,user_id,user_name,user_avatar,title,description,category,duration,view_count,like_count) VALUES (?,?,?,?,?,?,?,?,?,?)").run('vp_008','v001','陈敏','陈','急救侠的一天','跟急救侠陈敏在医院急诊室和志愿者服务中度过的24小时','daily','12:00',9300,1890)
 
 console.log('[Seed] Database seeded with mock data')
 process.exit(0)
