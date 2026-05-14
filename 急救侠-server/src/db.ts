@@ -438,6 +438,17 @@ export function initDb() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS live_sessions (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      user_name TEXT NOT NULL DEFAULT '',
+      user_avatar TEXT NOT NULL DEFAULT '',
+      device_info TEXT NOT NULL DEFAULT '',
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      ended_at TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS task_media (
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL,

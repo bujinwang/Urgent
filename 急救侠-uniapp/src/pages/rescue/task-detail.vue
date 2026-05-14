@@ -1,7 +1,7 @@
 <template>
   <view class="pg">
     <view v-if="task" class="card">
-      <view class="ch"><view class="cpulse"/><text class="ctitle">{{task.title}}</text></view>
+      <view class="ch"><view class="cpulse"/><text class="ctitle">{{task.title}}</text><text v-if="liveCount>0" class="live-indicator">🔴 {{liveCount}}人直播中</text></view>
       <text class="cdesc">{{task.description}}</text>
       <view class="cdetails">
         <view class="cd"><text class="cdl">📍</text><text class="cdv">{{task.address}}</text></view>
@@ -23,13 +23,14 @@
       <input class="pi" :value="msg" @input="msg=$event.detail?.value??$event.target?.value??''" placeholder="输入现场更新..."/>
       <text class="pb" @click="send">发送</text>
       <text class="pc" @click="takePhoto">📸</text>
+      <text :class="isLive?'pl live-on':'pl'" @click="toggleLive">{{isLive?'⏹ 结束':'🔴 直播'}}</text>
     </view>
   </view>
 </template>
 <script setup lang="ts">
 import { ref,onMounted,computed } from 'vue';import { useUserStore } from '@/stores/user';import { useTaskStore } from '@/stores/task';import { request } from '@/api/index'
 const s=useUserStore(),ts=useTaskStore()
-const taskId=ref(''),task=ref<any>(null),mediaList=ref<any[]>([]),msg=ref('')
+const taskId=ref(''),task=ref<any>(null),mediaList=ref<any[]>([]),msg=ref(''),isLive=ref(false),liveCount=ref(0),liveId=ref('')
 const progressPct=computed(()=>{if(!task.value||task.value.volunteersNeeded===0)return 0;return Math.min(100,Math.round((task.value.volunteersResponded/task.value.volunteersNeeded)*100))})
 function sceneLabel(s:string){return {outdoor:'户外',office:'办公',road:'道路'}[s]||s}
 function typeLabel(t:string){return {text:'💬',photo:'📸',video:'🎬',status:'📊'}[t]||t}
@@ -55,11 +56,26 @@ async function takePhoto(){
   }})
 }
 function preview(url:string){uni.previewImage({urls:[url]})}
+
+async function loadLive(){try{const r=await request({url:`/rescue/live/${taskId.value}`});liveCount.value=r.length}catch{}}
+async function toggleLive(){
+  const p=s.profile
+  if(isLive.value){
+    if(liveId.value) await request({url:`/rescue/live/end/${liveId.value}`,method:'POST'});isLive.value=false;liveId.value='';liveCount.value=Math.max(0,liveCount.value-1);loadMedia()
+  }else{
+    const r=await request<any>({url:`/rescue/live/${taskId.value}/start`,method:'POST',data:{userId:p.id,userName:p.name,userAvatar:p.avatar,deviceInfo:'mobile'}})
+    isLive.value=true;liveId.value=r.id;liveCount.value++;loadMedia()
+  }
+}
+
+onMounted(()=>{loadLive()})
 </script>
 <style scoped>
 .pg{min-height:100vh;background:#F8F8F6;padding-bottom:140rpx}
 .card{margin:16rpx 20rpx;padding:20rpx 24rpx;background:linear-gradient(135deg,#2C1810,#1A0F08);border:1px solid rgba(192,57,43,.3);border-radius:20rpx}.ch{display:flex;align-items:center;gap:10rpx;margin-bottom:10rpx}.cpulse{width:14rpx;height:14rpx;border-radius:50%;background:#E63946;animation:pulse 1s infinite}@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(2)}}.ctitle{font-size:28rpx;font-weight:800;color:#fff;flex:1}.cdesc{font-size:22rpx;color:rgba(255,255,255,.7);display:block;margin-bottom:10rpx;line-height:1.5}.cdetails{margin-bottom:10rpx}.cd{display:flex;align-items:center;gap:8rpx;margin-bottom:6rpx}.cdl{font-size:22rpx}.cdv{font-size:20rpx;color:rgba(255,255,255,.6)}.cp{margin-top:10rpx}.cpb{height:8rpx;background:rgba(255,255,255,.1);border-radius:4rpx;overflow:hidden;margin-bottom:6rpx}.cpf{height:100%;background:linear-gradient(90deg,#E63946,#FF6B6B);border-radius:4rpx}.cpt{font-size:20rpx;color:rgba(255,255,255,.5)}
 .stitle{font-size:28rpx;font-weight:700;padding:20rpx 20rpx 12rpx}.empty{text-align:center;padding:40rpx;color:#999}
 .mi{padding:16rpx 20rpx;border-bottom:1px solid #eee}.mh{display:flex;align-items:center;gap:10rpx;margin-bottom:6rpx}.ma{width:40rpx;height:40rpx;border-radius:50%;background:#C0392B;display:flex;align-items:center;justify-content:center;font-size:20rpx;color:#fff}.mn{font-size:24rpx;font-weight:600}.mt{font-size:18rpx;color:var(--ink-mute);margin-left:auto}.mtm{font-size:18rpx;color:var(--ink-mute)}.mc{font-size:26rpx;display:block;margin-bottom:8rpx;line-height:1.5}.mm{width:100%;border-radius:12rpx}
-.pub{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;gap:12rpx;padding:12rpx 16rpx;background:#fff;border-top:1px solid #eee;box-shadow:0 -2rpx 12rpx rgba(0,0,0,.06)}.pi{flex:1;height:40px;border:1px solid #ddd;border-radius:20rpx;padding:0 16rpx;font-size:24rpx;background:#f5f5f5;box-sizing:border-box}.pb{padding:10rpx 24rpx;background:#C0392B;color:#fff;border-radius:24rpx;font-size:24rpx;font-weight:600}.pc{font-size:36rpx}
+.pub{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;gap:12rpx;padding:12rpx 16rpx;background:#fff;border-top:1px solid #eee;box-shadow:0 -2rpx 12rpx rgba(0,0,0,.06)}.pi{flex:1;height:40px;border:1px solid #ddd;border-radius:20rpx;padding:0 16rpx;font-size:24rpx;background:#f5f5f5;box-sizing:border-box}.live-indicator{font-size:18rpx;color:#FF6B6B;background:rgba(255,107,107,.15);padding:2rpx 10rpx;border-radius:10rpx;margin-left:auto;flex-shrink:0}
+.pb{padding:10rpx 24rpx;background:#C0392B;color:#fff;border-radius:24rpx;font-size:24rpx;font-weight:600}.pc{font-size:36rpx}
+.pl{padding:10rpx 16rpx;border-radius:24rpx;font-size:22rpx;font-weight:600;background:#f0f0f0;color:#666}.live-on{background:#E63946;color:#fff;animation:livePulse 2s infinite}@keyframes livePulse{0%,100%{opacity:1}50%{opacity:.6}}
 </style>

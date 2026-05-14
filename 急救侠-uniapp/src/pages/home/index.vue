@@ -32,6 +32,7 @@
         <view class="mc-pulse" />
         <text class="mc-title">{{ currentTask.title }}</text>
         <text class="mc-count">{{ cycleIndex+1 }}/{{ taskStore?.tasks?.length || 0 }}</text>
+        <text v-if="currentTask?.liveCount>0" class="mc-live">🔴 {{ currentTask.liveCount }}直播</text>
       </view>
       <text class="mc-desc">{{ currentTask.description }}</text>
       <view class="mc-details">
@@ -444,6 +445,7 @@ function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
 @keyframes missionPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .3; transform: scale(2); } }
 .mc-title { font-size: 28rpx; font-weight: 800; color: #fff; flex: 1; }
 .mc-count { font-size: 18rpx; color: rgba(255,255,255,.4); background: rgba(255,255,255,.1); padding: 2rpx 10rpx; border-radius: 10rpx; }
+.mc-live { font-size: 18rpx; color: #FF6B6B; background: rgba(255,107,107,.15); padding: 2rpx 8rpx; border-radius: 10rpx; animation: mcPulse 2s infinite; } @keyframes mcPulse { 0%,100% { opacity:1 } 50% { opacity:.6 } }
 .mc-desc { font-size: 22rpx; color: rgba(255,255,255,.7); display: block; margin-bottom: 14rpx; line-height: 1.5; }
 .mc-details { margin-bottom: 14rpx; }
 .mc-detail { display: flex; align-items: center; gap: 8rpx; margin-bottom: 6rpx; }

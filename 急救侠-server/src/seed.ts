@@ -383,5 +383,9 @@ db.prepare("INSERT OR IGNORE INTO replay_comments (id,replay_id,user_id,user_nam
 db.prepare("INSERT OR IGNORE INTO replay_comments (id,replay_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('rc_002','rp_001','v005','赵丽','赵','看了回放学到了很多，特别是AED贴电极片的时机把握 💪')
 db.prepare("INSERT OR IGNORE INTO replay_comments (id,replay_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)").run('rc_003','rp_002','v003','王芳','王','办公室急救太重要了，建议每个企业都配备AED')
 
+// ---- Live Sessions ----
+db.prepare("INSERT OR IGNORE INTO live_sessions (id,task_id,user_id,user_name,user_avatar,device_info) VALUES (?,?,?,?,?,?)").run('live_001','task_001','v002','李强','李','iPhone 15')
+db.prepare("INSERT OR IGNORE INTO live_sessions (id,task_id,user_id,user_name,user_avatar,device_info) VALUES (?,?,?,?,?,?)").run('live_002','task_001','v006','张伟','张','Xiaomi 14')
+
 console.log('[Seed] Database seeded with mock data')
 process.exit(0)

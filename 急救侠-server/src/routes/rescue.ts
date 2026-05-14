@@ -98,6 +98,36 @@ rescueRouter.get('/mobilizations/:taskId/media', (req, res) => {
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
+// GET /api/rescue/live/:taskId
+rescueRouter.get('/live/:taskId', (req, res) => {
+  try {
+    const rows = db.prepare("SELECT * FROM live_sessions WHERE task_id=? AND ended_at IS NULL ORDER BY started_at DESC").all(req.params.taskId) as any[]
+    res.json(success(rows.map((r:any) => ({ id:r.id,taskId:r.task_id,userId:r.user_id,userName:r.user_name,userAvatar:r.user_avatar,deviceInfo:r.device_info,startedAt:r.started_at }))))
+  } catch (e: any) { res.status(500).json(error(e.message)) }
+})
+
+// POST /api/rescue/live/:taskId/start
+rescueRouter.post('/live/:taskId/start', (req, res) => {
+  try {
+    const { userId, userName, userAvatar, deviceInfo } = req.body
+    if (!userId) return res.json(error('userId 不能为空'))
+    const lid = 'live_' + Date.now()
+    db.prepare('INSERT INTO live_sessions (id,task_id,user_id,user_name,user_avatar,device_info) VALUES (?,?,?,?,?,?)').run(lid, req.params.taskId, userId, userName||'', userAvatar||'', deviceInfo||'')
+    db.prepare('INSERT INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content) VALUES (?,?,?,?,?,?,?)').run('tm_'+Date.now(), req.params.taskId, userId, userName||'', userAvatar||'', 'status', '🔴 '+(userName||'志愿者')+' 正在现场直播')
+    res.json(success({ id: lid }, '直播已开始'))
+  } catch (e: any) { res.status(500).json(error(e.message)) }
+})
+
+// POST /api/rescue/live/end/:sessionId
+rescueRouter.post('/live/end/:sessionId', (req, res) => {
+  try {
+    db.prepare("UPDATE live_sessions SET ended_at = datetime('now') WHERE id = ?").run(req.params.sessionId)
+    const s = db.prepare('SELECT * FROM live_sessions WHERE id=?').get(req.params.sessionId) as any
+    if (s) db.prepare('INSERT INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content) VALUES (?,?,?,?,?,?,?)').run('tm_'+Date.now(), s.task_id, s.user_id, s.user_name, s.user_avatar, 'status', (s.user_name||'志愿者')+' 直播已结束')
+    res.json(success(null, '直播已结束'))
+  } catch (e: any) { res.status(500).json(error(e.message)) }
+})
+
 // POST /api/rescue/mobilizations/:taskId/media
 rescueRouter.post('/mobilizations/:taskId/media', (req, res) => {
   try {
