@@ -125,17 +125,17 @@
       <view class="home-module-btn" @click="goPage('/pages/community/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#E8F5E9;">💬</view><text class="home-module-name">社区</text></view></view>
     </scroll-view>
 
-    <!-- 推荐流（无限滚动） -->
-    <view class="home-section-header">推荐</view>
+    <!-- 推荐流 = 远处直播 + 回放 + 讨论 + 总结 -->
+    <view class="home-section-header">🔥 推荐 · 发现</view>
     <view class="home-feed">
-      <view v-for="item in feedItems" :key="item.id" class="home-feed-card" @click="goNewsDetail(item.id)">
+      <view v-for="item in feedItems" :key="item.id" :class="item._isReplay?'home-replay-card-feed':'home-feed-card'" @click="item._isReplay?openReplay(item):goNewsDetail(item.id)">
         <view class="feed-cover" v-if="item.coverImage" :style="{ background: 'url('+item.coverImage+') center/cover' }">
           <text v-if="item.isLive" class="feed-live-tag">🔴 LIVE</text>
           <text class="feed-type-tag">{{ feedTypeLabel(item.type) }}</text>
         </view>
         <view class="feed-body">
-          <text class="feed-title">{{ item.title }}</text>
-          <text class="feed-excerpt">{{ item.excerpt }}</text>
+          <text class="feed-title">{{ item._isReplay ? '✅ ' : '' }}{{ item.title }}</text>
+          <text class="feed-excerpt">{{ item._isReplay ? item.description : item.excerpt }}</text>
           <view class="feed-meta">
             <view class="feed-author">
               <text class="feed-author-avatar">{{ item.author?.avatar || '?' }}</text>
@@ -156,28 +156,7 @@
       <view v-if="!hasMore" class="feed-end">— 已加载全部 —</view>
     </view>
 
-    <!-- 救援回放 -->
-    <view class="home-section-header">🎬 救援回放</view>
-    <view class="home-replays">
-      <view v-if="replays.length===0" class="feed-empty">暂无回放</view>
-      <view v-for="rp in replays" :key="rp.id" class="home-replay-card" @click="openReplay(rp)">
-        <view class="rpc-top">
-          <text class="rpc-icon">{{ outcomeIcon(rp.outcome) }}</text>
-          <view class="rpc-info">
-            <text class="rpc-title">{{ rp.title }}</text>
-            <text class="rpc-addr">📍 {{ rp.address }} · ⏱ {{ rp.duration }}</text>
-          </view>
-        </view>
-        <text class="rpc-desc">{{ rp.description }}</text>
-        <view class="rpc-stats">
-          <text class="rpc-stat">❤️ {{ rp.likeCount }}</text>
-          <text class="rpc-stat">💬 {{ rp.commentCount }}</text>
-          <text class="rpc-stat">🔖 {{ rp.bookmarkCount }}</text>
-          <text class="rpc-stat">👥 {{ rp.volunteersCount }}人</text>
-        </view>
-      </view>
-      <view class="feed-loading" v-if="replayLoading">加载中...</view>
-    </view>
+
   </view>
 </template>
 
@@ -304,16 +283,19 @@ function onScrollToLower() {
 
 loadMoreFeed()
 
-// --- 救援回放 ---
-const replays = ref<any[]>([]), replayLoading = ref(false)
+// --- 救援回放（融入推荐流） ---
 async function loadReplays() {
-  replayLoading.value = true
-  try { replays.value = await request({ url: '/replay?limit=5' }) } catch {}
-  replayLoading.value = false
+  try {
+    const rps = await request<any[]>({ url: '/replay?limit=5' })
+    // 将回放作为特殊卡片插入推荐流
+    rps.forEach((rp, i) => {
+      feedItems.value.splice(i * 4 + 2, 0, { ...rp, _isReplay: true })
+    })
+  } catch {}
 }
 function outcomeIcon(o: string) { return o==='成功'?'✅':o==='进行中'?'🔴':'📋' }
 function openReplay(rp: any) { uni.navigateTo({ url: `/pages/rescue/replay-detail?id=${rp.id}` }) }
-loadReplays()
+setTimeout(loadReplays, 1000)
 
 // --- 常量 ---
 const tierLabel = userStore.tierLabel
