@@ -143,8 +143,9 @@
             </view>
             <view class="feed-stats">
               <text>👁 {{ (item.stats?.views||0).toLocaleString() }}</text>
-              <text>❤️ {{ (item.stats?.likes||0).toLocaleString() }}</text>
-              <text>💬 {{ (item.stats?.comments||0) }}</text>
+              <text :class="item._liked?'feed-stat-active':''" @click.stop="toggleLike(item)">{{item._liked?'❤️':'🤍'}} {{ (item.stats?.likes||0)+(item._liked?1:0) }}</text>
+              <text @click.stop="openComment(item)">💬 {{ (item.stats?.comments||0) }}</text>
+              <text :class="item._bookmarked?'feed-stat-active':''" @click.stop="toggleBookmark(item)">{{item._bookmarked?'🔖':'🏷️'}}</text>
             </view>
           </view>
           <view class="feed-tags">
@@ -263,6 +264,13 @@ const feedPage = ref(0), pageSize = 8
 const loadingMore = ref(false), hasMore = ref(true)
 
 function feedTypeLabel(t: string) { return { video:'🎬', photo:'🖼️', live:'🔴', story:'📖', article:'📰', map:'🗺️' }[t] || t }
+function toggleLike(item: any) { item._liked = !item._liked }
+function toggleBookmark(item: any) { item._bookmarked = !item._bookmarked; uni.showToast({ title: item._bookmarked ? '已收藏' : '已取消', icon: 'none' }) }
+function openComment(item: any) {
+  uni.showModal({ title: '评论', content: `给「${item.title}」留言：`, editable: true, placeholderText: '写下你的想法...', success: (res: any) => {
+    if (res.confirm && res.content) { item.stats.comments = (item.stats.comments||0) + 1; uni.showToast({ title: '已发表', icon: 'none' }) }
+  }})
+}
 
 function loadMoreFeed() {
   if (loadingMore.value || !hasMore.value) return
@@ -738,6 +746,7 @@ function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
 .feed-author-avatar { width: 36rpx; height: 36rpx; border-radius: 50%; background: var(--rescue-red); display: flex; align-items: center; justify-content: center; font-size: 20rpx; color: #fff; font-weight: 700; }
 .feed-author-name { font-size: 20rpx; color: var(--ink-soft); }
 .feed-stats { display: flex; gap: 16rpx; font-size: 18rpx; color: var(--ink-mute); }
+.feed-stat-active { color: var(--rescue-red) !important; font-weight: 600; }
 .feed-tags { display: flex; gap: 8rpx; flex-wrap: wrap; }
 .feed-tag { padding: 3rpx 12rpx; border-radius: 10rpx; font-size: 18rpx; background: #F0F0F0; color: var(--ink-soft); }
 .feed-loading { text-align: center; padding: 24rpx; font-size: 22rpx; color: var(--ink-mute); }
