@@ -97,20 +97,35 @@
       <view class="home-module-btn" @click="goPage('/pages/community/index')"><view class="home-module-inner"><view class="home-module-icon" style="background:#E8F5E9;">💬</view><text class="home-module-name">社区</text></view></view>
     </scroll-view>
 
-    <!-- 最近动态 -->
-    <view class="home-section-header">最近动态</view>
-    <view class="home-activity-list">
-      <view v-for="item in activities" :key="item.id" class="home-activity-item" @click="goNewsDetail(item.id)">
-        <view class="home-activity-icon" :style="{ background: item.bg }">{{ item.icon }}</view>
-        <view class="home-activity-body">
-          <text class="home-activity-title">{{ item.title }}</text>
-          <text class="home-activity-meta">{{ item.meta }}</text>
+    <!-- 推荐流（无限滚动） -->
+    <view class="home-section-header">推荐</view>
+    <view class="home-feed">
+      <view v-for="item in feedItems" :key="item.id" class="home-feed-card" @click="goNewsDetail(item.id)">
+        <view class="feed-cover" v-if="item.coverImage" :style="{ background: 'url('+item.coverImage+') center/cover' }">
+          <text v-if="item.isLive" class="feed-live-tag">🔴 LIVE</text>
+          <text class="feed-type-tag">{{ feedTypeLabel(item.type) }}</text>
+        </view>
+        <view class="feed-body">
+          <text class="feed-title">{{ item.title }}</text>
+          <text class="feed-excerpt">{{ item.excerpt }}</text>
+          <view class="feed-meta">
+            <view class="feed-author">
+              <text class="feed-author-avatar">{{ item.author?.avatar || '?' }}</text>
+              <text class="feed-author-name">{{ item.author?.name || '急救侠' }}</text>
+            </view>
+            <view class="feed-stats">
+              <text>👁 {{ (item.stats?.views||0).toLocaleString() }}</text>
+              <text>❤️ {{ (item.stats?.likes||0).toLocaleString() }}</text>
+              <text>💬 {{ (item.stats?.comments||0) }}</text>
+            </view>
+          </view>
+          <view class="feed-tags">
+            <text v-for="t in item.tags" :key="t" class="feed-tag">{{ t }}</text>
+          </view>
         </view>
       </view>
-    </view>
-
-    <view class="home-view-all" @click="goNews">
-      <text>查看全部救援动态 →</text>
+      <view v-if="loadingMore" class="feed-loading">加载中...</view>
+      <view v-if="!hasMore" class="feed-end">— 已加载全部 —</view>
     </view>
   </view>
 </template>
@@ -152,6 +167,7 @@ onMounted(() => {
   }
 })
 onUnmounted(() => { if (cycleTimer) clearInterval(cycleTimer) })
+onReachBottom(() => { loadMoreFeed() })
 
 // 数字滚动动画
 const animatedStats = reactive({
@@ -207,6 +223,33 @@ onMounted(() => {
     }
   })
 })
+
+// --- 推荐流 ---
+const allNewsItems = computed(() => newsStore.items)
+const feedItems = ref<any[]>([])
+const feedPage = ref(0), pageSize = 8
+const loadingMore = ref(false), hasMore = ref(true)
+
+function feedTypeLabel(t: string) { return { video:'🎬', photo:'🖼️', live:'🔴', story:'📖', article:'📰', map:'🗺️' }[t] || t }
+
+function loadMoreFeed() {
+  if (loadingMore.value || !hasMore.value) return
+  loadingMore.value = true
+  setTimeout(() => {
+    const start = feedPage.value * pageSize
+    const batch = allNewsItems.value.slice(start, start + pageSize)
+    if (batch.length === 0) { hasMore.value = false }
+    else { feedItems.value.push(...batch); feedPage.value++ }
+    loadingMore.value = false
+  }, 300)
+}
+
+// 底部触底加载
+function onScrollToLower() {
+  loadMoreFeed()
+}
+
+loadMoreFeed()
 
 // --- 常量 ---
 const tierLabel = userStore.tierLabel
@@ -268,23 +311,6 @@ const modules: Module[] = [
     path: 'M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z',
   },
 ]
-
-/** 从新闻 store 驱动最近动态，取前 3 条 */
-const categoryIcon: Record<string, string> = {
-  video: '▶️', photo: '🖼️', live: '🔴', story: '📖', article: '📰', map: '🗺️',
-}
-const categoryBg: Record<string, string> = {
-  video: '#FFF3E0', photo: '#E8F5EF', live: '#FFE8E5', story: '#EEF2FF', article: '#FFF8E0', map: '#E8F5EF',
-}
-const activities = computed(() =>
-  newsStore.items.slice(0, 3).map((n) => ({
-    id: n.id,
-    icon: n.isLive ? '🔴' : (categoryIcon[n.type] || '📰'),
-    bg: n.tags.includes('成功案例') ? '#E8F5EF' : (categoryBg[n.type] || '#FFF8E0'),
-    title: n.title,
-    meta: `${n.time} · ${n.location.name}`,
-  }))
-)
 
 // --- 导航 ---
 function goPage(route: string) {
@@ -634,58 +660,22 @@ function goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) }
   line-height: 1.3;
 }
 
-/* 动态列表 */
-.home-activity-list {
-  padding: 0 40rpx 24rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-.home-activity-item {
-  display: flex;
-  align-items: center;
-  gap: 28rpx;
-  padding: 28rpx 32rpx;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 28rpx;
-}
-.home-activity-icon {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 38rpx;
-  flex-shrink: 0;
-}
-.home-activity-body {
-  flex: 1;
-}
-.home-activity-title {
-  font-size: 26rpx;
-  font-weight: 600;
-  margin-bottom: 6rpx;
-  line-height: 1.4;
-  color: var(--ink);
-  display: block;
-}
-.home-activity-meta {
-  font-size: 22rpx;
-  color: var(--ink-mute);
-  display: block;
-}
-
-.home-view-all {
-  text-align: center;
-  padding: 16rpx 0 48rpx;
-
-  text {
-    color: var(--rescue-red);
-    font-size: 26rpx;
-    font-family: var(--serif);
-    font-weight: 700;
-  }
-}
+/* 推荐流 */
+.home-feed { padding: 0 24rpx 40rpx; }
+.home-feed-card { background: #fff; border-radius: 20rpx; overflow: hidden; margin-bottom: 24rpx; box-shadow: 0 2rpx 16rpx rgba(0,0,0,.06); }
+.feed-cover { height: 320rpx; display: flex; align-items: flex-end; justify-content: space-between; padding: 16rpx; position: relative; }
+.feed-live-tag { background: #E63946; color: #fff; padding: 4rpx 14rpx; border-radius: 12rpx; font-size: 20rpx; font-weight: 700; }
+.feed-type-tag { background: rgba(0,0,0,.5); color: #fff; padding: 2rpx 12rpx; border-radius: 8rpx; font-size: 18rpx; }
+.feed-body { padding: 20rpx; }
+.feed-title { font-size: 28rpx; font-weight: 700; display: block; margin-bottom: 8rpx; }
+.feed-excerpt { font-size: 22rpx; color: var(--ink-mute); display: block; margin-bottom: 12rpx; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.feed-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10rpx; }
+.feed-author { display: flex; align-items: center; gap: 8rpx; }
+.feed-author-avatar { width: 36rpx; height: 36rpx; border-radius: 50%; background: var(--rescue-red); display: flex; align-items: center; justify-content: center; font-size: 20rpx; color: #fff; font-weight: 700; }
+.feed-author-name { font-size: 20rpx; color: var(--ink-soft); }
+.feed-stats { display: flex; gap: 16rpx; font-size: 18rpx; color: var(--ink-mute); }
+.feed-tags { display: flex; gap: 8rpx; flex-wrap: wrap; }
+.feed-tag { padding: 3rpx 12rpx; border-radius: 10rpx; font-size: 18rpx; background: #F0F0F0; color: var(--ink-soft); }
+.feed-loading { text-align: center; padding: 24rpx; font-size: 22rpx; color: var(--ink-mute); }
+.feed-end { text-align: center; padding: 32rpx 0 60rpx; font-size: 22rpx; color: var(--ink-mute); }
 </style>
