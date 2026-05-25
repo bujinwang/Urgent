@@ -1,0 +1,15 @@
+node_modules/
+dist/
+data/
+.env
+.env.*
+*.local
+.git/
+.gitignore
+*.md
+tsconfig.json
+vitest.config.ts
+src/
+node_modules/
+.pnpm-store/
+.node-gyp-cache/

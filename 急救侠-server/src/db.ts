@@ -651,61 +651,66 @@ export function initDb() {
     );
   `)
 
-  // Safe migration: add password column
-  try { db.exec("ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT ''") } catch (_) {}
+  // ---- Tracked migrations ----
+  db.exec(`CREATE TABLE IF NOT EXISTS _migrations (
+    id TEXT PRIMARY KEY,
+    description TEXT NOT NULL DEFAULT '',
+    applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`)
 
-  // Safe migration: add coach columns (ignore if already exist)
-  const coachMigrations = [
-    "ALTER TABLE volunteers ADD COLUMN role TEXT NOT NULL DEFAULT 'volunteer'",
-    "ALTER TABLE volunteers ADD COLUMN coach_specialties TEXT NOT NULL DEFAULT '[]'",
-    "ALTER TABLE volunteers ADD COLUMN coach_certifications TEXT NOT NULL DEFAULT '[]'",
-    "ALTER TABLE volunteers ADD COLUMN coach_bio TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE volunteers ADD COLUMN coach_available INTEGER NOT NULL DEFAULT 1",
+  const migrations: Array<{ id: string; description: string; sql: string }> = [
+    { id: '001_add_password', description: 'add password column to users', sql: "ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT ''" },
+    { id: '002_add_coach_role', description: 'add role column to volunteers', sql: "ALTER TABLE volunteers ADD COLUMN role TEXT NOT NULL DEFAULT 'volunteer'" },
+    { id: '003_add_coach_specialties', description: 'add coach_specialties to volunteers', sql: "ALTER TABLE volunteers ADD COLUMN coach_specialties TEXT NOT NULL DEFAULT '[]'" },
+    { id: '004_add_coach_certs', description: 'add coach_certifications to volunteers', sql: "ALTER TABLE volunteers ADD COLUMN coach_certifications TEXT NOT NULL DEFAULT '[]'" },
+    { id: '005_add_coach_bio', description: 'add coach_bio to volunteers', sql: "ALTER TABLE volunteers ADD COLUMN coach_bio TEXT NOT NULL DEFAULT ''" },
+    { id: '006_add_coach_available', description: 'add coach_available to volunteers', sql: "ALTER TABLE volunteers ADD COLUMN coach_available INTEGER NOT NULL DEFAULT 1" },
+    { id: '007_add_aed_model', description: 'add model to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN model TEXT NOT NULL DEFAULT ''" },
+    { id: '008_add_aed_serial', description: 'add serial_number to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN serial_number TEXT NOT NULL DEFAULT ''" },
+    { id: '009_add_aed_battery_expiry', description: 'add battery_expiry to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN battery_expiry TEXT NOT NULL DEFAULT ''" },
+    { id: '010_add_aed_electrode_expiry', description: 'add electrode_expiry to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN electrode_expiry TEXT NOT NULL DEFAULT ''" },
+    { id: '011_add_aed_last_maint', description: 'add last_maintenance to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN last_maintenance TEXT NOT NULL DEFAULT ''" },
+    { id: '012_add_aed_indoor', description: 'add indoor to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN indoor INTEGER NOT NULL DEFAULT 0" },
+    { id: '013_add_aed_floor', description: 'add floor to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN floor TEXT NOT NULL DEFAULT ''" },
+    { id: '014_add_aed_hours', description: 'add open_hours to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN open_hours TEXT NOT NULL DEFAULT ''" },
+    { id: '015_add_aed_finding_instructions', description: 'add finding_instructions to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN finding_instructions TEXT NOT NULL DEFAULT ''" },
+    { id: '016_add_aed_custodian_name', description: 'add custodian_name to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN custodian_name TEXT NOT NULL DEFAULT ''" },
+    { id: '017_add_aed_custodian_phone', description: 'add custodian_phone to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN custodian_phone TEXT NOT NULL DEFAULT ''" },
+    { id: '018_add_aed_custodian_role', description: 'add custodian_role to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN custodian_role TEXT NOT NULL DEFAULT ''" },
+    { id: '019_add_aed_reported_by', description: 'add reported_by to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN reported_by TEXT NOT NULL DEFAULT ''" },
+    { id: '020_add_aed_reported_at', description: 'add reported_at to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN reported_at TEXT NOT NULL DEFAULT ''" },
+    { id: '021_add_aed_is_mobile', description: 'add is_mobile to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN is_mobile INTEGER NOT NULL DEFAULT 0" },
+    { id: '022_add_aed_linked_user', description: 'add linked_user_id to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN linked_user_id TEXT NOT NULL DEFAULT ''" },
+    { id: '023_add_user_public_id', description: 'add public_id to users', sql: "ALTER TABLE users ADD COLUMN public_id TEXT NOT NULL DEFAULT ''" },
+    { id: '024_add_user_is_leader', description: 'add is_leader to users', sql: "ALTER TABLE users ADD COLUMN is_leader INTEGER NOT NULL DEFAULT 0" },
+    { id: '025_add_user_affiliation', description: 'add affiliation to users', sql: "ALTER TABLE users ADD COLUMN affiliation TEXT NOT NULL DEFAULT ''" },
+    { id: '026_add_user_volunteer_type', description: 'add volunteer_type to users', sql: "ALTER TABLE users ADD COLUMN volunteer_type TEXT NOT NULL DEFAULT 'medical'" },
+    { id: '027_add_user_is_organizer', description: 'add is_organizer to users', sql: "ALTER TABLE users ADD COLUMN is_organizer INTEGER NOT NULL DEFAULT 0" },
+    { id: '028_add_user_is_public', description: 'add is_public to users', sql: "ALTER TABLE users ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0" },
+    { id: '029_add_video_comment_count', description: 'add comment_count to video_posts', sql: "ALTER TABLE video_posts ADD COLUMN comment_count INTEGER NOT NULL DEFAULT 0" },
   ]
-  for (const sql of coachMigrations) {
-    try { db.exec(sql) } catch (_) { /* column already exists, skip */ }
+
+  const applied = new Set(
+    (db.prepare('SELECT id FROM _migrations').all() as Array<{ id: string }>).map(r => r.id)
+  )
+
+  for (const m of migrations) {
+    if (applied.has(m.id)) continue
+    try {
+      db.exec(m.sql)
+      db.prepare('INSERT INTO _migrations (id, description) VALUES (?, ?)').run(m.id, m.description || m.id)
+      console.log(`[DB] Migration applied: ${m.id}`)
+    } catch (err) {
+      console.warn(`[DB] Migration skipped (likely already applied): ${m.id}`)
+    }
   }
-
-  // Safe migration: add aed_devices rich columns
-  const aedMigrations = [
-    "ALTER TABLE aed_devices ADD COLUMN model TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN serial_number TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN battery_expiry TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN electrode_expiry TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN last_maintenance TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN indoor INTEGER NOT NULL DEFAULT 0",
-    "ALTER TABLE aed_devices ADD COLUMN floor TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN open_hours TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN finding_instructions TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN custodian_name TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN custodian_phone TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN custodian_role TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN reported_by TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN reported_at TEXT NOT NULL DEFAULT ''",
-    "ALTER TABLE aed_devices ADD COLUMN is_mobile INTEGER NOT NULL DEFAULT 0",
-    "ALTER TABLE aed_devices ADD COLUMN linked_user_id TEXT NOT NULL DEFAULT ''",
-  ]
-  for (const sql of aedMigrations) {
-    try { db.exec(sql) } catch (_) { /* column already exists, skip */ }
-  }
-
-  // Safe migration: add public_id to users
-  try { db.exec("ALTER TABLE users ADD COLUMN public_id TEXT NOT NULL DEFAULT ''") } catch (_) {}
-  try { db.exec("ALTER TABLE users ADD COLUMN is_leader INTEGER NOT NULL DEFAULT 0") } catch (_) {}
-  try { db.exec("ALTER TABLE users ADD COLUMN affiliation TEXT NOT NULL DEFAULT ''") } catch (_) {}
-  try { db.exec("ALTER TABLE users ADD COLUMN volunteer_type TEXT NOT NULL DEFAULT 'medical'") } catch (_) {}
-  try { db.exec("ALTER TABLE users ADD COLUMN is_organizer INTEGER NOT NULL DEFAULT 0") } catch (_) {}
-  try { db.exec("ALTER TABLE users ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0") } catch (_) {}
-
-  // Safe migration: add comment_count to video_posts
-  try { db.exec("ALTER TABLE video_posts ADD COLUMN comment_count INTEGER NOT NULL DEFAULT 0") } catch (_) {}
 }
 
 /** Clear all data (for testing) */
 export function clearAll() {
   // Disable FK constraints so DELETE order doesn't matter
   db.pragma('foreign_keys = OFF')
-  db.exec("DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards;")
+  db.exec("DELETE FROM _migrations; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards;")
   db.pragma('foreign_keys = ON')
 }
 
