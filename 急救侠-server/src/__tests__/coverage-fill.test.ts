@@ -1,23 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
 import { app, seedTestData, clearAll, db } from './setup'
+import { initDb } from '../db'  // restore full schema after destructive tests
 
 describe('Coverage: middleware/auth.ts', () => {
   beforeEach(() => { seedTestData() })
 
-  // --- exchangeWechatCode: cover the real WeChat API path (when WECHAT_APPID is set) ---
-  it('exchangeWechatCode attempts real API when appid is set', async () => {
-    const oldAppId = process.env.WECHAT_APPID
-    process.env.WECHAT_APPID = 'wx_test_appid'
-    process.env.WECHAT_SECRET = 'test_secret'
-    // The fetch will fail (no real API), but it exercises the branch
-    const res = await request(app)
-      .post('/api/auth/wechat-login')
-      .send({ code: 'real_test_code' })
-    // Should hit the catch block since fetch will fail
-    expect(res.status).toBe(500)
-    process.env.WECHAT_APPID = oldAppId
-  })
+  // --- exchangeWechatCode real API path: can't test through route handler
+  // because middleware/auth.ts captures WECHAT_APPID at module load time ---
 
   // --- optionalAuth: cover the try/catch on line 76-77 ---
   it('optionalAuth does not crash with malformed token', async () => {
@@ -132,6 +122,7 @@ describe('Coverage: routes/task.ts', () => {
     db.exec('DROP TABLE IF EXISTS tasks')
     const res = await request(app).get('/api/task/list')
     expect(res.status).toBe(500)
+    initDb() // restore full schema for subsequent tests
   })
 
   // --- Accept task: edge cases ---
@@ -221,6 +212,7 @@ describe('Coverage: routes/user.ts', () => {
       .post('/api/user/points')
       .send({ amount: 100, reason: 'test' })
     expect(res.status).toBe(500)
+    initDb() // restore full schema for subsequent tests
   })
 
   // --- /points: no user exists path ---
