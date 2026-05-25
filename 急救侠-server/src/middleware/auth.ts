@@ -1,9 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
-
-const JWT_SECRET = process.env.JWT_SECRET || 'jiujiaxia-dev-secret'
-const WECHAT_APPID = process.env.WECHAT_APPID || ''
-const WECHAT_SECRET = process.env.WECHAT_SECRET || ''
+import { JWT_SECRET, WECHAT_APPID, WECHAT_SECRET } from '../config'
 
 export interface AuthPayload {
   openid: string

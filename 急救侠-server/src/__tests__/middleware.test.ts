@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { app, seedTestData } from './setup'
+import { app, seedTestData, db } from './setup'
 
 describe('Auth Middleware', () => {
   beforeEach(() => { seedTestData() })
@@ -51,11 +51,14 @@ describe('Auth Middleware', () => {
     expect(res.body.code).toBe(0)
   })
 
-  it('push send requires valid auth', async () => {
+  it('push send works with admin user', async () => {
     const login = await request(app)
       .post('/api/auth/wechat-login')
       .send({ code: 'push_send_auth' })
     const token = login.body.data.token
+
+    // Grant admin to this test user
+    db.prepare("UPDATE users SET is_leader = 1 WHERE id = ?").run(login.body.data.openid)
 
     const res = await request(app)
       .post('/api/push/send')

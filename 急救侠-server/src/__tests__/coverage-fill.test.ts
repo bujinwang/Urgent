@@ -167,11 +167,14 @@ describe('Coverage: routes/push.ts', () => {
     expect(res.body.code).toBe(0)
   })
 
-  it('send requires auth and returns success', async () => {
+  it('send requires admin and returns success', async () => {
     const login = await request(app)
       .post('/api/auth/wechat-login')
       .send({ code: 'push_send' })
     const token = login.body.data.token
+
+    // Grant admin to this test user
+    db.prepare('UPDATE users SET is_leader = 1 WHERE id = ?').run(login.body.data.openid)
 
     const res = await request(app)
       .post('/api/push/send')

@@ -1,8 +1,7 @@
 import Database from 'better-sqlite3'
 import path from 'path'
 import fs from 'fs'
-
-const DB_PATH = process.env.DB_PATH || './data/jiujiaxia.db'
+import { DB_PATH } from './config'
 
 let db: Database.Database
 

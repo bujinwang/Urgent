@@ -1,12 +1,10 @@
 import { Router } from 'express'
 import { success, error } from '../types'
 import { authMiddleware, AuthPayload } from '../middleware/auth'
+import { WECHAT_APPID, WECHAT_SECRET } from '../config'
 import db from '../db'
 
 export const pushRouter = Router()
-
-const WECHAT_APPID = process.env.WECHAT_APPID || ''
-const WECHAT_SECRET = process.env.WECHAT_SECRET || ''
 
 /** Get WeChat access_token (dev mock when no credentials configured) */
 async function getWechatAccessToken(): Promise<string> {
@@ -54,8 +52,17 @@ pushRouter.post('/register', authMiddleware, (req, res) => {
 })
 
 /** 发送推送通知（管理员用）—— 向所有已订阅用户发送微信订阅消息 */
-pushRouter.post('/send', authMiddleware, async (_req, res) => {
+pushRouter.post('/send', authMiddleware, async (req, res) => {
   try {
+    const auth = (req as any).auth as AuthPayload
+    const userId = auth.userId || auth.openid
+
+    // 验证管理员权限（is_leader = 1）
+    const user = db.prepare('SELECT is_leader FROM users WHERE id = ?').get(userId) as { is_leader: number } | undefined
+    if (!user || !user.is_leader) {
+      return res.status(403).json(error('仅管理员可执行此操作'))
+    }
+
     const subscriptions = db
       .prepare('SELECT * FROM push_subscriptions WHERE accepted=1')
       .all() as Array<{ id: string; user_id: string; template_id: string }>
