@@ -1,0 +1,33 @@
+# ============================================================
+# 急救侠 — Docker Compose
+# ============================================================
+# 使用方式：
+#   cp 急救侠-server/.env.example 急救侠-server/.env
+#   # 编辑 .env 填入实际配置
+#   docker compose up -d
+# ============================================================
+
+services:
+  server:
+    build:
+      context: ./急救侠-server
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    volumes:
+      # 持久化 SQLite 数据
+      - server-data:/app/data
+    env_file:
+      - ./急救侠-server/.env
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  server-data:

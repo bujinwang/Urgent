@@ -1,0 +1,72 @@
+# ============================================================
+# 急救侠 — CI Pipeline
+# ============================================================
+# 每次 push / PR 到 main 时运行：
+#   1. 后端 type-check + test
+#   2. 前端 type-check + test
+# ============================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  server:
+    name: Server — type-check + test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./急救侠-server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: ./急救侠-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Run tests
+        run: npm test
+        env:
+          DB_PATH: ':memory:'
+
+  uniapp:
+    name: Uniapp — type-check + test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./急救侠-uniapp
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: ./急救侠-uniapp/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Run tests
+        run: npm test

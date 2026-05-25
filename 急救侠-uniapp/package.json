@@ -18,7 +18,8 @@
     "build:mp-alipay": "uni build -p mp-alipay",
     "build:mp-baidu": "uni build -p mp-baidu",
     "build:mp-toutiao": "uni build -p mp-toutiao",
-    "type-check": "vue-tsc --noEmit"
+    "type-check": "vue-tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-4080420251103001",
