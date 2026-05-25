@@ -197,6 +197,12 @@
       }
     },
     {
+      "path": "pages/cert/push-settings",
+      "style": {
+        "navigationBarTitleText": "通知设置"
+      }
+    },
+    {
       "path": "pages/auth/login",
       "style": {
         "navigationBarTitleText": "登录"

@@ -27,6 +27,7 @@
       <view class="cert-action" @click="goAtlas"><text class="cert-action-icon">📖</text><text class="cert-action-label">急救手册</text><text class="cert-action-sub">6 种急症</text></view>
       <view class="cert-action" @click="goInterests"><text class="cert-action-icon">🎯</text><text class="cert-action-label">兴趣方向</text><text class="cert-action-sub">选择你的模块</text></view>
       <view class="cert-action" @click="goUpload"><text class="cert-action-icon">📜</text><text class="cert-action-label">登记证书</text><text class="cert-action-sub">上传已有认证</text></view>
+      <view class="cert-action" @click="goPushSettings"><text class="cert-action-icon">🔔</text><text class="cert-action-label">通知设置</text><text class="cert-action-sub">推送订阅管理</text></view>
       <view v-if="user.isOrgManager" class="cert-action cert-action-mgr" @click="goOrg"><text class="cert-action-icon">🏢</text><text class="cert-action-label">机构管理</text><text class="cert-action-sub">{{ user.orgRoles[0]?.orgName }}</text></view>
     </view>
     <view class="cert-logout" @click="doLogout"><text>退出登录</text></view>
@@ -70,6 +71,7 @@ function goOrg(){const id=user.orgRoles[0]?.orgId;if(id)uni.navigateTo({url:`/pa
 function goInterests(){uni.navigateTo({url:'/pages/cert/interests'})}
 function goUpload(){uni.navigateTo({url:'/pages/cert/upload'})}
 function goChangePwd(){uni.navigateTo({url:'/pages/auth/change-pwd'})}
+function goPushSettings(){uni.navigateTo({url:'/pages/cert/push-settings'})}
 function goLogin(){uni.navigateTo({url:'/pages/auth/login'})}
 function doLogout(){authStore.logout();uni.showToast({title:'已退出登录',icon:'none'});setTimeout(()=>uni.reLaunch({url:'/pages/home/index'}),800)}
 onMounted(()=>{user.loadOrgRoles()})
