@@ -4,14 +4,14 @@
   "private": true,
   "description": "急救侠 · 后端 API 服务",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file .env src/index.ts",
+    "dev:no-env": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "tsx src/seed.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@rollup/rollup-darwin-arm64": "^4.60.3",
     "@types/multer": "^2.1.0",
     "better-sqlite3": "^11.6.0",
     "cors": "^2.8.5",
@@ -32,5 +32,8 @@
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^3.2.4"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.60.3"
   }
 }
