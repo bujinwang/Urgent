@@ -1,8 +1,22 @@
 import { Router } from 'express'
 import db from '../db'
 import { success, error } from '../types'
+import { authMiddleware } from '../middleware/auth'
+import type { AuthPayload } from '../middleware/auth'
+
+/** Require authenticated user with is_leader = 1 */
+function adminMiddleware(req: Parameters<typeof authMiddleware>[0], res: Parameters<typeof authMiddleware>[1], next: Parameters<typeof authMiddleware>[2]) {
+  const auth = (req as any).auth as AuthPayload | undefined
+  if (!auth) return res.status(401).json(error('未登录'))
+  const userId = auth.userId || auth.openid
+  const user = db.prepare('SELECT is_leader FROM users WHERE id = ?').get(userId) as { is_leader: number } | undefined
+  if (!user || !user.is_leader) return res.status(403).json(error('仅管理员可执行此操作'))
+  next()
+}
 
 export const adminRouter = Router()
+
+adminRouter.use(authMiddleware, adminMiddleware)
 
 adminRouter.get('/dashboard', (_req, res) => {
   try {

@@ -6,7 +6,7 @@ initDb()
 db.pragma('foreign_keys = OFF')
 
 // Clear existing data
-db.exec('DELETE FROM users; DELETE FROM tasks; DELETE FROM aed_devices; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM atlas_cards; DELETE FROM stats;')
+db.exec('DELETE FROM push_subscriptions; DELETE FROM users; DELETE FROM tasks; DELETE FROM aed_devices; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM atlas_cards; DELETE FROM stats;')
 
 // ---- User ----
 db.prepare(`INSERT INTO users (id, name, avatar, tier, points, city, volunteer_id, certifications, rescue_count, public_id, is_leader, affiliation, is_public)
