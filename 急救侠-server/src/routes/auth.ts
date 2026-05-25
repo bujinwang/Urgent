@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import db from '../db'
-import { success, error } from '../types'
+import { success, error, AuthRegisterInput, AuthLoginInput, AuthChangePasswordInput, AuthResetPasswordInput } from '../types'
 import { signToken, exchangeWechatCode, authMiddleware } from '../middleware/auth'
+import { validate } from '../middleware/validate'
 
 export const authRouter = Router()
 
@@ -60,7 +61,7 @@ authRouter.post('/wechat-login', async (req, res) => {
 })
 
 /** 手机号注册 */
-authRouter.post('/register', (req, res) => {
+authRouter.post('/register', validate(AuthRegisterInput), (req, res) => {
   try {
     const { phone, password, name } = req.body
     if (!phone || !password) return res.json(error('手机号和密码不能为空'))
@@ -85,7 +86,7 @@ authRouter.post('/register', (req, res) => {
 })
 
 /** 手机号登录 */
-authRouter.post('/login', (req, res) => {
+authRouter.post('/login', validate(AuthLoginInput), (req, res) => {
   try {
     const { phone, password } = req.body
     if (!phone || !password) return res.json(error('手机号和密码不能为空'))
@@ -98,7 +99,7 @@ authRouter.post('/login', (req, res) => {
 })
 
 /** 修改密码 */
-authRouter.post('/change-password', (req, res) => {
+authRouter.post('/change-password', validate(AuthChangePasswordInput), (req, res) => {
   try {
     const { phone, oldPassword, newPassword } = req.body
     if (!phone || !oldPassword || !newPassword) return res.json(error('参数不完整'))
@@ -112,7 +113,7 @@ authRouter.post('/change-password', (req, res) => {
 })
 
 /** 重置密码（通过手机号） */
-authRouter.post('/reset-password', (req, res) => {
+authRouter.post('/reset-password', validate(AuthResetPasswordInput), (req, res) => {
   try {
     const { phone, newPassword } = req.body
     if (!phone || !newPassword) return res.json(error('参数不完整'))

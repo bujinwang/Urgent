@@ -365,6 +365,48 @@ export const OrgDashboard = z.object({
 })
 export type OrgDashboard = z.infer<typeof OrgDashboard>
 
+// ---- Input Validation Schemas ----
+
+/** POST /api/auth/register */
+export const AuthRegisterInput = z.object({
+  phone: z.string().min(1, '手机号不能为空'),
+  password: z.string().min(2, '密码长度至少 2 位'),
+  name: z.string().optional(),
+  interests: z.string().optional(),
+  affiliation: z.string().optional(),
+  isLeader: z.boolean().optional(),
+})
+export type AuthRegisterInput = z.infer<typeof AuthRegisterInput>
+
+/** POST /api/auth/login */
+export const AuthLoginInput = z.object({
+  phone: z.string().min(1, '手机号不能为空'),
+  password: z.string().min(2, '密码长度至少 2 位'),
+})
+export type AuthLoginInput = z.infer<typeof AuthLoginInput>
+
+/** POST /api/auth/change-password */
+export const AuthChangePasswordInput = z.object({
+  phone: z.string().min(1, '手机号不能为空'),
+  oldPassword: z.string().min(1, '旧密码不能为空'),
+  newPassword: z.string().min(2, '新密码长度至少 2 位'),
+})
+export type AuthChangePasswordInput = z.infer<typeof AuthChangePasswordInput>
+
+/** POST /api/auth/reset-password */
+export const AuthResetPasswordInput = z.object({
+  phone: z.string().min(1, '手机号不能为空'),
+  newPassword: z.string().min(2, '新密码长度至少 2 位'),
+})
+export type AuthResetPasswordInput = z.infer<typeof AuthResetPasswordInput>
+
+/** POST /api/push/register */
+export const PushRegisterInput = z.object({
+  templateId: z.string().min(1, 'templateId 不能为空'),
+  accepted: z.boolean().optional(),
+})
+export type PushRegisterInput = z.infer<typeof PushRegisterInput>
+
 // ---- API Response ----
 export const ApiResponse = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({

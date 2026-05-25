@@ -1,7 +1,8 @@
 import { Router } from 'express'
-import { success, error } from '../types'
+import { success, error, PushRegisterInput } from '../types'
 import { authMiddleware, AuthPayload } from '../middleware/auth'
 import { WECHAT_APPID, WECHAT_SECRET } from '../config'
+import { validate } from '../middleware/validate'
 import db from '../db'
 
 export const pushRouter = Router()
@@ -23,7 +24,7 @@ async function getWechatAccessToken(): Promise<string> {
 }
 
 /** 注册推送订阅（小程序 templateId / 订阅结果） */
-pushRouter.post('/register', authMiddleware, (req, res) => {
+pushRouter.post('/register', authMiddleware, validate(PushRegisterInput), (req, res) => {
   try {
     const auth = (req as any).auth as AuthPayload
     const { templateId, accepted } = req.body

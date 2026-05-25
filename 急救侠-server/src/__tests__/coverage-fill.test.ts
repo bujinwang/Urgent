@@ -162,7 +162,7 @@ describe('Coverage: routes/push.ts', () => {
     const res = await request(app)
       .post('/api/push/register')
       .set('Authorization', `Bearer ${token}`)
-      .send({})
+      .send({ templateId: 'test_tpl', accepted: true })
     expect(res.status).toBe(200)
     expect(res.body.code).toBe(0)
   })
