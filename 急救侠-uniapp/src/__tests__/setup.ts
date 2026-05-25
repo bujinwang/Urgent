@@ -26,6 +26,8 @@ const uniMock = {
   setStorageSync: vi.fn(),
   removeStorageSync: vi.fn(),
   showToast: vi.fn(),
+  showLoading: vi.fn(),
+  hideLoading: vi.fn(),
   showModal: vi.fn(),
   navigateTo: vi.fn(),
   switchTab: vi.fn(),
@@ -59,6 +61,7 @@ vi.mock('@dcloudio/uni-app', () => ({
   }),
   onLoad: vi.fn(),
   onReady: vi.fn(),
+  onReachBottom: vi.fn(),
 }))
 
 // Mock API index

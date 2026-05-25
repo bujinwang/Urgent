@@ -34,21 +34,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { usePushStore } from '@/stores/push'
 import type { PushTemplateOption } from '@/stores/push'
 
 const push = usePushStore()
-
-// #ifdef MP-WEIXIN
-const platform = 'mp-weixin'
-// #endif
-// #ifdef H5
-const platform = 'h5'
-// #endif
-// #ifdef APP-PLUS
-const platform = 'app'
-// #endif
+const platform = ref('h5')
 
 async function toggle(tmpl: PushTemplateOption) {
   try {
