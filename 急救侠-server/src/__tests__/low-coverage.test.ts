@@ -108,3 +108,38 @@ describe('Low-coverage: wildlife routes', () => {
     expect(res.body.code).toBe(-1)
   })
 })
+
+describe('Input validation (Zod)', () => {
+  beforeEach(() => { seedTestData() })
+
+  it('push/register rejects missing templateId', async () => {
+    const login = await request(app)
+      .post('/api/auth/wechat-login')
+      .send({ code: 'val_push' })
+    const token = login.body.data.token
+
+    const res = await request(app)
+      .post('/api/push/register')
+      .set('Authorization', `Bearer ${token}`)
+      .send({})
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe(-1)
+    expect(res.body.errors).toBeDefined()
+  })
+
+  it('auth/register rejects missing phone', async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ password: '123456' })
+    expect(res.status).toBe(400)
+    expect(res.body.errors).toBeDefined()
+  })
+
+  it('auth/register accepts valid input', async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ phone: '13800138001', password: 'pass123' })
+    expect(res.status).toBe(200)
+    expect(res.body.code).toBe(0)
+  })
+})
