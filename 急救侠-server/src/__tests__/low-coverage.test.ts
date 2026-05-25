@@ -143,3 +143,57 @@ describe('Input validation (Zod)', () => {
     expect(res.body.code).toBe(0)
   })
 })
+
+describe('Coverage boost: org routes', () => {
+  beforeEach(() => { seedTestData() })
+
+  it('GET /api/org/:id returns error for unknown org', async () => {
+    const res = await request(app).get('/api/org/nonexistent')
+    expect(res.status).toBe(200)
+    expect(res.body.code).toBe(-1)
+  })
+
+  it('GET /api/org/:id/members returns empty array', async () => {
+    const res = await request(app).get('/api/org/nonexistent/members')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body.data)).toBe(true)
+  })
+
+  it('GET /api/org/:id/certificates returns empty array', async () => {
+    const res = await request(app).get('/api/org/nonexistent/certificates')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body.data)).toBe(true)
+  })
+})
+
+describe('Coverage boost: wildlife routes', () => {
+  beforeEach(() => { seedTestData() })
+
+  it('GET /api/wildlife/reports returns list', async () => {
+    const res = await request(app).get('/api/wildlife/reports')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body.data)).toBe(true)
+  })
+
+  it('GET /api/wildlife/rescue returns list', async () => {
+    const res = await request(app).get('/api/wildlife/rescue')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body.data)).toBe(true)
+  })
+})
+
+describe('Coverage boost: drill routes', () => {
+  beforeEach(() => { seedTestData() })
+
+  it('GET /api/drill/events returns list', async () => {
+    const res = await request(app).get('/api/drill/events')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body.data)).toBe(true)
+  })
+
+  it('GET /api/drill/organizers returns list', async () => {
+    const res = await request(app).get('/api/drill/organizers')
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body.data)).toBe(true)
+  })
+})
