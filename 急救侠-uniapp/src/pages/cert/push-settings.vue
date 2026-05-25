@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 import { usePushStore } from '@/stores/push'
 import type { PushTemplateOption } from '@/stores/push'
 
@@ -67,12 +67,12 @@ async function toggle(tmpl: PushTemplateOption) {
 }
 
 async function subscribeAll() {
-  if (push.isSubscribed.value) return
+  if (push.isSubscribed) return
   try {
     uni.showLoading({ title: '请求授权...' })
     await push.subscribeAll()
     uni.hideLoading()
-    if (push.isSubscribed.value) {
+    if (push.isSubscribed) {
       uni.showToast({ title: '订阅成功', icon: 'success' })
     }
   } catch (e: any) {
@@ -83,7 +83,7 @@ async function subscribeAll() {
 
 onMounted(() => {
   // 首次进入且未订阅，自动弹窗引导
-  if (!push.isSubscribed.value) {
+  if (!push.isSubscribed) {
     setTimeout(() => subscribeAll(), 600)
   }
 })
