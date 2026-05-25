@@ -2,6 +2,7 @@ import express from 'express'
 import path from 'path'
 import fs from 'fs'
 import cors from 'cors'
+import rateLimit from 'express-rate-limit'
 import { userRouter } from './routes/user'
 import { taskRouter } from './routes/task'
 import { aedRouter } from './routes/aed'
@@ -36,8 +37,32 @@ app.use(express.json())
 // Initialize DB
 initDb()
 
+// Rate limiters (skip in test / dev-memory mode)
+const isTestMode = process.env.DB_PATH === ':memory:' || process.env.NODE_ENV === 'test'
+
+const authLimiter = isTestMode
+  ? (req: any, _res: any, next: any) => next()
+  : rateLimit({
+      windowMs: 15 * 60 * 1000,  // 15 分钟
+      max: 20,                     // 最多 20 次请求
+      message: { code: -1, message: '请求过于频繁，请稍后再试' },
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+
+const pushSendLimiter = isTestMode
+  ? (req: any, _res: any, next: any) => next()
+  : rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 5,
+      message: { code: -1, message: '请求过于频繁，请稍后再试' },
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+
 // Routes
-app.use('/api/auth', authRouter)
+app.use('/api/auth', authLimiter, authRouter)
+app.use('/api/push/send', pushSendLimiter)
 app.use('/api/push', pushRouter)
 app.use('/api/user', userRouter)
 app.use('/api/task', taskRouter)

@@ -53,7 +53,7 @@ rescueRouter.put('/mobilizations/:id/approve', (req, res) => {
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-rescueRouter.put('/mobilizations/:id/complete', (_req, res) => {
+rescueRouter.put('/mobilizations/:id/complete', (req, res) => {
   try { db.prepare("UPDATE emergency_mobilizations SET status='completed' WHERE id=?").run(req.params.id); res.json(success(null, '已结束')) } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 

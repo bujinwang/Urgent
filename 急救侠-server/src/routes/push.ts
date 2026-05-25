@@ -15,7 +15,7 @@ async function getWechatAccessToken(): Promise<string> {
   const res = await fetch(
     `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${WECHAT_APPID}&secret=${WECHAT_SECRET}`
   )
-  const data = await res.json()
+  const data: any = await res.json()
   if (data.errcode) {
     throw new Error(`获取 access_token 失败: ${data.errmsg} (${data.errcode})`)
   }
@@ -103,7 +103,7 @@ pushRouter.post('/send', authMiddleware, async (req, res) => {
             body: JSON.stringify(body),
           }
         )
-        const result = await wechatRes.json()
+        const result: any = await wechatRes.json()
         if (result.errcode === 0) {
           sentCount++
         } else {

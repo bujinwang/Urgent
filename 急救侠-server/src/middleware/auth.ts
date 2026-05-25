@@ -52,7 +52,7 @@ export async function exchangeWechatCode(code: string): Promise<{ openid: string
   const res = await fetch(
     `https://api.weixin.qq.com/sns/jscode2session?appid=${WECHAT_APPID}&secret=${WECHAT_SECRET}&js_code=${code}&grant_type=authorization_code`
   )
-  const data = await res.json()
+  const data: any = await res.json()
   if (data.errcode) {
     throw new Error(`微信登录失败: ${data.errmsg} (${data.errcode})`)
   }

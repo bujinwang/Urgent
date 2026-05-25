@@ -90,7 +90,7 @@ const newsData = [
 ]
 const insertNews = db.prepare('INSERT INTO news (id, title, type, category, time, location_name, location_lat, location_lng, tags, is_live, is_urgent, body, image_url, video_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
 for (const n of newsData) {
-  insertNews.run(n.id, n.title, n.type, n.category, n.time, n.locName, n.locLat, n.locLng, JSON.stringify(n.tags), n.isLive, n.isUrgent, n.body || null, n.imageUrl || null, (n as any).videoUrl || null)
+  insertNews.run(n.id, n.title, n.type, n.category, n.time, n.locName, n.locLat, n.locLng, JSON.stringify(n.tags), n.isLive, n.isUrgent, n.body || null, (n as any).imageUrl || null, (n as any).videoUrl || null)
 }
 
 // ---- Courses ----

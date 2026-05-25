@@ -14,6 +14,12 @@ export default defineConfig({
       reporter: ['text', 'text-summary'],
       include: ['src/**/*.ts'],
       exclude: ['src/__tests__/**', 'src/seed.ts', 'src/index.ts'],
+      thresholds: {
+        statements: 35,
+        branches: 65,
+        functions: 35,
+        lines: 35,
+      },
     },
   },
 })
