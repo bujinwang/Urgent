@@ -348,6 +348,12 @@ export function getNewsById(id: string): NewsItem | undefined {
   return MOCK_NEWS.find((n) => n.id === id)
 }
 
+import { request } from './index'
+
+export async function fetchNewsList(): Promise<NewsItem[]> { return request({ url: '/news/list' }) }
+export async function fetchNewsByCategory(cat: string): Promise<NewsItem[]> { return request({ url: `/news/list?category=${cat}` }) }
+export async function fetchNewsById(id: string): Promise<NewsItem> { return request({ url: `/news/${id}` }) }
+
 export default function () {
   return { code: 0, data: MOCK_NEWS, message: 'ok' }
 }

@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getNewsList, getNewsByCategory, getNewsById } from '@/api/news'
+import { getNewsList, getNewsByCategory, getNewsById, fetchNewsList, fetchNewsById } from '@/api/news'
 import type { NewsItem } from '@/api/news'
 
 export const useNewsStore = defineStore('news', () => {
   const items = ref<NewsItem[]>(getNewsList())
   const selected = ref<NewsItem | null>(null)
   const activeCategory = ref('recommend')
+  const loading = ref(false)
 
   const categories = [
     { id: 'recommend', label: '推荐' },
@@ -25,16 +26,22 @@ export const useNewsStore = defineStore('news', () => {
   }
 
   function selectNews(id: string) {
-    const found = getNewsById(id)
+    const found = items.value.find((n) => n.id === id) || getNewsById(id)
     if (found) selected.value = found
   }
 
-  function refresh() {
-    items.value = getNewsList()
+  async function refresh() {
+    loading.value = true
+    try {
+      items.value = await fetchNewsList()
+    } catch {
+      items.value = getNewsList()
+    }
+    loading.value = false
   }
 
   return {
-    items, selected, activeCategory, categories,
+    items, selected, activeCategory, categories, loading,
     filteredItems, setCategory, selectNews, refresh,
   }
 })

@@ -158,11 +158,13 @@
     </view>
 
 
+    <OnboardingOverlay />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import OnboardingOverlay from '@/components/OnboardingOverlay/index.vue'
 import { onReachBottom } from '@dcloudio/uni-app'
 import LifeSparkLogo from '@/components/LifeSparkLogo/index.vue'
 import SosButton from '@/components/SosButton/index.vue'

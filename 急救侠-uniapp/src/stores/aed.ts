@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getNearbyAeds, getAedById, getDiscoveredCount, getTotalCount } from '@/api/aed'
+import { getNearbyAeds, getAedById, getDiscoveredCount, getTotalCount, fetchAedList } from '@/api/aed'
 import type { AedDevice, CheckInRecord } from '@/api/aed'
 import { useUserStore } from '@/stores/user'
 
@@ -8,6 +8,7 @@ export const useAedStore = defineStore('aed', () => {
   const aeds = ref<AedDevice[]>(getNearbyAeds())
   const selectedAed = ref<AedDevice | null>(null)
   const totalCount = ref(getTotalCount())
+  const loading = ref(false)
 
   const discoveredCount = computed(() => aeds.value.filter((a) => a.discovered).length)
   const verifiedCount = computed(() => aeds.value.filter((a) => a.verified).length)
@@ -93,15 +94,31 @@ export const useAedStore = defineStore('aed', () => {
     })
   }
 
-  function refresh() {
-    aeds.value = getNearbyAeds()
+  async function refresh() {
+    loading.value = true
+    try {
+      const list = await fetchAedList()
+      if (list && list.length) {
+        // Preserve discovered/verified/checkIns from existing data
+        const oldMap = new Map(aeds.value.map(a => [a.id, a]))
+        for (const a of list) {
+          const old = oldMap.get(a.id)
+          if (old) { a.discovered = old.discovered; a.verified = old.verified; a.checkIns = old.checkIns }
+        }
+        aeds.value = list
+      }
+    } catch {
+      aeds.value = getNearbyAeds()
+    }
     totalCount.value = getTotalCount()
+    loading.value = false
   }
 
   return {
     aeds,
     selectedAed,
     totalCount,
+    loading,
     discoveredCount,
     verifiedCount,
     nearbyAeds,
