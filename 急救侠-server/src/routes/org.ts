@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import db from '../db'
+import db, { get, all } from '../db'
 import {
   success, error,
   Organization, OrgMember, Certificate, CertificateInput, OrgDashboard,
@@ -12,13 +12,13 @@ export const orgRouter = Router()
 // GET /api/org/:id — org info + dashboard
 orgRouter.get('/:id', (req, res) => {
   try {
-    const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(req.params.id) as any
+    const org = get('SELECT * FROM organizations WHERE id = ?', req.params.id)
     if (!org) return res.json(error('机构不存在'))
 
-    const members = db.prepare('SELECT COUNT(*) as cnt FROM organization_members WHERE org_id = ?').get(req.params.id) as any
+    const members = get('SELECT COUNT(*) as cnt FROM organization_members WHERE org_id = ?', req.params.id)
     const certs = db.prepare(
       "SELECT status, COUNT(*) as cnt FROM certificates WHERE user_id IN (SELECT user_id FROM organization_members WHERE org_id = ?) GROUP BY status"
-    ).all(req.params.id) as any[]
+    ).all(req.params.id)
 
     let active = 0, expiring = 0, expired = 0
     for (const c of certs) {
@@ -50,7 +50,7 @@ orgRouter.post('/', (req, res) => {
     // Auto-add admin as member
     const mid = 'om_' + Date.now() + '_0'
     db.prepare('INSERT OR IGNORE INTO organization_members (id, org_id, user_id, role) VALUES (?, ?, ?, ?)').run(mid, id, adminUserId, 'admin')
-    const org = db.prepare('SELECT * FROM organizations WHERE id = ?').get(id) as any
+    const org = get('SELECT * FROM organizations WHERE id = ?', id)
     res.json(success({ id: org.id, name: org.name, type: org.type, adminUserId: org.admin_user_id, createdAt: org.created_at }))
   } catch (e: any) {
     res.status(500).json(error(e.message || '服务器错误'))
@@ -69,12 +69,12 @@ orgRouter.get('/:id/members', (req, res) => {
       JOIN users u ON u.id = om.user_id
       WHERE om.org_id = ?
       ORDER BY om.role = 'admin' DESC, om.role = 'manager' DESC, om.joined_at ASC
-    `).all(req.params.id) as any[]
+    `).all(req.params.id)
 
     const members: OrgMember[] = rows.map(row => {
       const certCounts = db.prepare(
         "SELECT status, COUNT(*) as cnt FROM certificates WHERE user_id = ? GROUP BY status"
-      ).all(row.user_id) as any[]
+      ).all(row.user_id)
       let active = 0, expiring = 0
       for (const c of certCounts) {
         if (c.status === 'active') active = c.cnt
@@ -130,7 +130,7 @@ orgRouter.get('/:id/certificates', (req, res) => {
       JOIN users u ON u.id = c.user_id
       WHERE c.user_id IN (SELECT user_id FROM organization_members WHERE org_id = ?)
       ORDER BY CASE c.status WHEN 'expired' THEN 0 WHEN 'expiring' THEN 1 ELSE 2 END, c.expiry_date ASC
-    `).all(req.params.id) as any[]
+    `).all(req.params.id)
 
     // Update status dynamically based on current date
     const now = new Date()
@@ -152,7 +152,7 @@ orgRouter.get('/:id/certificates', (req, res) => {
         id: row.id, userId: row.user_id, userName: row.user_name,
         type: row.type, issuer: row.issuer,
         issueDate: row.issue_date, expiryDate: row.expiry_date,
-        status: status as any, fileUrl: row.file_url,
+        status: status as string, fileUrl: row.file_url,
       }
     })
 
@@ -174,7 +174,7 @@ orgRouter.get('/:id/certificates/expiring', (req, res) => {
       WHERE c.user_id IN (SELECT user_id FROM organization_members WHERE org_id = ?)
         AND c.expiry_date >= ? AND c.expiry_date <= ? AND c.status != 'expired'
       ORDER BY c.expiry_date ASC
-    `).all(req.params.id, today, thirtyDays) as any[]
+    `).all(req.params.id, today, thirtyDays)
 
     const certs: Certificate[] = rows.map(row => ({
       id: row.id, userId: row.user_id, userName: row.user_name,
@@ -203,8 +203,8 @@ orgRouter.post('/:id/certificates', (req, res) => {
     // Notify all organizations this user belongs to
     const userOrgs = db.prepare(
       'SELECT om.org_id, o.name as org_name FROM organization_members om JOIN organizations o ON o.id = om.org_id WHERE om.user_id = ?'
-    ).all(userId) as any[]
-    const userName = (db.prepare('SELECT name FROM users WHERE id = ?').get(userId) as any)?.name || userId
+    ).all(userId)
+    const userName = (get('SELECT name FROM users WHERE id = ?', userId))?.name || userId
     for (const org of userOrgs) {
       db.prepare(
         'INSERT INTO notifications (id, org_id, user_id, type, title, message) VALUES (?, ?, ?, ?, ?, ?)'
@@ -224,7 +224,7 @@ orgRouter.get('/:id/notifications', (req, res) => {
   try {
     const rows = db.prepare(
       'SELECT * FROM notifications WHERE org_id = ? ORDER BY created_at DESC LIMIT 30'
-    ).all(req.params.id) as any[]
+    ).all(req.params.id)
     res.json(success(rows.map(r => ({
       id: r.id, orgId: r.org_id, userId: r.user_id,
       type: r.type, title: r.title, message: r.message,

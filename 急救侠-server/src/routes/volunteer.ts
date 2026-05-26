@@ -1,12 +1,12 @@
 import { Router } from 'express'
-import db from '../db'
+import db, { get, all } from '../db'
 import { success, error, VolunteerRank, CoachSummary, CoachDetail } from '../types'
 
 export const volunteerRouter = Router()
 
 volunteerRouter.get('/rankings', (_req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM volunteers ORDER BY rank_pos ASC').all() as any[]
+    const rows = all('SELECT * FROM volunteers ORDER BY rank_pos ASC', )
     const rankings: VolunteerRank[] = rows.map(row => ({
       id: row.id, name: row.name, avatar: row.avatar, tier: row.tier,
       points: row.points, rescueCount: row.rescue_count,
@@ -23,7 +23,7 @@ volunteerRouter.get('/coaches', (_req, res) => {
   try {
     const rows = db.prepare(
       "SELECT * FROM volunteers WHERE role = 'coach' ORDER BY rescue_count DESC"
-    ).all() as any[]
+    ).all()
     const coaches: CoachSummary[] = rows.map(row => ({
       id: row.id,
       name: row.name,
@@ -46,7 +46,7 @@ volunteerRouter.get('/coaches/:id', (req, res) => {
   try {
     const row = db.prepare(
       "SELECT * FROM volunteers WHERE id = ? AND role = 'coach'"
-    ).get(req.params.id) as any
+    ).get(req.params.id)
     if (!row) return res.json(error('教练不存在'))
     const coach: CoachDetail = {
       id: row.id,

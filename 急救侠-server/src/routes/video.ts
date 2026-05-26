@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import path from 'path'
 import multer from 'multer'
-import db from '../db'
+import db, { get, all } from '../db'
 import { success, error } from '../types'
 
 const VIDEOS_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'videos')
@@ -50,7 +50,7 @@ videoRouter.get('/recommend', (req, res) => {
     const page = parseInt(req.query.page as string) || 1
     const size = parseInt(req.query.size as string) || 10
     const offset = (page - 1) * size
-    const rows = db.prepare('SELECT *,(view_count*0.3+like_count*0.5+share_count*0.2) as score FROM video_posts ORDER BY score DESC,created_at DESC LIMIT ? OFFSET ?').all(size, offset) as any[]
+    const rows = all('SELECT *,(view_count*0.3+like_count*0.5+share_count*0.2) as score FROM video_posts ORDER BY score DESC,created_at DESC LIMIT ? OFFSET ?', size, offset)
     res.json(success({ items: rows.map(formatVideo), page, hasMore: rows.length === size }))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -59,7 +59,7 @@ videoRouter.get('/category/:cat', (req, res) => {
   try {
     const page = parseInt(req.query.page as string) || 1
     const size = parseInt(req.query.size as string) || 10
-    const rows = db.prepare('SELECT * FROM video_posts WHERE category=? ORDER BY created_at DESC LIMIT ? OFFSET ?').all(req.params.cat, size, (page-1)*size) as any[]
+    const rows = all('SELECT * FROM video_posts WHERE category=? ORDER BY created_at DESC LIMIT ? OFFSET ?', req.params.cat, size, (page-1)*size)
     res.json(success({ items: rows.map(formatVideo), page, hasMore: rows.length === size }))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -85,7 +85,7 @@ videoRouter.post('/:id/like', (req, res) => {
 // ---- 评论 ----
 videoRouter.get('/:id/comments', (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM video_comments WHERE video_id=? ORDER BY created_at DESC LIMIT 50').all(req.params.id) as any[]
+    const rows = all('SELECT * FROM video_comments WHERE video_id=? ORDER BY created_at DESC LIMIT 50', req.params.id)
     res.json(success(rows.map((c: any) => ({
       id: c.id, userId: c.user_id, userName: c.user_name,
       userAvatar: c.user_avatar, content: c.content, createdAt: c.created_at,
@@ -105,7 +105,7 @@ videoRouter.post('/:id/comment', (req, res) => {
 
 videoRouter.delete('/:id/comment/:commentId', (req, res) => {
   try {
-    const row = db.prepare('SELECT user_id FROM video_comments WHERE id=?').get(req.params.commentId) as any
+    const row = get('SELECT user_id FROM video_comments WHERE id=?', req.params.commentId)
     if (!row) return res.json(error('评论不存在'))
     const { userId } = req.body
     if (!userId || row.user_id !== userId) return res.json(error('无权删除'))

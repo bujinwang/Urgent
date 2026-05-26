@@ -1,19 +1,19 @@
 import { Router } from 'express'
-import db from '../db'
+import db, { get, all } from '../db'
 import { success, error } from '../types'
 
 export const publicRouter = Router()
 
 publicRouter.get('/verify/:publicId', (req, res) => {
   try {
-    const row = db.prepare('SELECT * FROM users WHERE public_id = ?').get(req.params.publicId) as any
+    const row = get('SELECT * FROM users WHERE public_id = ?', req.params.publicId)
     if (!row) return res.json(error('无效的验证码'))
     if (!row.is_public) return res.json(error('该用户未开启公开档案'))
 
-    const certs = db.prepare('SELECT type, issuer, issue_date, expiry_date, status FROM certificates WHERE user_id=? ORDER BY expiry_date ASC').all(row.id) as any[]
-    const training = db.prepare('SELECT scenario, date, organizer_name, notes FROM training_records WHERE user_id=? ORDER BY date DESC LIMIT 10').all(row.id) as any[]
-    const trail = db.prepare('SELECT * FROM user_trails WHERE user_id=?').get(row.id) as any
-    const extCerts = db.prepare("SELECT type, issuer, cert_number FROM external_certifications WHERE user_id=? AND status='verified'").all(row.id) as any[]
+    const certs = all('SELECT type, issuer, issue_date, expiry_date, status FROM certificates WHERE user_id=? ORDER BY expiry_date ASC', row.id)
+    const training = all('SELECT scenario, date, organizer_name, notes FROM training_records WHERE user_id=? ORDER BY date DESC LIMIT 10', row.id)
+    const trail = get('SELECT * FROM user_trails WHERE user_id=?', row.id)
+    const extCerts = all("SELECT type, issuer, cert_number FROM external_certifications WHERE user_id=? AND status='verified'", row.id)
 
     res.json(success({
       tier: row.tier, tierLabel: tierLabel(row.tier),

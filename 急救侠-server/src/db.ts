@@ -706,6 +706,21 @@ export function initDb() {
   }
 }
 
+// ---- Typed DB helpers ----
+// Wraps db.prepare(...).get/all to eliminate `as any` casts.
+// Usage: get<User>('SELECT * FROM users WHERE id = ?', id)
+
+type BindParam = string | number | boolean | null | Buffer
+type Row = Record<string, unknown>
+
+export function get<T = Row>(sql: string, ...params: BindParam[]): T | undefined {
+  return db.prepare(sql).get(...params) as T | undefined
+}
+
+export function all<T = Row>(sql: string, ...params: BindParam[]): T[] {
+  return db.prepare(sql).all(...params) as T[]
+}
+
 /** Clear all data (for testing) */
 export function clearAll() {
   // Disable FK constraints so DELETE order doesn't matter

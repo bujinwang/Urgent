@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import db from '../db'
+import db, { get, all } from '../db'
 import { success, error, AedDevice, AedCheckin, AedDeviceInput, AedManager, AedMaintenance, AedPickup, AedAuditEvent, AedCertification } from '../types'
 
 export const aedRouter = Router()
@@ -16,7 +16,7 @@ function logAudit(aedId: string, eventType: string, description: string, userId:
 function rowToDevice(row: any): AedDevice {
   const checkins = db.prepare(
     'SELECT * FROM aed_checkins WHERE aed_id = ? ORDER BY date DESC'
-  ).all(row.id) as any[]
+  ).all(row.id)
   return {
     id: row.id, name: row.name, address: row.address,
     lat: row.lat, lng: row.lng, distance: row.distance,
@@ -53,7 +53,7 @@ function rowToDevice(row: any): AedDevice {
 
 aedRouter.get('/nearby', (_req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM aed_devices ORDER BY distance ASC').all() as any[]
+    const rows = all('SELECT * FROM aed_devices ORDER BY distance ASC', )
     res.json(success(rows.map(rowToDevice)))
   } catch (e: any) {
     res.status(500).json(error(e.message || '服务器错误'))
@@ -69,14 +69,14 @@ aedRouter.get('/mine', (req, res) => {
       JOIN aed_managers am ON am.aed_id = ad.id
       WHERE am.user_id = ?
       ORDER BY ad.distance ASC
-    `).all(userId) as any[]
+    `).all(userId)
     const devices = rows.map(rowToDevice)
     // Attach pending alerts
     for (const d of devices) {
       const pickups = db.prepare(
         "SELECT COUNT(*) as cnt FROM aed_pickups WHERE aed_id = ? AND return_time IS NULL"
-      ).get(d.id) as any
-      ;(d as any).activePickups = pickups.cnt
+      ).get(d.id)
+      ;d.activePickups = pickups.cnt
     }
     res.json(success(devices))
   } catch (e: any) {
@@ -86,7 +86,7 @@ aedRouter.get('/mine', (req, res) => {
 
 aedRouter.get('/:id', (req, res) => {
   try {
-    const row = db.prepare('SELECT * FROM aed_devices WHERE id = ?').get(req.params.id) as any
+    const row = get('SELECT * FROM aed_devices WHERE id = ?', req.params.id)
     if (!row) return res.json(error('AED 设备不存在'))
     res.json(success(rowToDevice(row)))
   } catch (e: any) {
@@ -116,7 +116,7 @@ aedRouter.post('/', (req, res) => {
       input.custodianName || '', input.custodianPhone || '', input.custodianRole || '',
       input.reportedBy || '',
     )
-    const row = db.prepare('SELECT * FROM aed_devices WHERE id = ?').get(id) as any
+    const row = get('SELECT * FROM aed_devices WHERE id = ?', id)
     logAudit(id, 'device_created', `新增 AED: ${input.name}`, input.reportedBy || '', input.reportedBy || '')
     res.json(success(rowToDevice(row), 'AED 添加成功'))
   } catch (e: any) {
@@ -127,7 +127,7 @@ aedRouter.post('/', (req, res) => {
 // PUT /api/aed/:id — update device
 aedRouter.put('/:id', (req, res) => {
   try {
-    const existing = db.prepare('SELECT * FROM aed_devices WHERE id = ?').get(req.params.id) as any
+    const existing = get('SELECT * FROM aed_devices WHERE id = ?', req.params.id)
     if (!existing) return res.json(error('AED 设备不存在'))
     const input = req.body as Record<string, any>
     db.prepare(`
@@ -159,7 +159,7 @@ aedRouter.put('/:id', (req, res) => {
     if (input.lastCheck) {
       db.prepare('UPDATE aed_devices SET last_check = ? WHERE id = ?').run(input.lastCheck, req.params.id)
     }
-    const row = db.prepare('SELECT * FROM aed_devices WHERE id = ?').get(req.params.id) as any
+    const row = get('SELECT * FROM aed_devices WHERE id = ?', req.params.id)
     if (input.status && input.status !== existing.status) {
       logAudit(req.params.id, 'status_change', `状态变更: ${existing.status} → ${input.status}`, input.reportedBy || existing.reported_by, input.reportedBy || existing.reported_by, existing.status, input.status)
     }
@@ -172,7 +172,7 @@ aedRouter.put('/:id', (req, res) => {
 // DELETE /api/aed/:id — delete device
 aedRouter.delete('/:id', (req, res) => {
   try {
-    const existing = db.prepare('SELECT name FROM aed_devices WHERE id = ?').get(req.params.id) as any
+    const existing = get('SELECT name FROM aed_devices WHERE id = ?', req.params.id)
     db.prepare('DELETE FROM aed_checkins WHERE aed_id = ?').run(req.params.id)
     db.prepare('DELETE FROM aed_devices WHERE id = ?').run(req.params.id)
     logAudit(req.params.id, 'device_deleted', `删除 AED: ${existing?.name || req.params.id}`, '', '')
@@ -189,7 +189,7 @@ aedRouter.get('/:id/checkins', (req, res) => {
   try {
     const rows = db.prepare(
       'SELECT * FROM aed_checkins WHERE aed_id = ? ORDER BY date DESC'
-    ).all(req.params.id) as any[]
+    ).all(req.params.id)
     const checkins: AedCheckin[] = rows.map(ci => ({
       id: ci.id, aedId: ci.aed_id, userId: ci.user_id,
       userName: ci.user_name, photo: ci.photo,
@@ -226,7 +226,7 @@ aedRouter.get('/:id/managers', (req, res) => {
   try {
     const rows = db.prepare(
       'SELECT * FROM aed_managers WHERE aed_id = ? ORDER BY role'
-    ).all(req.params.id) as any[]
+    ).all(req.params.id)
     const managers: AedManager[] = rows.map(r => ({
       id: r.id, aedId: r.aed_id, userId: r.user_id,
       userName: r.user_name, role: r.role, assignedAt: r.assigned_at,
@@ -254,7 +254,7 @@ aedRouter.post('/:id/managers', (req, res) => {
 // DELETE /api/aed/:id/managers/:managerId
 aedRouter.delete('/:id/managers/:managerId', (req, res) => {
   try {
-    const mgr = db.prepare('SELECT * FROM aed_managers WHERE id = ?').get(req.params.managerId) as any
+    const mgr = get('SELECT * FROM aed_managers WHERE id = ?', req.params.managerId)
     db.prepare('DELETE FROM aed_managers WHERE id = ?').run(req.params.managerId)
     if (mgr) logAudit(req.params.id, 'manager_removed', `移除管理者: ${mgr.user_name || mgr.user_id}`, mgr.user_id, mgr.user_name)
     res.json(success(null, '管理者已移除'))
@@ -270,7 +270,7 @@ aedRouter.get('/:id/maintenance', (req, res) => {
   try {
     const rows = db.prepare(
       'SELECT * FROM aed_maintenance WHERE aed_id = ? ORDER BY date DESC'
-    ).all(req.params.id) as any[]
+    ).all(req.params.id)
     const records: AedMaintenance[] = rows.map(r => ({
       id: r.id, aedId: r.aed_id, type: r.type,
       date: r.date, performedBy: r.performed_by,
@@ -307,7 +307,7 @@ aedRouter.get('/:id/pickups', (req, res) => {
   try {
     const rows = db.prepare(
       'SELECT * FROM aed_pickups WHERE aed_id = ? ORDER BY pickup_time DESC'
-    ).all(req.params.id) as any[]
+    ).all(req.params.id)
     const pickups: AedPickup[] = rows.map(r => ({
       id: r.id, aedId: r.aed_id, userId: r.user_id,
       userName: r.user_name, pickupTime: r.pickup_time,
@@ -349,7 +349,7 @@ aedRouter.put('/:id/pickups/:pickupId', (req, res) => {
     // Check if any active pickups remain
     const active = db.prepare(
       'SELECT COUNT(*) as cnt FROM aed_pickups WHERE aed_id = ? AND return_time IS NULL'
-    ).get(req.params.id) as any
+    ).get(req.params.id)
     if (active.cnt === 0) {
       db.prepare("UPDATE aed_devices SET status = 'available' WHERE id = ?").run(req.params.id)
     }
@@ -367,7 +367,7 @@ aedRouter.get('/:id/audit', (req, res) => {
   try {
     const rows = db.prepare(
       'SELECT * FROM aed_audit_log WHERE aed_id = ? ORDER BY created_at DESC LIMIT 50'
-    ).all(req.params.id) as any[]
+    ).all(req.params.id)
     const events: AedAuditEvent[] = rows.map(r => ({
       id: r.id, aedId: r.aed_id, eventType: r.event_type,
       description: r.description, userId: r.user_id, userName: r.user_name,
@@ -387,7 +387,7 @@ aedRouter.get('/:id/certifications', (req, res) => {
   try {
     const rows = db.prepare(
       'SELECT * FROM aed_certifications WHERE aed_id = ? ORDER BY expiry_date ASC'
-    ).all(req.params.id) as any[]
+    ).all(req.params.id)
     const certs: AedCertification[] = rows.map(r => ({
       id: r.id, aedId: r.aed_id, type: r.type, name: r.name,
       issuer: r.issuer, issueDate: r.issue_date, expiryDate: r.expiry_date,
@@ -418,7 +418,7 @@ aedRouter.post('/:id/certifications', (req, res) => {
 // DELETE /api/aed/:id/certifications/:certId
 aedRouter.delete('/:id/certifications/:certId', (req, res) => {
   try {
-    const cert = db.prepare('SELECT name FROM aed_certifications WHERE id = ?').get(req.params.certId) as any
+    const cert = get('SELECT name FROM aed_certifications WHERE id = ?', req.params.certId)
     db.prepare('DELETE FROM aed_certifications WHERE id = ?').run(req.params.certId)
     if (cert) logAudit(req.params.id, 'certification_removed', `移除认证: ${cert.name}`, '', '')
     res.json(success(null, '认证已删除'))
@@ -430,13 +430,13 @@ aedRouter.delete('/:id/certifications/:certId', (req, res) => {
 // GET /api/aed/:id/lifecycle — full lifecycle overview
 aedRouter.get('/:id/lifecycle', (req, res) => {
   try {
-    const device = rowToDevice(db.prepare('SELECT * FROM aed_devices WHERE id = ?').get(req.params.id) as any)
-    const managers = db.prepare('SELECT * FROM aed_managers WHERE aed_id = ?').all(req.params.id) as any[]
-    const maintenance = db.prepare('SELECT * FROM aed_maintenance WHERE aed_id = ? ORDER BY date DESC').all(req.params.id) as any[]
-    const pickups = db.prepare('SELECT * FROM aed_pickups WHERE aed_id = ? ORDER BY pickup_time DESC LIMIT 10').all(req.params.id) as any[]
-    const activePickups = db.prepare('SELECT COUNT(*) as cnt FROM aed_pickups WHERE aed_id = ? AND return_time IS NULL').get(req.params.id) as any
-    const auditLog = db.prepare('SELECT * FROM aed_audit_log WHERE aed_id = ? ORDER BY created_at DESC LIMIT 20').all(req.params.id) as any[]
-    const certifications = db.prepare('SELECT * FROM aed_certifications WHERE aed_id = ? ORDER BY expiry_date ASC').all(req.params.id) as any[]
+    const device = rowToDevice(get('SELECT * FROM aed_devices WHERE id = ?', req.params.id))
+    const managers = all('SELECT * FROM aed_managers WHERE aed_id = ?', req.params.id)
+    const maintenance = all('SELECT * FROM aed_maintenance WHERE aed_id = ? ORDER BY date DESC', req.params.id)
+    const pickups = all('SELECT * FROM aed_pickups WHERE aed_id = ? ORDER BY pickup_time DESC LIMIT 10', req.params.id)
+    const activePickups = get('SELECT COUNT(*) as cnt FROM aed_pickups WHERE aed_id = ? AND return_time IS NULL', req.params.id)
+    const auditLog = all('SELECT * FROM aed_audit_log WHERE aed_id = ? ORDER BY created_at DESC LIMIT 20', req.params.id)
+    const certifications = all('SELECT * FROM aed_certifications WHERE aed_id = ? ORDER BY expiry_date ASC', req.params.id)
 
     res.json(success({
       device,

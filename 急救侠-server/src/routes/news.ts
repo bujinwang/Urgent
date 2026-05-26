@@ -1,12 +1,12 @@
 import { Router } from 'express'
-import db from '../db'
+import db, { get, all } from '../db'
 import { success, error, NewsItem } from '../types'
 
 export const newsRouter = Router()
 
 newsRouter.get('/list', (_req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM news ORDER BY time DESC').all() as any[]
+    const rows = all('SELECT * FROM news ORDER BY time DESC', )
     const items: NewsItem[] = rows.map(row => ({
       id: row.id, title: row.title, type: row.type, category: row.category,
       time: row.time,
@@ -24,7 +24,7 @@ newsRouter.get('/list', (_req, res) => {
 newsRouter.get('/category/:cat', (req, res) => {
   try {
     const cat = req.params.cat
-    const rows = db.prepare('SELECT * FROM news WHERE category = ? ORDER BY time DESC').all(cat) as any[]
+    const rows = all('SELECT * FROM news WHERE category = ? ORDER BY time DESC', cat)
     const items: NewsItem[] = rows.map(row => ({
       id: row.id, title: row.title, type: row.type, category: row.category,
       time: row.time,
@@ -41,7 +41,7 @@ newsRouter.get('/category/:cat', (req, res) => {
 
 newsRouter.get('/:id', (req, res) => {
   try {
-    const row = db.prepare('SELECT * FROM news WHERE id = ?').get(req.params.id) as any
+    const row = get('SELECT * FROM news WHERE id = ?', req.params.id)
     if (!row) return res.json(error('新闻不存在'))
     const item: NewsItem = {
       id: row.id, title: row.title, type: row.type, category: row.category,

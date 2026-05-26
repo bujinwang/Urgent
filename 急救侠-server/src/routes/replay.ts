@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import db from '../db'
+import db, { get, all } from '../db'
 import { success, error } from '../types'
 
 export const replayRouter = Router()
@@ -7,17 +7,17 @@ export const replayRouter = Router()
 replayRouter.get('/', (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10
-    const rows = db.prepare('SELECT * FROM rescue_replays ORDER BY created_at DESC LIMIT ?').all(limit) as any[]
+    const rows = all('SELECT * FROM rescue_replays ORDER BY created_at DESC LIMIT ?', limit)
     res.json(success(rows.map(formatReplay)))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
 replayRouter.get('/:id', (req, res) => {
   try {
-    const rp = db.prepare('SELECT * FROM rescue_replays WHERE id=?').get(req.params.id) as any
+    const rp = get('SELECT * FROM rescue_replays WHERE id=?', req.params.id)
     if (!rp) return res.json(error('回放不存在'))
-    const media = db.prepare('SELECT * FROM task_media WHERE task_id=? ORDER BY created_at ASC').all(rp.task_id) as any[]
-    const comments = db.prepare('SELECT * FROM replay_comments WHERE replay_id=? ORDER BY created_at DESC LIMIT 30').all(req.params.id) as any[]
+    const media = all('SELECT * FROM task_media WHERE task_id=? ORDER BY created_at ASC', rp.task_id)
+    const comments = all('SELECT * FROM replay_comments WHERE replay_id=? ORDER BY created_at DESC LIMIT 30', req.params.id)
     res.json(success({
       ...formatReplay(rp),
       timeline: media.map((m:any) => ({ id:m.id,userId:m.user_id,userName:m.user_name,userAvatar:m.user_avatar,type:m.type,content:m.content,mediaUrl:m.media_url,createdAt:m.created_at })),

@@ -1,12 +1,12 @@
 import { Router } from 'express'
-import db from '../db'
+import db, { get, all } from '../db'
 import { success, error, RescueRecord } from '../types'
 
 export const recordsRouter = Router()
 
 recordsRouter.get('/list', (_req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM rescue_records ORDER BY date DESC').all() as any[]
+    const rows = all('SELECT * FROM rescue_records ORDER BY date DESC', )
     const records: RescueRecord[] = rows.map(row => ({
       id: row.id, type: row.type, date: row.date,
       location: row.location, role: row.role,

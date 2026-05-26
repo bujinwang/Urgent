@@ -3,7 +3,7 @@ import { success, error, PushRegisterInput } from '../types'
 import { authMiddleware, AuthPayload } from '../middleware/auth'
 import { WECHAT_APPID, WECHAT_SECRET } from '../config'
 import { validate } from '../middleware/validate'
-import db from '../db'
+import db, { get, all } from '../db'
 
 export const pushRouter = Router()
 
