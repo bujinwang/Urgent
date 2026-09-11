@@ -332,5 +332,19 @@ docker compose up -d
 - 文档：`deliverables/software-company/gov-dashboard-{prd,design}.md`（+ `gov-dashboard-{sequence,class}.mermaid`）。
 - **遗留（P1 / 后续）**：`district` 存量回填；覆盖率需外部人口/面积基线；SSO / IP 白名单；gov 前端单测；CSV/PDF 导出；省级卫健委平台对接。
 
-### ⏳ P2 其余项
-- **P2-9 薄页面复核**（change-pwd / cert/interests / cert/upload / atlas/index）。
+### ✅ P2-9 薄页面复核（已完成，2026-09-11）
+
+实读 4 个薄页面 + 追其依赖的后端契约，**无一是空壳占位**：
+
+| 页面 | 行数 | 判定 | 依据 |
+|------|-----:|------|------|
+| `auth/change-pwd.vue` | 29 | ⚠️ **能跑但脆弱** | 表单/校验/`POST /auth/change-password` 齐全，但**从 `jwt_token` 字符串截取 phone**（`replace(/^(demo_\|token_)?/,'').replace(/_.*/,'')`）；因后端登录返回**明文** `token_<phone>_<ts>`，恰好取到 phone；token 若变真 JWT 即失效 |
+| `cert/interests.vue` | 30 | ✅ 轻量但完整 | 兴趣多选 + `PUT /user/interests` + 同步 store |
+| `cert/upload.vue` | 35 | ✅ 轻量但完整 | 完整表单 + `POST /rescue/certification` + 记录列表/状态 |
+| `atlas/index.vue` | 60 | ✅ 合法薄视图 | 纯展示（渲染 store 卡片 + 巡检入口），数据/导航在 store |
+
+**⚠️ 复核中发现更重要的跨模块缺陷（待修）——鉴权 token 模型不一致**：
+- 后端**手机号登录**返回**明文** `token_<phone>_<ts>`（`routes/auth.ts:96`），**不是 JWT**（`signToken` 只用在同文件的微信登录路径 `routes/auth.ts:40`）；
+- `authMiddleware` 用 `verifyToken`（`jwt.verify`，**严格 JWT**，`middleware/auth.ts:19-21`）→ 明文 token **被 401**；
+- 前端 `api/index.ts` 将该 token 作为 `Bearer` 附到**所有请求**；而 **P2-7 的 AED 联动端点（`notify-custodian`/`unlock`/`custodian-alerts/*`）都挂了 `authMiddleware`** → **手机号登录用户在真实使用中会 401**。
+- 定性：后端单测用 `signToken` 造 JWT，故全绿；**前端携带的却是明文 token** → 典型"单测过、端到端未必通"。**待修**（建议手机号登录也改发 `signToken` 的 JWT；随之 `change-pwd.vue` 不能再从 token 截取 phone，应改用已登录身份）。
