@@ -100,9 +100,13 @@ describe('口令入库与登录（安全收敛 A，端到端）', () => {
     expect(relogin.body.code).toBe(0)
   })
 
-  it('reset-password 存哈希', async () => {
-    await request(server).post('/api/auth/register').send({ phone: PHONE, password: PWD })
-    const res = await request(server).post('/api/auth/reset-password').send({ phone: PHONE, newPassword: 'resetpw1' })
+  it('reset-password 存哈希（需本人令牌，F1 之后）', async () => {
+    const reg = await request(server).post('/api/auth/register').send({ phone: PHONE, password: PWD })
+    expect(reg.body.code).toBe(0)
+    const res = await request(server)
+      .post('/api/auth/reset-password')
+      .set('Authorization', `Bearer ${reg.body.data.token as string}`)
+      .send({ phone: PHONE, newPassword: 'resetpw1' })
     expect(res.body.code).toBe(0)
     const row = db.prepare('SELECT password FROM users WHERE id = ?').get('u_' + PHONE) as { password: string }
     expect(row.password.startsWith(HASH_PREFIX)).toBe(true)

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { server, seedTestData, clearAll } from './setup'
+import { server, seedTestData, clearAll, userToken } from './setup'
 
 describe('Edge Cases', () => {
   beforeEach(() => { seedTestData() })
@@ -39,6 +39,7 @@ describe('Edge Cases', () => {
     it('returns error for negative points', async () => {
       const res = await request(server)
         .post('/api/user/points')
+        .set('Authorization', `Bearer ${userToken()}`)
         .send({ amount: -100, reason: 'test' })
       expect(res.status).toBe(200)
     })

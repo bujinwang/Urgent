@@ -6,6 +6,7 @@ import app from '../app'
 import { clearAll, resetSchema } from '../db'
 import db from '../db'
 import { hashPassword, signGovToken } from '../middleware/govAuth'
+import { signToken } from '../middleware/auth'
 
 // ---------------------------------------------------------------------------
 // 1) 常驻 listener，显式绑定 127.0.0.1
@@ -99,6 +100,15 @@ export function addPushSubscription(userId: string, templateId: string, accepted
   db.prepare('INSERT INTO push_subscriptions (id, user_id, template_id, accepted) VALUES (?,?,?,?)').run(
     'ps_' + userId + '_' + templateId, userId, templateId, accepted ? 1 : 0
   )
+}
+
+/**
+ * 业务用户令牌夹具（供需要 `authMiddleware` 的端点使用）。
+ *
+ * @param userId `users.id`；默认 `user_001` 即 `seedTestData()` 的默认用户。
+ */
+export function userToken(userId = 'user_001'): string {
+  return signToken({ userId })
 }
 
 /** 政府看板账号夹具（P2-8）：返回可用于登录/直连的凭据与令牌。 */

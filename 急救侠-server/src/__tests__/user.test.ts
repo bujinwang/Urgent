@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { server, seedTestData } from './setup'
+import { server, seedTestData, userToken } from './setup'
 
 describe('User Routes', () => {
   beforeEach(() => { seedTestData() })
@@ -30,6 +30,7 @@ describe('User Routes', () => {
     it('awards points and updates tier', async () => {
       const res = await request(server)
         .post('/api/user/points')
+        .set('Authorization', `Bearer ${userToken()}`)
         .send({ amount: 200, reason: '测试奖励' })
       expect(res.status).toBe(200)
       expect(res.body.data.points).toBe(2540)
@@ -39,6 +40,7 @@ describe('User Routes', () => {
     it('upgrades tier when threshold reached', async () => {
       const res = await request(server)
         .post('/api/user/points')
+        .set('Authorization', `Bearer ${userToken()}`)
         .send({ amount: 3000, reason: '大量奖励' })
       expect(res.body.data.points).toBe(5340)
       expect(res.body.data.tier).toBe('diamond')

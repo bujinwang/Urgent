@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { server, seedTestData, clearAll, db } from './setup'
+import { server, seedTestData, clearAll, db, userToken } from './setup'
 import { resetSchema } from '../db'  // 从零重建完整 schema，兜底恢复被破坏的表结构
 
 describe('Coverage: middleware/auth.ts', () => {
@@ -211,6 +211,7 @@ describe('Coverage: routes/user.ts', () => {
     try {
       const res = await request(server)
         .post('/api/user/points')
+        .set('Authorization', `Bearer ${userToken('ghost_user')}`)
         .send({ amount: 100, reason: 'test' })
       expect(res.status).toBe(500)
     } finally {
@@ -224,6 +225,7 @@ describe('Coverage: routes/user.ts', () => {
     // Don't seed — no users
     const res = await request(server)
       .post('/api/user/points')
+      .set('Authorization', `Bearer ${userToken()}`)
       .send({ amount: 100, reason: 'test' })
     expect(res.body.code).toBe(-1)
   })
@@ -235,6 +237,7 @@ describe('Coverage: routes/user.ts', () => {
     db.prepare('UPDATE users SET points = 900 WHERE id = ?').run(user.id)
     const res = await request(server)
       .post('/api/user/points')
+      .set('Authorization', `Bearer ${userToken()}`)
       .send({ amount: 150, reason: 'boundary test' })
     expect(res.body.data.tier).toBe('silver')
     expect(res.body.data.points).toBe(1050)
@@ -246,6 +249,7 @@ describe('Coverage: routes/user.ts', () => {
     db.prepare('UPDATE users SET points = 2400, tier = ? WHERE id = ?').run('silver', user.id)
     const res = await request(server)
       .post('/api/user/points')
+      .set('Authorization', `Bearer ${userToken()}`)
       .send({ amount: 200, reason: 'gold test' })
     expect(res.body.data.tier).toBe('gold')
   })

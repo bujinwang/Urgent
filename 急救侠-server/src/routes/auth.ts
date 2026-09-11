@@ -9,18 +9,24 @@ import type { UserRow, UserLoginProfileRow } from '../types/rows'
 
 export const authRouter = Router()
 
+/** 口令校验结果。 */
+type PasswordCheck = 'ok' | 'no-password' | 'fail'
+
 /**
  * 校验口令并**兼容存量明文**：命中明文时**透明升级**为哈希（安全收敛 A）。
  *
- * @returns 是否通过认证；通过且原为明文时，库中口令已被替换为哈希。
+ * - `ok`          通过（若原为明文，库中口令已被替换为哈希）；
+ * - `no-password` 账号**未设置口令**（微信/种子账号）——**不是**通过，
+ *                 调用方必须显式决定如何处理（登录一律拒绝，见 F2）；
+ * - `fail`        口令错误。
  */
-function verifyAndUpgrade(userId: string, stored: string, plain: string): boolean {
-  if (!stored) return true // 历史无口令账号：保持既有「放行」行为，不改变语义
-  if (isHashed(stored)) return verifyPassword(plain, stored)
+function verifyAndUpgrade(userId: string, stored: string, plain: string): PasswordCheck {
+  if (!stored) return 'no-password'
+  if (isHashed(stored)) return verifyPassword(plain, stored) ? 'ok' : 'fail'
   // 存量明文：按明文比较，匹配则透明升级
-  if (stored !== plain) return false
+  if (stored !== plain) return 'fail'
   db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(plain), userId)
-  return true
+  return 'ok'
 }
 
 /** 微信登录 */
@@ -109,7 +115,10 @@ authRouter.post('/login', validate(AuthLoginInput), (req, res) => {
     if (!phone || !password) return res.json(error('手机号和密码不能为空'))
     const user = get<UserRow>('SELECT * FROM users WHERE id = ?', 'u_' + phone)
     if (!user) return res.json(error('用户不存在，请先注册'))
-    if (!verifyAndUpgrade(user.id, user.password || '', password)) return res.json(error('密码错误'))
+    const check = verifyAndUpgrade(user.id, user.password || '', password)
+    // F2：未设置口令的账号**不得**用任意口令登录（此前 `if (!stored) return true` 等同放行）
+    if (check === 'no-password') return res.json(error('该账号未设置密码，请使用微信登录或联系管理员'))
+    if (check !== 'ok') return res.json(error('密码错误'))
     // 签发真实 JWT（payload 含 userId），使 authMiddleware / callerOf 等下游可用
     const token = signToken({ userId: user.id })
     res.json(success({ token, user: { id: user.id, name: user.name, avatar: user.avatar, tier: user.tier, points: user.points, city: user.city, volunteerId: user.volunteer_id, certifications: JSON.parse(user.certifications||'[]'), rescueCount: user.rescue_count, volunteer_type: user.volunteer_type } }, '登录成功'))
@@ -137,20 +146,48 @@ authRouter.post('/change-password', authMiddleware, validate(AuthChangePasswordI
 
     const user = get<UserRow>('SELECT * FROM users WHERE id = ?', userId)
     if (!user) return res.json(error('用户不存在'))
-    if (!verifyAndUpgrade(userId, user.password || '', oldPassword)) return res.json(error('旧密码错误'))
+
+    const stored = user.password || ''
+    if (stored) {
+      // 已设置口令：必须校验旧口令
+      if (verifyAndUpgrade(userId, stored, oldPassword) !== 'ok') return res.json(error('旧密码错误'))
+    }
+    // stored 为空 = 账号尚未设置口令（微信/种子账号）：调用方已持本人令牌，
+    // 此处按「首次设置口令」处理，不要求旧口令（否则这类账号永远无法设置口令）。
     db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(newPassword), userId)
     res.json(success(null, '密码已修改'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-/** 重置密码（通过手机号） */
-authRouter.post('/reset-password', validate(AuthResetPasswordInput), (req, res) => {
+/**
+ * 重置密码（安全收敛 F1）
+ *
+ * 此前**完全无鉴权**：知道手机号即可把任意账号的口令改掉（账号接管）。
+ * 本项目暂无短信/邮箱验证码通道，因此按「最小可用且安全」口径收敛为：
+ * - 必须**已登录**（`authMiddleware`）；
+ * - 只能重置**本人**口令；队长（`is_leader = 1`）可重置队员口令。
+ *
+ * 「忘记密码且未登录」的场景需后续接入验证码通道后再开放匿名自助重置。
+ */
+authRouter.post('/reset-password', authMiddleware, validate(AuthResetPasswordInput), (req, res) => {
   try {
+    const a = (req as { auth?: AuthPayload }).auth
+    const callerId = a && (a.userId || a.openid)
+    if (!callerId) return res.status(401).json(error('未登录'))
+
     const { phone, newPassword } = req.body
     if (!phone || !newPassword) return res.json(error('参数不完整'))
-    const user = get<{ id: string }>('SELECT id FROM users WHERE id = ?', 'u_' + phone)
-    if (!user) return res.json(error('该手机号未注册'))
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(newPassword), 'u_' + phone)
+
+    const targetId = 'u_' + phone
+    const target = get<{ id: string }>('SELECT id FROM users WHERE id = ?', targetId)
+    if (!target) return res.json(error('该手机号未注册'))
+
+    const caller = get<{ is_leader: number }>('SELECT is_leader FROM users WHERE id = ?', callerId)
+    const isSelf = targetId === callerId
+    const isLeader = caller?.is_leader === 1
+    if (!isSelf && !isLeader) return res.status(403).json(error('无权重置他人密码'))
+
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(newPassword), targetId)
     res.json(success(null, '密码已重置'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })

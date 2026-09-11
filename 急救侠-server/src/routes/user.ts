@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error, UserProfile, Stats } from '../types'
-import { optionalAuth } from '../middleware/auth'
+import { optionalAuth, authMiddleware } from '../middleware/auth'
 import type { AuthPayload } from '../middleware/auth'
 import type { UserRow, StatRow, OrgRoleRow, TrainingRecordRow } from '../types/rows'
 
@@ -97,10 +97,20 @@ userRouter.put('/privacy', (req, res) => {
   } catch (e: any) { res.status(500).json(error(e.message || '服务器错误')) }
 })
 
-userRouter.post('/points', (req, res) => {
+/**
+ * 增加积分（安全收敛 F3）
+ *
+ * 此前**无鉴权且身份取 `SELECT * FROM users LIMIT 1`** —— 匿名请求即可给
+ * 「表里第一个用户」加积分并改等级。现改为：必须登录 + 身份取自令牌。
+ */
+userRouter.post('/points', authMiddleware, (req, res) => {
   try {
+    const a = (req as { auth?: AuthPayload }).auth
+    const userId = a && (a.userId || a.openid)
+    if (!userId) return res.status(401).json(error('未登录'))
+
     const { amount, reason } = req.body
-    const row = get<UserRow>('SELECT * FROM users LIMIT 1')
+    const row = get<UserRow>('SELECT * FROM users WHERE id = ?', userId)
     if (!row) return res.json(error('用户不存在'))
     const newPoints = row.points + (amount || 0)
     let newTier = row.tier
