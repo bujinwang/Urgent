@@ -62,6 +62,18 @@
       }
     },
     {
+      "path": "pages/gov/login",
+      "style": {
+        "navigationBarTitleText": "政府登录"
+      }
+    },
+    {
+      "path": "pages/gov/dashboard",
+      "style": {
+        "navigationBarTitleText": "政府数据监管看板"
+      }
+    },
+    {
       "path": "pages/atlas/index",
       "style": {
         "navigationBarTitleText": "急救图谱"
