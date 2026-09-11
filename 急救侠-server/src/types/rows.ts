@@ -27,6 +27,9 @@ import type {
   AedCertificationType,
   AedCheckin,
   NewsItem,
+  CustodianAlertStatus,
+  UnlockAction,
+  UnlockCommandStatus,
 } from './index'
 
 // ---- Aggregate helpers ----
@@ -767,4 +770,43 @@ export interface DrillOrganizerRow {
   tier: UserTier
   points: number
   drills_completed: number
+}
+
+// ---- AED custodian linkage ----
+
+/**
+ * `aed_custodian_alerts` row — 每次「通知责任人」产生的求助记录。
+ * 所有时间字段均为 UTC epoch 毫秒（INTEGER），与既有 `datetime('now')` 文本表并存。
+ */
+export interface AedCustodianAlertRow {
+  id: string
+  aed_id: string
+  pickup_id: string
+  requester_user_id: string
+  requester_user_name: string
+  requester_user_phone: string
+  custodian_user_id: string
+  custodian_name: string
+  custodian_phone_snapshot: string
+  custodian_role: string
+  channel: 'push' | 'sms' | 'phone' | 'multi'
+  status: CustodianAlertStatus
+  notify_time_ms: number
+  first_sent_time_ms: number | null
+  responded_time_ms: number | null
+  sla_deadline_ms: number
+  response_latency_ms: number | null
+  sla_met: number | null
+  unlock_action: UnlockAction
+  unlock_command_status: UnlockCommandStatus
+  unlock_token: string
+  responder_user_id: string
+  delivery_state: 'pending' | 'delivered' | 'failed' | 'no_subscription'
+  consent_granted: number
+  consent_version: string
+  consent_at_ms: number | null
+  consent_revoked_at_ms: number | null
+  notes: string
+  created_at: number
+  updated_at: number
 }

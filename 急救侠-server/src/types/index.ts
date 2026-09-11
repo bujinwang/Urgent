@@ -407,6 +407,93 @@ export const PushRegisterInput = z.object({
 })
 export type PushRegisterInput = z.infer<typeof PushRegisterInput>
 
+// ---- AED 责任人联动（custodian linkage）----
+
+export const CustodianAlertStatus = z.enum([
+  'pending', 'sent', 'acknowledged', 'rejected', 'expired', 'unreachable',
+])
+export type CustodianAlertStatus = z.infer<typeof CustodianAlertStatus>
+
+export const UnlockAction = z.enum(['none', 'authorize', 'deny'])
+export type UnlockAction = z.infer<typeof UnlockAction>
+
+export const UnlockCommandStatus = z.enum(['not_issued', 'issued', 'acked'])
+export type UnlockCommandStatus = z.infer<typeof UnlockCommandStatus>
+
+/**
+ * 对外返回的求助记录。
+ * 语义为「责任人已确认授权」，**不含任何物理开锁含义**；时间戳为 UTC epoch ms，
+ * 展示层自行转换为本地时区。为 PIPL 最小必要原则，此处**不返回**责任人手机号。
+ */
+export const AedCustodianAlert = z.object({
+  id: z.string(),
+  aedId: z.string(),
+  pickupId: z.string(),
+  status: CustodianAlertStatus,
+  channel: z.string(),
+  requesterUserId: z.string(),
+  requesterUserName: z.string(),
+  custodianUserId: z.string(),
+  custodianName: z.string(),
+  custodianRole: z.string(),
+  notifyTimeMs: z.number(),
+  firstSentTimeMs: z.number().nullable(),
+  respondedTimeMs: z.number().nullable(),
+  slaDeadlineMs: z.number(),
+  responseLatencyMs: z.number().nullable(),
+  slaMet: z.boolean().nullable(),
+  unlockAction: UnlockAction,
+  unlockCommandStatus: UnlockCommandStatus,
+  deliveryState: z.string(),
+  consentGranted: z.boolean(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+})
+export type AedCustodianAlert = z.infer<typeof AedCustodianAlert>
+
+/** POST /api/aed/:id/notify-custodian */
+export const CustodianNotifyInput = z.object({
+  pickupId: z.string().optional(),
+  missionId: z.string().optional(),
+  notes: z.string().optional(),
+  consentGranted: z.boolean(),           // PIPL：必须显式 true
+  consentVersion: z.string().optional(), // 默认 'v1'
+})
+export type CustodianNotifyInput = z.infer<typeof CustodianNotifyInput>
+
+/** POST /api/aed/:id/unlock —— 责任人「确认授权 / 拒绝」（confirm=authorize） */
+export const CustodianActionInput = z.object({
+  alertId: z.string().min(1, 'alertId 不能为空'),
+  action: z.enum(['authorize', 'deny']),
+  notes: z.string().optional(),
+})
+export type CustodianActionInput = z.infer<typeof CustodianActionInput>
+
+/** POST /api/aed/:id/custodian-alerts/:alertId/revoke-consent */
+export const ConsentRevokeInput = z.object({
+  reason: z.string().optional(),
+})
+export type ConsentRevokeInput = z.infer<typeof ConsentRevokeInput>
+
+/**
+ * 业务错误码（与 HTTP 200 一并返回，前端据 code 分支）。
+ * 鉴权失败由 authMiddleware 返回 HTTP 401；NOT_CUSTODIAN 同时映射 HTTP 403。
+ */
+export const AlertCode = {
+  NO_CUSTODIAN: 4001,       // 设备无责任人（不阻断急救）
+  ALERT_NOT_FOUND: 4002,
+  NOT_CUSTODIAN: 4003,      // 调用者非该设备责任人
+  ALREADY_RESPONDED: 4004,  // 已响应，且与本次动作不同
+  ALERT_EXPIRED: 4005,
+  CONSENT_REQUIRED: 4006,   // 未同意 PIPL
+  DEVICE_NOT_FOUND: 4007,
+  PICKUP_NOT_FOUND: 4008,
+} as const
+export type AlertCode = (typeof AlertCode)[keyof typeof AlertCode]
+
+/** SLA 固定 120s（本期）。 */
+export const CUSTODIAN_SLA_MS = 120000
+
 // ---- API Response ----
 export const ApiResponse = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({

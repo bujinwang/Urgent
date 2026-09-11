@@ -1,27 +1,11 @@
 import { Router } from 'express'
 import { success, error, PushRegisterInput } from '../types'
 import { authMiddleware, AuthPayload } from '../middleware/auth'
-import { WECHAT_APPID, WECHAT_SECRET } from '../config'
 import { validate } from '../middleware/validate'
 import db, { get, all } from '../db'
+import { getWechatAccessToken } from '../services/pushService'
 
 export const pushRouter = Router()
-
-/** Get WeChat access_token (dev mock when no credentials configured) */
-async function getWechatAccessToken(): Promise<string> {
-  if (!WECHAT_APPID || !WECHAT_SECRET) {
-    console.log('[Push] 开发模式：模拟 access_token')
-    return 'dev_access_token_' + Date.now()
-  }
-  const res = await fetch(
-    `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${WECHAT_APPID}&secret=${WECHAT_SECRET}`
-  )
-  const data: any = await res.json()
-  if (data.errcode) {
-    throw new Error(`获取 access_token 失败: ${data.errmsg} (${data.errcode})`)
-  }
-  return data.access_token
-}
 
 /** 注册推送订阅（小程序 templateId / 订阅结果） */
 pushRouter.post('/register', authMiddleware, validate(PushRegisterInput), (req, res) => {

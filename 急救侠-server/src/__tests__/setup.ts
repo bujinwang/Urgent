@@ -79,6 +79,27 @@ export function seedTestData() {
     'atlas_001', 'CPR 心肺复苏', '基础技能', '测试描述', '["步骤1","步骤2"]', '❤️')
 }
 
+// ---- AED 责任人联动测试夹具（供 aed-custodian.test.ts 使用；均为追加式，不影响其它用例）----
+
+/** 将一个已存在的用户指派为某 AED 的责任人（primary / backup）。 */
+export function addCustodian(
+  aedId: string,
+  userId: string,
+  userName: string,
+  role: 'primary' | 'backup'
+): void {
+  db.prepare('INSERT INTO aed_managers (id, aed_id, user_id, user_name, role) VALUES (?,?,?,?,?)').run(
+    'am_' + aedId + '_' + userId, aedId, userId, userName, role
+  )
+}
+
+/** 为用户登记一条推送订阅（dev 模式可送达）。 */
+export function addPushSubscription(userId: string, templateId: string, accepted = true): void {
+  db.prepare('INSERT INTO push_subscriptions (id, user_id, template_id, accepted) VALUES (?,?,?,?)').run(
+    'ps_' + userId + '_' + templateId, userId, templateId, accepted ? 1 : 0
+  )
+}
+
 export { server as app }
 export { clearAll } from '../db'
 export { default as db } from '../db'

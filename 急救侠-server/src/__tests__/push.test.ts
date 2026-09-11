@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
 import { app, seedTestData, db } from './setup'
+import { sendPushToUser, PUSH_TEMPLATES } from '../services/pushService'
 
 describe('Push Routes', () => {
   beforeEach(() => { seedTestData() })
@@ -87,5 +88,45 @@ describe('Push Routes', () => {
       expect(res.status).toBe(200)
       expect(res.body.code).toBe(0)
     })
+  })
+})
+
+describe('sendPushToUser（定向推送）', () => {
+  beforeEach(() => { seedTestData() })
+
+  it('无订阅 → { ok:false, reason:no_subscription }', async () => {
+    const r = await sendPushToUser('user_without_sub', {
+      templateId: PUSH_TEMPLATES.aedCustodianRequest,
+      data: { thing1: { value: 'AED 求助' } },
+    })
+    expect(r.ok).toBe(false)
+    expect(r.reason).toBe('no_subscription')
+  })
+
+  it('dev 模式有订阅 → 发送成功', async () => {
+    const login = await request(app).post('/api/auth/wechat-login').send({ code: 'push_to_user' })
+    const id = login.body.data.openid as string
+    db.prepare('INSERT INTO push_subscriptions (id, user_id, template_id, accepted) VALUES (?,?,?,?)').run(
+      'ps_to_user', id, PUSH_TEMPLATES.aedCustodianRequest, 1
+    )
+    const r = await sendPushToUser(id, {
+      templateId: PUSH_TEMPLATES.aedCustodianRequest,
+      data: { thing1: { value: 'AED 求助' }, thing2: { value: '深圳湾公园 AED' } },
+    })
+    expect(r.ok).toBe(true)
+  })
+
+  it('订阅 accepted=0 视为无订阅', async () => {
+    const login = await request(app).post('/api/auth/wechat-login').send({ code: 'push_to_user_off' })
+    const id = login.body.data.openid as string
+    db.prepare('INSERT INTO push_subscriptions (id, user_id, template_id, accepted) VALUES (?,?,?,?)').run(
+      'ps_to_user_off', id, PUSH_TEMPLATES.aedCustodianRequest, 0
+    )
+    const r = await sendPushToUser(id, {
+      templateId: PUSH_TEMPLATES.aedCustodianRequest,
+      data: { thing1: { value: 'AED 求助' } },
+    })
+    expect(r.ok).toBe(false)
+    expect(r.reason).toBe('no_subscription')
   })
 })

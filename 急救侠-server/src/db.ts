@@ -534,6 +534,40 @@ export function initDb(options: { silent?: boolean } = {}) {
       FOREIGN KEY (aed_id) REFERENCES aed_devices(id)
     );
 
+    CREATE TABLE IF NOT EXISTS aed_custodian_alerts (
+      id                      TEXT PRIMARY KEY,
+      aed_id                  TEXT NOT NULL,
+      pickup_id               TEXT NOT NULL DEFAULT '',
+      requester_user_id       TEXT NOT NULL DEFAULT '',
+      requester_user_name     TEXT NOT NULL DEFAULT '',
+      requester_user_phone    TEXT NOT NULL DEFAULT '',
+      custodian_user_id       TEXT NOT NULL DEFAULT '',
+      custodian_name          TEXT NOT NULL DEFAULT '',
+      custodian_phone_snapshot TEXT NOT NULL DEFAULT '',
+      custodian_role          TEXT NOT NULL DEFAULT '',
+      channel                 TEXT NOT NULL DEFAULT 'push',
+      status                  TEXT NOT NULL DEFAULT 'pending',
+      notify_time_ms          INTEGER NOT NULL,
+      first_sent_time_ms      INTEGER,
+      responded_time_ms       INTEGER,
+      sla_deadline_ms         INTEGER NOT NULL,
+      response_latency_ms     INTEGER,
+      sla_met                 INTEGER,
+      unlock_action           TEXT NOT NULL DEFAULT 'none',
+      unlock_command_status   TEXT NOT NULL DEFAULT 'not_issued',
+      unlock_token            TEXT NOT NULL DEFAULT '',
+      responder_user_id       TEXT NOT NULL DEFAULT '',
+      delivery_state          TEXT NOT NULL DEFAULT 'pending',
+      consent_granted         INTEGER NOT NULL DEFAULT 0,
+      consent_version         TEXT NOT NULL DEFAULT '',
+      consent_at_ms           INTEGER,
+      consent_revoked_at_ms   INTEGER,
+      notes                   TEXT NOT NULL DEFAULT '',
+      created_at              INTEGER NOT NULL,
+      updated_at              INTEGER NOT NULL,
+      FOREIGN KEY (aed_id) REFERENCES aed_devices(id)
+    );
+
     CREATE TABLE IF NOT EXISTS news (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -688,6 +722,47 @@ export function initDb(options: { silent?: boolean } = {}) {
     { id: '027_add_user_is_organizer', description: 'add is_organizer to users', sql: "ALTER TABLE users ADD COLUMN is_organizer INTEGER NOT NULL DEFAULT 0" },
     { id: '028_add_user_is_public', description: 'add is_public to users', sql: "ALTER TABLE users ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0" },
     { id: '029_add_video_comment_count', description: 'add comment_count to video_posts', sql: "ALTER TABLE video_posts ADD COLUMN comment_count INTEGER NOT NULL DEFAULT 0" },
+    {
+      id: '030_add_custodian_alerts',
+      description: 'create aed_custodian_alerts table + indexes for custodian linkage',
+      sql: `CREATE TABLE IF NOT EXISTS aed_custodian_alerts (
+        id                      TEXT PRIMARY KEY,
+        aed_id                  TEXT NOT NULL,
+        pickup_id               TEXT NOT NULL DEFAULT '',
+        requester_user_id       TEXT NOT NULL DEFAULT '',
+        requester_user_name     TEXT NOT NULL DEFAULT '',
+        requester_user_phone    TEXT NOT NULL DEFAULT '',
+        custodian_user_id       TEXT NOT NULL DEFAULT '',
+        custodian_name          TEXT NOT NULL DEFAULT '',
+        custodian_phone_snapshot TEXT NOT NULL DEFAULT '',
+        custodian_role          TEXT NOT NULL DEFAULT '',
+        channel                 TEXT NOT NULL DEFAULT 'push',
+        status                  TEXT NOT NULL DEFAULT 'pending',
+        notify_time_ms          INTEGER NOT NULL,
+        first_sent_time_ms      INTEGER,
+        responded_time_ms       INTEGER,
+        sla_deadline_ms         INTEGER NOT NULL,
+        response_latency_ms     INTEGER,
+        sla_met                 INTEGER,
+        unlock_action           TEXT NOT NULL DEFAULT 'none',
+        unlock_command_status   TEXT NOT NULL DEFAULT 'not_issued',
+        unlock_token            TEXT NOT NULL DEFAULT '',
+        responder_user_id       TEXT NOT NULL DEFAULT '',
+        delivery_state          TEXT NOT NULL DEFAULT 'pending',
+        consent_granted         INTEGER NOT NULL DEFAULT 0,
+        consent_version         TEXT NOT NULL DEFAULT '',
+        consent_at_ms           INTEGER,
+        consent_revoked_at_ms   INTEGER,
+        notes                   TEXT NOT NULL DEFAULT '',
+        created_at              INTEGER NOT NULL,
+        updated_at              INTEGER NOT NULL,
+        FOREIGN KEY (aed_id) REFERENCES aed_devices(id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_custodian_alerts_aed ON aed_custodian_alerts(aed_id, notify_time_ms DESC);
+      CREATE INDEX IF NOT EXISTS idx_custodian_alerts_custodian ON aed_custodian_alerts(custodian_user_id, status);
+      CREATE INDEX IF NOT EXISTS idx_custodian_alerts_status ON aed_custodian_alerts(status);
+      CREATE INDEX IF NOT EXISTS idx_custodian_alerts_requester ON aed_custodian_alerts(requester_user_id);`
+    },
   ]
 
   const applied = new Set(
@@ -725,7 +800,7 @@ export function all<T = Row>(sql: string, ...params: BindParam[]): T[] {
 export function clearAll() {
   // Disable FK constraints so DELETE order doesn't matter
   db.pragma('foreign_keys = OFF')
-  db.exec("DELETE FROM _migrations; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards;")
+  db.exec("DELETE FROM _migrations; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_custodian_alerts; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards;")
   db.pragma('foreign_keys = ON')
 }
 
