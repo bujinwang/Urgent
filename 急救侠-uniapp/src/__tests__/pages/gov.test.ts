@@ -2,7 +2,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { shallowMount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { requestFull } from '@/api/index'
+import { downloadText } from '@/utils/govExport'
 import type { GovViewer, GovDashboard } from '@/api/gov'
+
+// 仅 mock downloadText（副作用），保留其余真实实现 —— 以便断言 CSV 参数且不触碰真实 DOM 下载。
+vi.mock('@/utils/govExport', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/govExport')>()
+  return { ...actual, downloadText: vi.fn() }
+})
 
 const viewer: GovViewer = {
   id: 'g1', name: '张监管', orgName: '天河卫健委', scopeAll: false, districts: ['天河区'],
@@ -71,6 +78,45 @@ describe('政府看板页面', () => {
       )
       expect(wrapper.text()).toContain('数据积累中')
       expect(wrapper.text()).toContain('AED 概览')
+    })
+
+    /** 装载「已登录 + 已取到看板数据」的页面。 */
+    async function mountLoaded() {
+      setStorage({ gov_token: 'gov-tok-1' })
+      vi.mocked(requestFull)
+        .mockResolvedValueOnce({ code: 0, data: viewer, message: 'ok' }) // /gov/me
+        .mockResolvedValueOnce({ code: 0, data: makeDashboard(), message: 'ok' }) // /gov/dashboard
+      const page = await import('@/pages/gov/dashboard.vue')
+      const wrapper = shallowMount(page.default)
+      await flushPromises()
+      await flushPromises()
+      return wrapper
+    }
+
+    it('导出按钮存在，「导出 PDF」调用 window.print', async () => {
+      const wrapper = await mountLoaded()
+      expect(wrapper.find('.gov-csv-btn').exists()).toBe(true)
+      expect(wrapper.find('.gov-pdf-btn').exists()).toBe(true)
+      expect(wrapper.text()).toContain('导出 CSV')
+      expect(wrapper.text()).toContain('导出 PDF')
+
+      const printSpy = vi.fn()
+      const orig = (window as unknown as { print?: () => void }).print
+      ;(window as unknown as { print: () => void }).print = printSpy
+      await wrapper.find('.gov-pdf-btn').trigger('click')
+      expect(printSpy).toHaveBeenCalledTimes(1)
+      ;(window as unknown as { print?: () => void }).print = orig
+    })
+
+    it('「导出 CSV」不抛错且以正确参数调用 downloadText', async () => {
+      const wrapper = await mountLoaded()
+      await wrapper.find('.gov-csv-btn').trigger('click')
+      expect(vi.mocked(downloadText)).toHaveBeenCalledTimes(1)
+      const call = vi.mocked(downloadText).mock.calls[0]
+      expect(call[0]).toMatch(/^gov-dashboard-\d{8}\.csv$/)
+      expect(call[1].startsWith('\uFEFF')).toBe(true)
+      expect(call[1]).toContain('区域,AED数')
+      expect(call[2]).toBe('text/csv;charset=utf-8')
     })
   })
 

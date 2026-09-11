@@ -16,6 +16,12 @@
       </view>
     </view>
 
+    <!-- 导出（纯前端：CSV 下载 / PDF 走浏览器打印「另存为 PDF」） -->
+    <view class="gov-actions">
+      <view class="gov-export-btn gov-csv-btn" @click="onExportCsv">导出 CSV</view>
+      <view class="gov-export-btn gov-pdf-btn" @click="onExportPdf">导出 PDF</view>
+    </view>
+
     <view v-if="store.loading" class="gov-hint">加载中…</view>
     <view v-else-if="store.error" class="gov-hint gov-hint-error">{{ store.error }}</view>
 
@@ -101,6 +107,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useGovStore } from '@/stores/gov'
 import GovStat from '@/components/GovStat/index.vue'
 import GovBarChart from '@/components/GovBarChart/index.vue'
+import { downloadText, dashboardToCsv, govCsvFilename, printGovDashboard } from '@/utils/govExport'
 
 const store = useGovStore()
 const windows = [7, 30, 90]
@@ -133,6 +140,25 @@ function onDistrictChange(e: { detail: { value: number | string } }) {
   const idx = Number(e.detail.value)
   districtIndex.value = Number.isFinite(idx) ? idx : 0
   store.setDistrict(districtKeys.value[districtIndex.value] || '')
+}
+
+/** 导出 CSV（纯前端生成并下载；无数据时提示）。 */
+function onExportCsv(): void {
+  const cur = d.value
+  if (!cur) {
+    uni.showToast({ title: '暂无数据可导出', icon: 'none' })
+    return
+  }
+  downloadText(govCsvFilename(cur), dashboardToCsv(cur), 'text/csv;charset=utf-8')
+}
+
+/** 导出 PDF（H5 浏览器打印「另存为 PDF」；非 H5 提示；无数据时提示）。 */
+function onExportPdf(): void {
+  if (!d.value) {
+    uni.showToast({ title: '暂无数据可导出', icon: 'none' })
+    return
+  }
+  printGovDashboard()
 }
 
 const trendItems = computed(() =>
@@ -174,6 +200,11 @@ onMounted(async () => {
   background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.6);
 }
 .gov-window.active { background: rgba(37, 99, 235, 0.35); color: #fff; }
+.gov-actions { display: flex; gap: 16rpx; margin-bottom: 20rpx; }
+.gov-export-btn {
+  padding: 12rpx 26rpx; font-size: 24rpx; border-radius: 14rpx;
+  background: rgba(37, 99, 235, 0.25); border: 1px solid rgba(37, 99, 235, 0.5); color: #dbeafe;
+}
 .gov-hint { padding: 40rpx; text-align: center; color: rgba(255, 255, 255, 0.5); font-size: 26rpx; }
 .gov-hint-error { color: #f87171; }
 .gov-stats { display: flex; flex-wrap: wrap; gap: 16rpx; margin-bottom: 20rpx; }
@@ -192,4 +223,61 @@ onMounted(async () => {
 .gov-tr text { flex: 1; text-align: center; }
 .c1 { flex: 1.4 !important; text-align: left !important; }
 .gov-foot { display: block; margin: 20rpx 0 40rpx; font-size: 20rpx; color: rgba(255, 255, 255, 0.3); text-align: center; }
+
+/* ---- 打印样式：看板原为深色主题，直接打印既费墨又看不清 ⇒ 强制浅色 ---- */
+@media print {
+  .page-gov-dashboard {
+    min-height: auto;
+    padding: 0;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* 工具栏与导出按钮不参与打印 */
+  .gov-toolbar,
+  .gov-actions { display: none !important; }
+
+  .gov-card {
+    background: #fff !important;
+    border: 1px solid #c8c8c8 !important;
+    border-radius: 8rpx;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .gov-card-title { color: #000 !important; }
+  .gov-kv { color: #222 !important; }
+  .gov-gap text:last-child { color: #7a4d00 !important; }
+  .gov-note { color: #555 !important; }
+  .gov-foot { color: #555 !important; }
+  .gov-hint { color: #333 !important; }
+  .gov-hint-error { color: #b00020 !important; }
+  .gov-tr { border-bottom: 1px solid #ddd !important; color: #000 !important; }
+  .gov-th { color: #333 !important; }
+  .gov-stats { break-inside: avoid; page-break-inside: avoid; }
+
+  /* 子组件（scoped 样式需 :deep 穿透） */
+  :deep(.gov-stat) {
+    background: #fff !important;
+    border: 1px solid #c8c8c8 !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  :deep(.gov-stat-label),
+  :deep(.gov-stat-num),
+  :deep(.gov-stat-unit),
+  :deep(.gov-stat-hint) { color: #000 !important; }
+  :deep(.gov-stat-null) { color: #7a4d00 !important; }
+  :deep(.gov-bars) {
+    background: transparent !important;
+    border: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  :deep(.gov-bar-label),
+  :deep(.gov-bar-value),
+  :deep(.gov-bars-empty) { color: #000 !important; }
+  :deep(.gov-bar-track) { background: #e8e8e8 !important; }
+}
 </style>
