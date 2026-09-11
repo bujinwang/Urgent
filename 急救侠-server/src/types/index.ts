@@ -489,13 +489,22 @@ export type OrgDashboard = z.infer<typeof OrgDashboard>
 // ---- Input Validation Schemas ----
 
 /** POST /api/auth/register */
+/**
+ * POST /api/auth/register
+ *
+ * 注意：`isLeader` **不是**可注册字段（安全收敛 NEW-1）。
+ * 此前它在 schema 中被接受并直接写入 `users.is_leader`，而 `is_leader` 同时是
+ * **平台管理面**（`/api/admin/*`、`/api/gov/viewers*`、`/api/push/send`）的判定依据
+ * —— 任何人都可在注册时自封队长，进而重置他人口令或进入管理面。
+ * `validate()` 会用解析结果覆盖 `req.body`，未知键被剥离，故注册一律 `is_leader = 0`；
+ * 队长身份只能由种子数据/管理操作授予。
+ */
 export const AuthRegisterInput = z.object({
   phone: z.string().min(1, '手机号不能为空'),
   password: z.string().min(2, '密码长度至少 2 位'),
   name: z.string().optional(),
   interests: z.string().optional(),
   affiliation: z.string().optional(),
-  isLeader: z.boolean().optional(),
 })
 export type AuthRegisterInput = z.infer<typeof AuthRegisterInput>
 

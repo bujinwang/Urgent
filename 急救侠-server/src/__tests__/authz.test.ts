@@ -14,11 +14,17 @@ import { server, seedTestData, db, userToken } from './setup'
 
 const PHONE_A = '13911139111'
 const PHONE_B = '13922239222'
+const PHONE_C = '13933339333'
 const PWD_A = 'orig-pw-aaa'
+const TEAM = '蓝天救援队'
 
-/** 注册一个手机账号，返回其令牌。 */
-async function registerAndLogin(phone: string, password: string): Promise<string> {
-  const reg = await request(server).post('/api/auth/register').send({ phone, password })
+/** 注册一个手机账号，返回其令牌（extra 用于传递 affiliation / isLeader 等字段）。 */
+async function registerAndLogin(
+  phone: string,
+  password: string,
+  extra: Record<string, unknown> = {}
+): Promise<string> {
+  const reg = await request(server).post('/api/auth/register').send({ phone, password, ...extra })
   expect(reg.body.code).toBe(0)
   return reg.body.data.token as string
 }
@@ -80,9 +86,10 @@ describe('F1 — reset-password 必须鉴权', () => {
     expect(victim.body.code).toBe(0)
   })
 
-  it('队长可重置队员密码（is_leader = 1）', async () => {
-    const tokenA = await registerAndLogin(PHONE_A, PWD_A)
-    await registerAndLogin(PHONE_B, 'orig-pw-bbb')
+  it('队长只能重置**同队**队员密码（非空 affiliation 相同）', async () => {
+    const tokenA = await registerAndLogin(PHONE_A, PWD_A, { affiliation: TEAM })
+    await registerAndLogin(PHONE_B, 'orig-pw-bbb', { affiliation: TEAM })
+    // 队长身份由管理操作授予（非注册自封）
     db.prepare('UPDATE users SET is_leader = 1 WHERE id = ?').run('u_' + PHONE_A)
 
     const res = await request(server)
@@ -93,6 +100,61 @@ describe('F1 — reset-password 必须鉴权', () => {
 
     const now = await request(server).post('/api/auth/login').send({ phone: PHONE_B, password: 'leader-reset-1' })
     expect(now.body.code).toBe(0)
+  })
+
+  it('队长不得重置队外用户 / 无队伍用户', async () => {
+    const tokenA = await registerAndLogin(PHONE_A, PWD_A, { affiliation: TEAM })
+    await registerAndLogin(PHONE_B, 'orig-pw-bbb', { affiliation: '其他救援队' })
+    await registerAndLogin(PHONE_C, 'orig-pw-ccc') // 无 affiliation
+    db.prepare('UPDATE users SET is_leader = 1 WHERE id = ?').run('u_' + PHONE_A)
+
+    const other = await request(server)
+      .post('/api/auth/reset-password')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ phone: PHONE_B, newPassword: 'attacker-pw' })
+    expect(other.status).toBe(403)
+
+    const noTeam = await request(server)
+      .post('/api/auth/reset-password')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ phone: PHONE_C, newPassword: 'attacker-pw' })
+    expect(noTeam.status).toBe(403)
+
+    // 两名受害者原口令均仍有效
+    expect((await request(server).post('/api/auth/login').send({ phone: PHONE_B, password: 'orig-pw-bbb' })).body.code).toBe(0)
+    expect((await request(server).post('/api/auth/login').send({ phone: PHONE_C, password: 'orig-pw-ccc' })).body.code).toBe(0)
+  })
+})
+
+describe('NEW-1 — 注册不得自封队长（is_leader 即管理面权限）', () => {
+  beforeEach(() => { seedTestData() })
+
+  it('注册时传 isLeader:true ⇒ 落库 is_leader=0', async () => {
+    await registerAndLogin(PHONE_A, PWD_A, { isLeader: true })
+    const row = db.prepare('SELECT is_leader FROM users WHERE id = ?').get('u_' + PHONE_A) as { is_leader: number }
+    expect(row.is_leader).toBe(0)
+  })
+
+  it('自封队长不成立 ⇒ 进不了管理面 /api/admin/*', async () => {
+    const token = await registerAndLogin(PHONE_A, PWD_A, { isLeader: true })
+    const res = await request(server).get('/api/admin/dashboard').set('Authorization', `Bearer ${token}`)
+    expect(res.status).toBe(403)
+  })
+
+  it('自封队长不成立 ⇒ 无法重置他人密码（F1 不被绕过）', async () => {
+    const tokenA = await registerAndLogin(PHONE_A, PWD_A, { isLeader: true })
+    await registerAndLogin(PHONE_B, 'orig-pw-bbb')
+
+    const res = await request(server)
+      .post('/api/auth/reset-password')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ phone: PHONE_B, newPassword: 'attacker-pw' })
+    expect(res.status).toBe(403)
+
+    const victim = await request(server).post('/api/auth/login').send({ phone: PHONE_B, password: 'orig-pw-bbb' })
+    expect(victim.body.code).toBe(0)
+    const pwned = await request(server).post('/api/auth/login').send({ phone: PHONE_B, password: 'attacker-pw' })
+    expect(pwned.body.code).toBe(-1)
   })
 })
 

@@ -90,7 +90,8 @@ authRouter.post('/register', validate(AuthRegisterInput), (req, res) => {
     const existing = get<{ id: string }>('SELECT id FROM users WHERE id = ?', 'u_' + phone)
     if (existing) return res.json(error('该手机号已注册'))
     const id = 'u_' + phone
-    const { interests, affiliation, isLeader } = req.body as { interests?: string, affiliation?: string, isLeader?: boolean }
+    // `isLeader` 不再取自请求体（NEW-1：注册时自封队长等同于自授管理面权限）
+    const { interests, affiliation } = req.body as { interests?: string, affiliation?: string }
     const volunteerType = interests || 'medical'
     const isBsm = affiliation === '蓝天救援队'
     const tier = isBsm ? 'silver' : 'bronze'
@@ -99,7 +100,7 @@ authRouter.post('/register', validate(AuthRegisterInput), (req, res) => {
     const certs = isBsm ? '["CPR / AED","Basic Life Support","野外急救"]' : '[]'
     db.prepare('INSERT INTO users (id, name, avatar, tier, points, city, volunteer_id, certifications, rescue_count, public_id, is_leader, affiliation, volunteer_type, is_organizer, is_public, password) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(
       id, name || '急救侠' + phone.slice(-4), (name || '侠').charAt(0), tier, points, '', 'PH-' + phone.slice(0,4),
-      certs, rescueCount, 'PU' + phone.slice(-6), isLeader ? 1 : 0, affiliation || '', volunteerType, 0, 0, hashPassword(password)
+      certs, rescueCount, 'PU' + phone.slice(-6), 0, affiliation || '', volunteerType, 0, 0, hashPassword(password)
     )
     // 签发真实 JWT（此前为明文 'token_<phone>_<ts>'，无法通过 authMiddleware）
     const token = signToken({ userId: id })
@@ -165,7 +166,8 @@ authRouter.post('/change-password', authMiddleware, validate(AuthChangePasswordI
  * 此前**完全无鉴权**：知道手机号即可把任意账号的口令改掉（账号接管）。
  * 本项目暂无短信/邮箱验证码通道，因此按「最小可用且安全」口径收敛为：
  * - 必须**已登录**（`authMiddleware`）；
- * - 只能重置**本人**口令；队长（`is_leader = 1`）可重置队员口令。
+ * - 本人可重置自己的口令；
+ * - 队长（`is_leader = 1`）只能重置**同一队伍**（非空 `affiliation` 相同）的队员。
  *
  * 「忘记密码且未登录」的场景需后续接入验证码通道后再开放匿名自助重置。
  */
@@ -179,13 +181,21 @@ authRouter.post('/reset-password', authMiddleware, validate(AuthResetPasswordInp
     if (!phone || !newPassword) return res.json(error('参数不完整'))
 
     const targetId = 'u_' + phone
-    const target = get<{ id: string }>('SELECT id FROM users WHERE id = ?', targetId)
+    const target = get<{ id: string; affiliation: string }>('SELECT id, affiliation FROM users WHERE id = ?', targetId)
     if (!target) return res.json(error('该手机号未注册'))
 
-    const caller = get<{ is_leader: number }>('SELECT is_leader FROM users WHERE id = ?', callerId)
-    const isSelf = targetId === callerId
-    const isLeader = caller?.is_leader === 1
-    if (!isSelf && !isLeader) return res.status(403).json(error('无权重置他人密码'))
+    if (targetId === callerId) {
+      // 本人：始终允许
+    } else {
+      // 非本人：仅「队长重置**本队**队员」可行 —— 队伍范围以非空 `affiliation` 相等为准。
+      // 无队伍范围的队长判定等于把「重置任意账号」的门又开回来（NEW-1）。
+      const caller = get<{ is_leader: number; affiliation: string }>(
+        'SELECT is_leader, affiliation FROM users WHERE id = ?', callerId
+      )
+      const callerAff = caller?.affiliation || ''
+      const sameTeam = caller?.is_leader === 1 && callerAff !== '' && callerAff === (target.affiliation || '')
+      if (!sameTeam) return res.status(403).json(error('无权重置他人密码'))
+    }
 
     db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(newPassword), targetId)
     res.json(success(null, '密码已重置'))
