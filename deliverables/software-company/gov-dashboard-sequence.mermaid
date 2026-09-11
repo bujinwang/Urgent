@@ -1,0 +1,27 @@
+sequenceDiagram
+    autonumber
+    participant U as 政府用户(gov/login.vue)
+    participant API as /api/gov
+    participant MW as govMiddleware
+    participant DB as SQLite
+
+    U->>API: POST /api/gov/login {username,password}
+    API->>DB: SELECT * FROM gov_viewers WHERE username=?
+    DB-->>API: row(active, password_hash)
+    API->>API: scryptVerify → signGovToken({gov:true,...})
+    API->>DB: UPDATE last_login_at
+    API-->>U: { token, viewer:{name,orgName,districts} }
+
+    U->>API: GET /api/gov/dashboard?from&to&district (Bearer gov_token)
+    API->>MW: verifyGovToken(gov 声明) + 回查 active + scope 校验
+    alt 越权/停用/非法令牌
+        MW-->>U: 401/403 (无数据)
+    else 通过
+        MW-->>API: req.gov{viewerId,districts,scopeAll}
+        API->>DB: 聚合查询(aed_devices / aed_custodian_alerts / tasks / rescue_* / certificates / stats / organizations)
+        DB-->>API: counts / ordered-latency / distributions
+        API->>API: P95=nearestRank(JS) · 覆盖率=null+dataGap · hasData 判定(无 PII)
+        API-->>U: 200 { meta, responseTime, aed, tasks, rescue, people, districts }
+    end
+
+    Note over U,API: 数据为空 → responseTime.hasData=false，前端显示「数据积累中」（不显示 0）

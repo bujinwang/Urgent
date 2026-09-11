@@ -320,5 +320,17 @@ docker compose up -d
 - 门禁：CI ✅（后端 **150** / 前端 **134**）；QA 对抗式验证 **0 源码缺陷**（media-alert 逐字节落盘 + 白名单拒 `.exe` + 201MB 拒收均实锤）。
 - 映射表：`急救侠-uniapp/docs/p2-6-api-mapping.md`（5 项均已标注 ✅ / 有意保留）。
 
+### ✅ P2-8 政府数据监管看板（已完成，2026-09-11）
+
+- commit：`d325d5e`(T01 数据+鉴权基座) + `199a62f`(T02 gov 路由/聚合接口) + `ff3bba1`(T03 后端测试) + `5eae8ac`(T04/T05 前端看板) + `3319e26`(**令牌隔离修复**)。
+- **独立鉴权**：`gov_viewers` 白名单 + `middleware/govAuth.ts`；**gov 令牌与业务 `authMiddleware` 彻底隔离**（`GOV_JWT_SECRET` 不再回落业务密钥 + 业务层显式拒绝 `gov:true`，两层纵深防御）；口令 `crypto.scryptSync`（**零新增依赖**）。
+- **13 项指标**全部落地；**覆盖率 M2/M3** 分母（人口/面积基线）缺失 → 恒 `null` + `meta.dataGaps`（只标注不实现）；**冷启动**无告警数据 → P95/SLA/无响应率返 `null`（**非 0**），前端显示"数据积累中"。
+- **区域维度**：`aed_devices`/`tasks`/`rescue_records` 加**可空 `district`**（迁移 **032–035**）；未分区归一化 `__UNASSIGNED__`（不排除、数量守恒）。
+- **脱敏**：仅区级聚合，响应**零 PII**。
+- 接口：`POST /api/gov/login`、`GET /api/gov/me`、`GET /api/gov/dashboard`、`/api/gov/viewers`（管理员 CRUD，`is_leader`）。
+- 门禁：CI ✅（后端 **171** / 前端 **134**）；QA 对抗式验证：**发现 1 个真实安全缺陷**（gov 令牌曾可穿透业务鉴权，因密钥回落）→ 已修并独立复验；其余 9 项 PASS。
+- 文档：`deliverables/software-company/gov-dashboard-{prd,design}.md`（+ `gov-dashboard-{sequence,class}.mermaid`）。
+- **遗留（P1 / 后续）**：`district` 存量回填；覆盖率需外部人口/面积基线；SSO / IP 白名单；gov 前端单测；CSV/PDF 导出；省级卫健委平台对接。
+
 ### ⏳ P2 其余项
-- **P2-8 政府数据监管看板**（进行中）；**P2-9 薄页面复核**（change-pwd / cert/interests / cert/upload / atlas/index）。
+- **P2-9 薄页面复核**（change-pwd / cert/interests / cert/upload / atlas/index）。

@@ -1,0 +1,55 @@
+classDiagram
+    class GovViewer {
+      +string id
+      +string username
+      +string password_hash
+      +string name
+      +string org_name
+      +int scope_all
+      +string scope_districts
+      +string allowed_ips
+      +int active
+      +int last_login_at
+      +int created_at
+      +int updated_at
+    }
+    class GovContext {
+      +string viewerId
+      +string name
+      +string orgName
+      +bool scopeAll
+      +string[] districts
+    }
+    class GovAuthService {
+      +signGovToken(p) string
+      +verifyGovToken(token) GovTokenPayload
+      +hashPassword(pwd) string
+      +verifyPassword(pwd, stored) bool
+    }
+    class GovMiddleware {
+      +govMiddleware(req, res, next) void
+    }
+    class GovRouter {
+      +login(req, res) void
+      +me(req, res) void
+      +dashboard(req, res) void
+      +listViewers(req, res) void
+      +createViewer(req, res) void
+      +updateViewer(req, res) void
+    }
+    class GovDashboardService {
+      +responseTime(from, to, district) GovResponseTime
+      +aedOverview(district) GovAed
+      +tasks(from, to, district) GovTasks
+      +rescue(from, to) GovRescue
+      +people() GovPeople
+      +districts(from, to, scope) GovDistrictRow[]
+      -p95(sortedValues) number
+    }
+
+    GovRouter --> GovAuthService : uses
+    GovRouter --> GovMiddleware : guards_protected
+    GovMiddleware --> GovViewer : loads_by_id
+    GovRouter --> GovDashboardService : aggregates
+    GovDashboardService ..> GovViewer : scoped_by
+    GovMiddleware ..> GovContext : sets_req_gov
