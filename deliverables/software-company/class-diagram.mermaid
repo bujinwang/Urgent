@@ -1,0 +1,100 @@
+classDiagram
+    class AedDevice {
+      +string id
+      +string name
+      +string address
+      +string custodian_name
+      +string custodian_phone
+      +string custodian_role
+      +string linked_user_id
+    }
+    class AedManager {
+      +string id
+      +string aed_id
+      +string user_id
+      +string user_name
+      +role primary_or_backup
+      +string assigned_at
+    }
+    class AedCustodianAlert {
+      +string id
+      +string aed_id
+      +string pickup_id
+      +string requester_user_id
+      +string requester_user_name
+      +string requester_user_phone
+      +string custodian_user_id
+      +string custodian_name
+      +string custodian_phone_snapshot
+      +string custodian_role
+      +channel channel
+      +status status
+      +number notify_time_ms
+      +number first_sent_time_ms
+      +number responded_time_ms
+      +number sla_deadline_ms
+      +number response_latency_ms
+      +number sla_met
+      +unlock_action unlock_action
+      +unlock_command_status unlock_command_status
+      +string unlock_token
+      +string responder_user_id
+      +delivery_state delivery_state
+      +boolean consent_granted
+      +string consent_version
+      +number consent_at_ms
+      +number consent_revoked_at_ms
+      +string notes
+      +number created_at
+      +number updated_at
+    }
+    class AedPickup {
+      +string id
+      +string aed_id
+      +string user_id
+      +string pickup_time
+      +string return_time
+    }
+    class AedAuditLog {
+      +string id
+      +string aed_id
+      +string event_type
+      +string description
+      +string user_id
+      +string user_name
+      +string old_value
+      +string new_value
+      +string created_at
+    }
+    class PushSubscription {
+      +string id
+      +string user_id
+      +string template_id
+      +boolean accepted
+    }
+    class PushService {
+      +PUSH_TEMPLATES templates
+      +getWechatAccessToken() string
+      +sendPushToUser(userId, opts) SendResult
+    }
+    class AedAuditService {
+      +logAudit(aedId, eventType, desc, userId, userName, old, new) void
+    }
+    class AedCustodianRouter {
+      +notifyCustodian(req, res) void
+      +unlockAuthorize(req, res) void
+      +getAlert(req, res) void
+      +listPending(req, res) void
+      +revokeConsent(req, res) void
+      +refreshExpiry(alert) void
+      +resolveCustodian(aedId) AedManager
+    }
+
+    AedDevice "1" --> "0..*" AedManager : has
+    AedDevice "1" --> "0..*" AedCustodianAlert : raises
+    AedManager "1" --> "0..*" AedCustodianAlert : is_custodian_of
+    AedPickup "0..1" --> "0..*" AedCustodianAlert : linked_by
+    AedCustodianAlert ..> AedAuditLog : logs
+    AedCustodianRouter --> PushService : uses
+    AedCustodianRouter --> AedAuditService : uses
+    PushService --> PushSubscription : reads

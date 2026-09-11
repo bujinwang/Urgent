@@ -1,0 +1,75 @@
+sequenceDiagram
+    autonumber
+    participant R as 急救者端(detail.vue)
+    participant S as 服务端 /api/aed
+    participant DB as aed_custodian_alerts
+    participant P as pushService(定向)
+    participant C as 责任人端(custodian-alert.vue)
+    participant A as aed_audit_log
+    participant G as IoT 网关(未来, 虚线)
+
+    Note over R: 点击「通知责任人」→ 先弹 PIPL 同意框
+    R->>S: POST /aed/:id/notify-custodian {consentGranted:true}
+    Note over S: 校验同意 → 取 aed_managers(primary→backup)<br/>notify_time_ms = min(now, pickup_time)<br/>sla_deadline = notify + 120000
+    S->>DB: INSERT alert(status=pending)
+    S->>P: sendPushToUser(custodian_user_id, aedCustodianRequest)
+    alt 推送成功
+        P-->>C: 微信订阅消息(设备/位置/倒计时)
+        S->>DB: status=sent, first_sent_time_ms, delivery_state=delivered
+    else 责任人无订阅/发送失败
+        S->>DB: status=unreachable, delivery_state=no_subscription|failed
+    end
+    S->>A: custodian_notified
+    S-->>R: { alertId, status, slaDeadlineMs }
+
+    loop 每 3s 轮询直到 deadline
+        R->>S: GET /aed/:id/custodian-alerts/:alertId
+        S->>S: refreshExpiry(alert)
+        S-->>R: { status: sent|acknowledged|rejected|expired }
+    end
+
+    alt 责任人确认授权
+        C->>S: POST /aed/:id/unlock {alertId, action:authorize}
+        Note over S: 校验 aed_managers → responded_time_ms=now<br/>latency=responded-notify; sla_met?
+        S->>DB: status=acknowledged, command_status=issued, unlock_token=ut_*
+        S->>A: custodian_acknowledged + unlock_issued
+        S-->>C: { status:acknowledged, commandStatus:issued, unlockToken }
+        R->>S: (确认后) POST /aed/:id/pickups 取用登记
+        S->>A: pickup
+    else 责任人拒绝
+        C->>S: POST /aed/:id/unlock {alertId, action:deny}
+        S->>DB: status=rejected, command_status=not_issued
+        S->>A: custodian_rejected
+        S-->>R: status=rejected + 兜底指引
+    else 超时未响应(>120s)
+        S->>S: refreshExpiry → status=expired
+        S->>A: custodian_unreachable
+        Note over S,P: P1: 升级 短信/电话/备用责任人
+    end
+
+    G-->>S: (未来) 凭 unlock_token 拉取/回执 unlock 指令
+
+%% ===== 异常分支 B：设备无责任人（不阻断急救） =====
+sequenceDiagram
+    autonumber
+    participant R2 as 急救者端
+    participant S2 as 服务端
+    R2->>S2: POST /aed/:id/notify-custodian {consentGranted:true}
+    S2->>S2: SELECT aed_managers WHERE aed_id=? → 空
+    S2-->>R2: 200 { code:4001, message:'设备暂无责任人，可直接取用并留痕' }
+    Note over R2: 展示兜底指引(现场直接取用/留痕)，<br/>继续 POST /aed/:id/pickups 登记取用
+    R2->>S2: POST /aed/:id/pickups (先取用后留痕)
+    S2-->>R2: 取用成功(急救不阻断)
+
+%% ===== 异常分支 C：推送不可达 → 降级 =====
+sequenceDiagram
+    autonumber
+    participant S3 as 服务端
+    participant P3 as pushService
+    participant DB3 as aed_custodian_alerts
+    participant A3 as aed_audit_log
+    S3->>P3: sendPushToUser(custodian_user_id, aedCustodianRequest)
+    P3-->>S3: { ok:false, reason:'no_subscription' }
+    S3->>DB3: status=unreachable, delivery_state=no_subscription
+    S3->>A3: custodian_notified (含 delivery 失败说明)
+    Note over S3: P1 预留：短信 → 电话/备用责任人（本期仅记录）
