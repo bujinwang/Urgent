@@ -3,7 +3,7 @@ import request from 'supertest'
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
-import { server, seedTestData, db } from './setup'
+import { server, seedTestData, db, userToken } from './setup'
 import { hashPassword, verifyPassword, isHashed, HASH_PREFIX } from '../services/password'
 
 const UPLOADS_DIR = path.join(__dirname, '..', '..', 'public', 'uploads')
@@ -130,11 +130,20 @@ describe('安全收敛 C/D/F：body 上限 / 安全头 / 上传校验', () => {
     expect(res.headers['referrer-policy']).toBeDefined()
   })
 
+  it('F: /api/upload 需登录（匿名不得写盘）', async () => {
+    const anon = await request(server)
+      .post('/api/upload')
+      .send({ image: 'data:image/png;base64,' + Buffer.from('anon-bytes').toString('base64') })
+    expect(anon.status).toBe(401)
+  })
+
   it('F: /api/upload 拒绝非 data URL / 非白名单类型', async () => {
-    const notDataUrl = await request(server).post('/api/upload').send({ image: 'aGVsbG8=' })
+    const auth = 'Bearer ' + userToken()
+    const notDataUrl = await request(server).post('/api/upload').set('Authorization', auth).send({ image: 'aGVsbG8=' })
     expect(notDataUrl.status).toBe(400)
     const badMime = await request(server)
       .post('/api/upload')
+      .set('Authorization', auth)
       .send({ image: 'data:application/pdf;base64,' + Buffer.from('x').toString('base64') })
     expect(badMime.status).toBe(400)
   })
@@ -142,6 +151,7 @@ describe('安全收敛 C/D/F：body 上限 / 安全头 / 上传校验', () => {
   it('F: /api/upload 接受白名单图片并返回可访问 URL', async () => {
     const res = await request(server)
       .post('/api/upload')
+      .set('Authorization', 'Bearer ' + userToken())
       .send({ image: 'data:image/png;base64,' + Buffer.from('fake-png-bytes').toString('base64') })
     expect(res.status).toBe(200)
     expect(res.body.code).toBe(0)

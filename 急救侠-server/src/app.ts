@@ -16,6 +16,7 @@ import { atlasRouter } from './routes/atlas'
 import { mediaAlertRouter } from './routes/media-alert'
 import { govRouter } from './routes/gov'
 import { initDb } from './db'
+import { authMiddleware } from './middleware/auth'
 import { authRouter } from './routes/auth'
 import { pushRouter } from './routes/push'
 import { orgRouter } from './routes/org'
@@ -134,7 +135,9 @@ const ALLOWED_IMAGE_MIME: Record<string, string> = {
   'image/gif': 'gif',
 }
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 // 5MB
-app.post('/api/upload', (req, res) => {
+// 需登录：该端点无前端调用方（实际上传走 multipart 的 /media-alert/upload 与 /video/upload），
+// 若不鉴权则任何人可匿名写盘（`public/uploads`）并拿到可访问 URL。
+app.post('/api/upload', authMiddleware, (req, res) => {
   try {
     const raw: unknown = req.body.image || req.body.file
     if (typeof raw !== 'string' || !raw) {
