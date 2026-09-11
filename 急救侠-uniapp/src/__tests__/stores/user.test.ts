@@ -46,8 +46,10 @@ describe('User Store（真实接口）', () => {
     const store = useUserStore()
     store.profile.points = 900
     store.profile.tier = 'bronze'
-    store.awardPoints(200)
+    store.awardPoints(200, '测试奖励')
     expect(store.profile.points).toBe(1100)
     expect(store.profile.tier).toBe('silver')
+    // reason 不再被静默丢弃：进入积分流水
+    expect(store.pointLog[0]).toMatchObject({ amount: 200, reason: '测试奖励' })
   })
 })

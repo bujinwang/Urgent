@@ -55,12 +55,17 @@ export const useUserStore = defineStore('user', () => {
     await Promise.all([loadProfile(), loadStats()])
   }
 
-  function awardPoints(amount: number, _reason?: string) {
+  /** 积分流水（本地记录奖励理由，上限 50 条）——不再「接收却丢弃」`reason`。 */
+  const pointLog = ref<Array<{ amount: number; reason: string; at: number }>>([])
+
+  function awardPoints(amount: number, reason = '') {
     profile.value.points += amount
     const old = profile.value.tier
     if (profile.value.points >= 5000) profile.value.tier = 'diamond'
     else if (profile.value.points >= 2500) profile.value.tier = 'gold'
     else if (profile.value.points >= 1000) profile.value.tier = 'silver'
+    pointLog.value.unshift({ amount, reason, at: Date.now() })
+    if (pointLog.value.length > 50) pointLog.value.pop()
     if (profile.value.tier !== old) uni.showToast({ title: `🎉 升级为${tierLabel.value}！`, icon: 'none' })
   }
 
@@ -78,5 +83,5 @@ export const useUserStore = defineStore('user', () => {
   }
   if (isLoggedIn) void loadOrgRoles()
 
-  return { profile, stats, orgRoles, isOrgManager, tierLabel, error, awardPoints, refresh, loadProfile, loadStats, loadOrgRoles }
+  return { profile, stats, orgRoles, isOrgManager, tierLabel, error, pointLog, awardPoints, refresh, loadProfile, loadStats, loadOrgRoles }
 })
