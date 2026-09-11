@@ -416,7 +416,7 @@ node scripts/smoke.mjs --base https://<域名>     # 生产（不跳过 TLS 校�
 - 接口：`POST /api/gov/login`、`GET /api/gov/me`、`GET /api/gov/dashboard`、`/api/gov/viewers`（管理员 CRUD，`is_leader`）。
 - 门禁：CI ✅（后端 **167** / 前端 **134**）；QA 对抗式验证：**发现 1 个真实安全缺陷**（gov 令牌曾可穿透业务鉴权，因密钥回落）→ 已修并独立复验；其余 9 项 PASS。
 - 文档：`deliverables/software-company/gov-dashboard-{prd,design}.md`（+ `gov-dashboard-{sequence,class}.mermaid`）。
-- **遗留（P1 / 后续）**：`district` 存量回填；覆盖率需外部人口/面积基线；SSO / IP 白名单；~~gov 前端单测~~（✅ 已补，见下）；CSV/PDF 导出；省级卫健委平台对接。
+- **遗留（P1 / 后续）**：`district` 存量回填；覆盖率需外部人口/面积基线；SSO / IP 白名单；~~gov 前端单测~~（✅ 已补，见下）；~~CSV/PDF 导出~~（✅ 已补，见下）；省级卫健委平台对接。
 
 ### ✅ P2-9 薄页面复核（已完成，2026-09-11）
 
@@ -502,3 +502,18 @@ node scripts/smoke.mjs --base https://<域名>     # 生产（不跳过 TLS 校�
 - 验证方式（**突变测试 / 证明测试会红**，非重跑绿灯）：独立 QA 对 **13 处**源码行为逐一改坏 → 对应断言**全部精确变红**（证明断言有牙，无假测试）；43 条用例**连跑 3 次 + 乱序 5 次**零偶发/串扰。主理人**回归重放**上一轮暴露缺口的 2 处突变（`GovStat` 判空改 `!value`、`setWindow` 去 `.catch`）→ 现均 **RED**，缺口确已闭环。
 - 复核挖出并闭环的**真实缺口**：「合法 0 必须渲染 0」原先未被测 —— 突变证明现有 5 条全绿，补例后由 RED 证实。
 - 非阻塞备注：页面测试用 `shallowMount`（子组件 stub）属**有意分工**，`GovStat`/`GovBarChart` 由独立组件测试覆盖；`[Vue warn] picker` 仅告警、不掩盖断言。
+
+## ✅ P2-8 政府看板 · CSV / PDF 导出（已完成）
+
+- commit：`1798e9c`（功能：`src/utils/govExport.ts` 新建 + `dashboard.vue` 加导出按钮与打印样式 + 20 条用例）→ `b7c4c86`（**安全修复 + 补覆盖**，3 文件 +153/−3，+8 用例）。
+- **设计取舍（重要，勿改方向）**：**纯前端导出，不新增任何后端端点**。后端 `/api/gov/dashboard` 已返回**完整、按查看者范围裁剪、零 PII** 的聚合数据，前端 store 已持有 ⇒ 加端点只会白白扩大攻击面（与"收窄走 CLI 不加 HTTP 面"同一取向）。**零新增依赖**：CSV 手写 RFC 4180，PDF 走 H5 `window.print()`（另存为 PDF），不引入 papaparse/jspdf/file-saver。
+- **CSV 规范**：UTF-8 **BOM** 开头（否则 Excel 中文乱码）+ `\r\n` 行尾；三段（元信息 / 总览 19 行指标 / 区域明细 9 列），段间空行；**null 一律空串、绝不做 0 兜底**（与看板"不显示 0"不变量一致）；`__UNASSIGNED__ → 未分区`；文件名 `gov-dashboard-YYYYMMDD.csv`（ASCII）。`生成时间` 用**确定性** `YYYY-MM-DD HH:mm:ss`（手写补零、不依赖 locale），且**取自 `meta.generatedAt`** 而非"当前时间"（保证导出物与数据自洽、可复现）。
+- **安全：CSV 公式注入防护**。`district` 来自数据库、可由录入者控制；`= + - @ TAB CR` 开头的单元格会被 Excel/WPS 当**公式执行**。修法：`sanitizeCell` 仅对以 `= + - @ \t \r` 开头**且非合法数字**者前置单引号 `'`，**纯数字（含 `-1.5`）原样放行**（防过度清洗毁掉数值列）。**唯一收口在 `toLine()`**，顺序为 **先 `sanitizeCell` 再 `csvEscape`**（保证 `'` 前缀落在引号内）。
+- **PDF**：`window.print()` 另存；`@media print` 强制**浅色**（看板原为深色主题，直接打印费墨且看不清）、隐藏工具栏/按钮、`break-inside: avoid`；非 H5（小程序/App）退化为 toast。
+- 门禁：前端 **38 files / 206 passed**（178 → 206，新增 28）；`type-check` **0 错**；CI/CD/pages（`b7c4c86`）success。
+- **验证方式（突变测试，两轮）**：第 1 轮独立 QA 13 条突变 + 8 项对抗点 → 「可接受」，挖出 **1 安全缺口（公式注入）+ 3 覆盖缺口**；第 2 轮由主理人接手（**QA 因 429 额度中断**）定向重放 **R1–R7 全 RED**：
+  - R1 漏清洗（`sanitizeCell` 恒等）→ 3 用例红；R2 **过度清洗**（去掉数字放行）→ 反向用例红；
+  - R3 摘掉 `toLine` 收口 → 生产路径用例红；R4 **对调顺序** → 含逗号注入串用例红；
+  - R5 生成时间改 `Date.now()` → 确定性用例红；R6 删总览任一行 → 逐行比对用例红；R7 去页面空数据守卫 → 用例红。
+  - `\n` 前缀边界**判定不需防护**（依据：规则与 OWASP 注入首字符集一致 `= + - @ TAB CR` **不含 LF**；实测 `\n=1+1` 经 `csvEscape` 被引号包裹、单元格首字符是 LF 而非 `=`，Excel 不判为公式）。确定性：连跑 3 次 + 乱序全绿，零偶发。
+- 剩余：`AED 短信/电话降级` **卡在外部依赖**（需先定第三方渠道：阿里云/腾讯云/Twilio、是否需语音外呼），未动工。
