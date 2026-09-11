@@ -7,6 +7,11 @@ export interface AuthPayload {
   userId?: string
 }
 
+/** 纵深防御：显式识别政府令牌声明（gov token 绝不被业务鉴权接受）。 */
+function isGovPayload(payload: unknown): boolean {
+  return typeof payload === 'object' && payload !== null && (payload as { gov?: unknown }).gov === true
+}
+
 export function signToken(payload: AuthPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' })
 }
@@ -23,6 +28,10 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   }
   try {
     const payload = verifyToken(auth.slice(7))
+    // 政府令牌（gov:true）不得进入业务鉴权链路
+    if (isGovPayload(payload)) {
+      return res.status(401).json({ code: -1, message: '令牌无效' })
+    }
     ;(req as any).auth = payload
     next()
   } catch {
@@ -35,7 +44,10 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   const auth = req.headers.authorization
   if (auth && auth.startsWith('Bearer ')) {
     try {
-      (req as any).auth = verifyToken(auth.slice(7))
+      const payload = verifyToken(auth.slice(7))
+      if (!isGovPayload(payload)) {
+        (req as any).auth = payload
+      }
     } catch { /* ignore */ }
   }
   next()

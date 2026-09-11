@@ -43,10 +43,14 @@ describe('Gov 鉴权与隔离（P2-8）', () => {
     expect(res.status).toBe(401)
   })
 
-  it('gov_token 不能访问业务受保护路由（admin）', async () => {
+  it('gov_token 在令牌层即被业务鉴权拒绝（/api/auth/me ⇒ 401）', async () => {
     const v = seedGovViewer({ username: 'g5' })
-    const res = await request(app).get('/api/admin/dashboard').set('Authorization', `Bearer ${v.token}`)
-    expect(res.status).toBe(403)
+    // 仅挂 authMiddleware 的路由：必须 401（而非依赖 adminMiddleware 的 is_leader 403）
+    const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${v.token}`)
+    expect(me.status).toBe(401)
+    // 任何业务受保护路由同样在令牌层即被拒
+    const admin = await request(app).get('/api/admin/dashboard').set('Authorization', `Bearer ${v.token}`)
+    expect(admin.status).toBe(401)
   })
 
   it('停用后 token 立即失效（每次回查 active）', async () => {
@@ -68,8 +72,8 @@ describe('Gov 鉴权与隔离（P2-8）', () => {
     // 无业务 token
     const noAuth = await request(app).get(`${GOV}/viewers`)
     expect(noAuth.status).toBe(401)
-    // 有 gov token 但非业务管理员
+    // 有 gov token 也不行：业务鉴权在令牌层即拒绝（401，不再是 is_leader 的 403）
     const withGov = await request(app).get(`${GOV}/viewers`).set('Authorization', `Bearer ${v.token}`)
-    expect(withGov.status).toBe(403)
+    expect(withGov.status).toBe(401)
   })
 })
