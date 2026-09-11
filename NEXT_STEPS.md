@@ -251,9 +251,26 @@ docker compose up -d
 ```
 镜像：`ghcr.io/bujinwang/jiujiaxia-server:latest`、`ghcr.io/bujinwang/jiujiaxia-web:latest`
 
-### P1 遗留（未做，非阻塞）
-- **TLS 未上**：当前仅 HTTP（决策"先 HTTP，TLS 后续"）。域名+证书就绪后可用 Caddy/certbot 前置终止 TLS。
-- **CD 仅发布镜像，无服务器部署**：尚未 SSH 部署到 VPS（决策"推 GHCR"）。需时补 deploy 步骤 + 主机密钥。
+### ✅ P1 部署遗留 → 已完成（2026-09-12）
+
+**交付生产部署工程**（`8f00d0f`）：目标拓扑 `Internet → Caddy(443, 自动 HTTPS) → web:80(nginx) → server:3001`，复用 P1 已验收的 nginx 路由逻辑。
+
+| 文件 | 作用 |
+|------|------|
+| `docker-compose.prod.yml`（新增） | 生产形态：三服务全用 **GHCR 镜像**（非本地 build）；**仅 caddy 暴露 80/443/443-udp**，`server`/`web` 仅 `expose` 内网端口；`caddy-data` 卷持久化证书（避免重签撞 ACME 速率限制） |
+| `Caddyfile`（新增） | `{$DOMAIN}` + 自动申请/续期 Let's Encrypt；`reverse_proxy web:80` |
+| `.env.example`（根级，新增） | 生产变量占位符；标注 `GOV_JWT_SECRET` **必须与** `JWT_SECRET` **不同**（P2-8 隐患的部署侧要求）、`CORS_ORIGINS` 生产必填 |
+| `.github/workflows/cd.yml`（修改） | 新增 `deploy` 作业：`needs: build-and-push` → SCP 上传 compose/Caddyfile → SSH `compose pull && up -d`；**未配置 Secrets 时优雅跳过**（`::notice` 提示，不让 CI 变红）；`.env` 只存在主机、不入库不上传 |
+| `docs/DEPLOY.md`（新增） | 主机前提 / 首次部署 / GitHub Secrets（4 项）/ 回滚 / 故障排查 |
+
+**本轮验证（静态，因本机无 Docker）**：
+- YAML 结构断言通过（`server`/`web` **无** `ports`、caddy 含 443、3 个 SSH step **全部**有 `env.SSH_HOST != ''` 守卫、`deploy.needs == build-and-push`）。
+- **Caddyfile 用真实 `caddy v2.8.4 validate` 通过**；顺带实证工程师发现的坑：`TLS_EMAIL` 为空会让 `tls` 行解析失败（`wrong argument count ... after 'tls'`）——已在 `.env.example`、手册、故障表三处写明规避方式。
+- **线上实测"无 Secrets 不红"**：CD run `34640522449` = success，`Build & Push` 1m29s ✓、`Deploy to server` 11s ✓（跳过），注释即「未配置 SSH_HOST / SSH_USER / SSH_KEY，跳过部署（配置 Secrets 后自动生效）」。
+
+**待主机接入（唯一剩余动作，非代码工作）**：拿到服务器+域名后，按 `docs/DEPLOY.md` ① 主机建 `/opt/jiujiaxia/.env`（`openssl rand -hex 32` 生成两个不同密钥）② 仓库配 `SSH_HOST`/`SSH_USER`/`SSH_KEY`(+可选 `SSH_PORT`) ③ 域名 A 记录指向主机并放行 80/443 ④ push main 即自动部署。
+
+### 其他 P1 遗留（非阻塞）
 - **`legacy-peer-deps` 仍是"绕过"**：应择机对齐 `vue`/`pinia`/`@vitejs/plugin-vue` 版本后移除。
 - 本机 arm64/x64 原生依赖问题（见"环境备注"），根治仍是换机 `npm ci`。
 
