@@ -60,7 +60,8 @@ const HERO_COLORS = [
  * 后端案例 → 视图模型（显式映射，禁用 `as any`）。
  * 后端无 timeline/duration/resultIcon → 安全默认；heroes 由 `volunteers` 派生。
  */
-export function mapRescueCase(raw: ApiRescueCase): RescueCase {
+export function mapRescueCase(raw: ApiRescueCase | null | undefined): RescueCase {
+  if (!raw) throw new Error('救援案例不存在')
   const volunteers = raw.volunteers || []
   return {
     id: raw.id,
@@ -92,6 +93,6 @@ export async function fetchCases(): Promise<RescueCase[]> {
 
 /** 获取单个案例详情。 */
 export async function fetchCaseByIdApi(id: string): Promise<RescueCase> {
-  const raw = await request<ApiRescueCase>({ url: `/cases/${id}` })
+  const raw = await request<ApiRescueCase | null>({ url: `/cases/${id}` })
   return mapRescueCase(raw)
 }

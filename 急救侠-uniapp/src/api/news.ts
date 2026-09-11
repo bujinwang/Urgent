@@ -81,7 +81,8 @@ function asNewsCategory(c: string): NewsItem['category'] {
 }
 
 /** 后端新闻 → 视图模型（显式映射，禁用 `as any`）。 */
-export function mapNewsItem(raw: ApiNewsItem): NewsItem {
+export function mapNewsItem(raw: ApiNewsItem | null | undefined): NewsItem {
+  if (!raw) throw new Error('动态不存在')
   const body = raw.body || ''
   return {
     id: raw.id,
@@ -115,6 +116,6 @@ export async function fetchNewsByCategory(cat: string): Promise<NewsItem[]> {
 
 /** 获取单条动态详情。 */
 export async function fetchNewsById(id: string): Promise<NewsItem> {
-  const raw = await request<ApiNewsItem>({ url: `/news/${id}` })
+  const raw = await request<ApiNewsItem | null>({ url: `/news/${id}` })
   return mapNewsItem(raw)
 }

@@ -94,9 +94,10 @@ export interface ApiAedDevice {
  * 后端缺失的字段用占位补齐；`discovered/verified` 由本地状态注入。
  */
 export function mapApiDeviceToView(
-  raw: ApiAedDevice,
+  raw: ApiAedDevice | null | undefined,
   opts: { discovered?: boolean; verified?: boolean } = {}
 ): AedDevice {
+  if (!raw) throw new Error('AED 设备不存在')
   return {
     id: raw.id,
     name: raw.name,

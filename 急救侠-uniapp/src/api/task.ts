@@ -54,7 +54,8 @@ function asTaskStatus(s: string): RescueTask['status'] {
 }
 
 /** 后端任务 → 视图模型（显式映射，禁用 `as any`）。 */
-export function mapRescueTask(raw: ApiRescueTask): RescueTask {
+export function mapRescueTask(raw: ApiRescueTask | null | undefined): RescueTask {
+  if (!raw) throw new Error('任务不存在')
   const needed = raw.volunteersNeeded || 0
   const responded = raw.volunteersResponded || 0
   return {

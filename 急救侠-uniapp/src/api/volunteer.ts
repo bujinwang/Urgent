@@ -36,7 +36,8 @@ export interface ApiVolunteerRank {
  * 后端排行项 → 视图模型（显式映射，禁用 `as any`）。
  * 后端无 `volunteerId` → 用后端用户 id 兜底；`id` 用位次（数字型）；`isMe` 由 store 覆盖。
  */
-export function mapVolunteerRank(raw: ApiVolunteerRank): VolunteerRankEntry {
+export function mapVolunteerRank(raw: ApiVolunteerRank | null | undefined): VolunteerRankEntry {
+  if (!raw) throw new Error('排行榜数据不存在')
   return {
     id: raw.rank || 0,
     avatar: raw.avatar || (raw.name || '?').charAt(0),

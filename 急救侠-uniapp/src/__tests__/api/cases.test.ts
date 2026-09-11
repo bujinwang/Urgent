@@ -15,8 +15,9 @@ describe('Cases API（真实接口）', () => {
     expect(vi.mocked(request)).toHaveBeenCalledWith({ url: '/cases/list' })
   })
 
-  it('fetchCaseByIdApi 调用 /cases/:id', () => {
-    void fetchCaseByIdApi('case_001')
+  it('fetchCaseByIdApi 调用 /cases/:id（案例不存在时抛出干净错误）', async () => {
+    vi.mocked(request).mockResolvedValueOnce(null)
+    await expect(fetchCaseByIdApi('case_001')).rejects.toThrow('救援案例不存在')
     expect(vi.mocked(request)).toHaveBeenCalledWith({ url: '/cases/case_001' })
   })
 

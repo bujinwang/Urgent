@@ -45,7 +45,8 @@ const CARD_ROUTES: Record<string, string> = {
  * 后端卡片 → 视图模型（显式映射，禁用 `as any`）。
  * `num` 由序号生成；`featured` 仅 CPR（后端无该字段）；`badge` 后端缺失故不设置。
  */
-export function mapAtlasCard(raw: ApiAtlasCard, index: number): AtlasCard {
+export function mapAtlasCard(raw: ApiAtlasCard | null | undefined, index: number): AtlasCard {
+  if (!raw) throw new Error('图谱卡片不存在')
   return {
     id: raw.id,
     num: String(index + 1).padStart(2, '0'),

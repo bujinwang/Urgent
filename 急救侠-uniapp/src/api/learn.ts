@@ -39,7 +39,8 @@ export interface ApiCourse {
  * 后端课程 → 视图模型（显式映射，禁用 `as any`）。
  * 后端 id 为字符串且无 students → id 用序号（稳定、匹配数字型 `Lesson.id`），students 默认 0。
  */
-export function mapLesson(raw: ApiCourse, index: number): Lesson {
+export function mapLesson(raw: ApiCourse | null | undefined, index: number): Lesson {
+  if (!raw) throw new Error('课程不存在')
   return {
     id: index + 1,
     thumb: raw.icon || '📘',

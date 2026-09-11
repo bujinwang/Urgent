@@ -62,7 +62,8 @@ const SQUAD_COLORS = [
 ]
 
 /** 后端记录 → 视图模型（显式映射，禁用 `as any`）。 */
-export function mapRescueRecord(raw: ApiRescueRecord): RescueRecord {
+export function mapRescueRecord(raw: ApiRescueRecord | null | undefined): RescueRecord {
+  if (!raw) throw new Error('救援记录不存在')
   const squadNames = raw.squad || []
   const type = asRecordType(raw.type)
   const outcome = OUTCOME_MAP[raw.result] || 'transferred'
