@@ -164,7 +164,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref,onMounted } from 'vue';import { useUserStore } from '@/stores/user';import { request } from '@/api/index'
+import { ref,onMounted } from 'vue';import { useUserStore } from '@/stores/user';import { request, BASE_URL } from '@/api/index'
 const s=useUserStore()
 const tabs=[{key:'recommend',label:'推荐'},{key:'rescue',label:'救援'},{key:'training',label:'教学'},{key:'animal',label:'动物'},{key:'daily',label:'日常'}]
 const cats=['rescue','training','animal','daily']
@@ -177,14 +177,7 @@ const uploadState=ref<'idle'|'uploading'|'done'|'fail'>('idle')
 const uploadProgress=ref(0)
 const uploadResult=ref<{videoUrl:string;thumbnail:string;duration:string}|null>(null)
 
-/** API base URL — 与 api/index.ts 保持一致 */
-let BASE_URL = '/api'
-// #ifdef H5
-BASE_URL = '/api'
-// #endif
-// #ifndef H5
-BASE_URL = 'https://api.jiujiaxia.com/api'
-// #endif
+// BASE_URL 取自 @/api/index（已 export；H5 为 '/api'，非 H5 可经 API_BASE_URL 配置）
 
 onMounted(load)
 function catLabel(c:string){return {rescue:'🚨救援',training:'📚教学',animal:'🐾动物',daily:'📱日常'}[c]||c}

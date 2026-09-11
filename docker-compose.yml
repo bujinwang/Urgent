@@ -29,5 +29,22 @@ services:
       retries: 3
       start_period: 10s
 
+  web:
+    build:
+      context: ./急救侠-uniapp
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"   # 本地避开宿主机 80；生产建议映射到 80/443
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   server-data:

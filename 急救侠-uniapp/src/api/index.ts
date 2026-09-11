@@ -2,15 +2,15 @@
  * API 层 — 统一请求封装
  */
 
-let BASE_URL: string
+export let BASE_URL: string
 // #ifdef H5
 BASE_URL = '/api'
 // #endif
-// #ifdef MP-WEIXIN
-BASE_URL = 'https://api.jiujiaxia.com/api'
-// #endif
-// #ifdef APP-PLUS
-BASE_URL = 'https://api.jiujiaxia.com/api'
+// #ifndef H5
+// 非 H5 平台（小程序 / App）：允许在构建期用环境变量 API_BASE_URL 覆盖 API 域名；
+// 未设置时回落到占位默认值，不破坏既有行为。
+declare const process: { env: { API_BASE_URL?: string } }
+BASE_URL = process.env.API_BASE_URL || 'https://api.jiujiaxia.com/api'
 // #endif
 
 interface RequestOptions {

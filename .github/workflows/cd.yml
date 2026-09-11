@@ -1,0 +1,46 @@
+# ============================================================
+# 急救侠 — CD Pipeline
+# ============================================================
+# push main 时，将后端(server)与前端(web)镜像构建并推送到 GHCR。
+# 注意：本文件为新增工作流，不改动 ci.yml 中已有的 server/uniapp job。
+
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-push:
+    name: Build & Push images (GHCR)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./急救侠-server
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/jiujiaxia-server:latest
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./急救侠-uniapp
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/jiujiaxia-web:latest
