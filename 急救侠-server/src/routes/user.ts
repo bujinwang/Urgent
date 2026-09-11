@@ -1,15 +1,17 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error, UserProfile, Stats } from '../types'
+import { optionalAuth } from '../middleware/auth'
+import type { AuthPayload } from '../middleware/auth'
 import type { UserRow, StatRow, OrgRoleRow, TrainingRecordRow } from '../types/rows'
 
 export const userRouter = Router()
 
-userRouter.get('/profile', (req, res) => {
+userRouter.get('/profile', optionalAuth, (req, res) => {
   try {
-    const token = (req.headers.authorization || '').replace('Bearer ', '')
-    let userId = ''
-    if (token.startsWith('token_')) userId = 'u_' + token.split('_')[1]
+    // 身份取自令牌（userId 优先）；未登录时保持既有行为（回退首个用户）
+    const a = (req as { auth?: AuthPayload }).auth
+    const userId = a ? (a.userId || a.openid || '') : ''
     const row = userId
       ? (get<UserRow>('SELECT * FROM users WHERE id = ?', userId))
       : (get<UserRow>('SELECT * FROM users LIMIT 1'))

@@ -405,6 +405,7 @@ function leaderOnly(
   const auth = (req as { auth?: AuthPayload }).auth
   if (!auth) return res.status(401).json(error('未登录'))
   const userId = auth.userId || auth.openid
+  if (!userId) return res.status(401).json(error('未登录'))
   const user = get<{ is_leader: number }>('SELECT is_leader FROM users WHERE id = ?', userId)
   if (!user || !user.is_leader) return res.status(403).json(error('仅管理员可执行此操作'))
   next()

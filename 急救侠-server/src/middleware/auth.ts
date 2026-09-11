@@ -3,8 +3,17 @@ import jwt from 'jsonwebtoken'
 import { JWT_SECRET, WECHAT_APPID, WECHAT_SECRET } from '../config'
 
 export interface AuthPayload {
-  openid: string
+  /**
+   * 统一身份标识（业务用户主键，如 `u_<phone>`；微信流下等于 openid）。
+   * **所有鉴权端点一律以 `userId` 为准**（`userId || openid` 兜底仅用于兼容旧签发格式）。
+   */
   userId?: string
+  /**
+   * 微信登录的 openid（仅微信流存在）。
+   * 放宽为可选：手机号流的身份由 `userId` 承载，无需伪造 openid —— 历史上两者被混用，
+   * 正是「明文 token / identity 来源不一致」缺陷的成因之一。
+   */
+  openid?: string
 }
 
 /** 纵深防御：显式识别政府令牌声明（gov token 绝不被业务鉴权接受）。 */

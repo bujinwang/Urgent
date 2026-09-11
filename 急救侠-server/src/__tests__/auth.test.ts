@@ -58,4 +58,78 @@ describe('Auth Routes', () => {
       expect(res.status).toBe(401)
     })
   })
+
+  describe('手机号登录 token 模型（回归：明文 token ⇒ 真 JWT）', () => {
+    const PHONE = '13800138000'
+    const PWD = 'pw123456'
+
+    async function registerAndLogin(): Promise<string> {
+      await request(app).post('/api/auth/register').send({ phone: PHONE, password: PWD, name: '手机用户' })
+      const login = await request(app).post('/api/auth/login').send({ phone: PHONE, password: PWD })
+      return login.body.data.token as string
+    }
+
+    it('注册返回的 token 可过 authMiddleware（/api/auth/me = 200）', async () => {
+      const reg = await request(app).post('/api/auth/register').send({ phone: '13900139000', password: PWD })
+      const token = reg.body.data.token as string
+      expect(token).toBeTruthy()
+      const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`)
+      expect(me.status).toBe(200)
+      expect(me.body.data.id).toBe('u_13900139000')
+    })
+
+    it('手机号登录 token 现可过 authMiddleware（/api/auth/me = 200，修复前 401）', async () => {
+      const token = await registerAndLogin()
+      const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`)
+      expect(me.status).toBe(200)
+      expect(me.body.code).toBe(0)
+      expect(me.body.data.id).toBe('u_' + PHONE)
+    })
+
+    it('token 不再是明文（JWT 三段式，无 token_ 前缀）', async () => {
+      const token = await registerAndLogin()
+      expect(token.startsWith('token_')).toBe(false)
+      expect(token.split('.').length).toBe(3)
+    })
+
+    it('change-password：无 token ⇒ 401', async () => {
+      await registerAndLogin()
+      const res = await request(app)
+        .post('/api/auth/change-password')
+        .send({ phone: PHONE, oldPassword: PWD, newPassword: 'newpw123' })
+      expect(res.status).toBe(401)
+    })
+
+    it('change-password：带本用户 token ⇒ 成功，且新密码可登录', async () => {
+      const token = await registerAndLogin()
+      const res = await request(app)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ phone: PHONE, oldPassword: PWD, newPassword: 'newpw123' })
+      expect(res.status).toBe(200)
+      expect(res.body.code).toBe(0)
+      const relogin = await request(app).post('/api/auth/login').send({ phone: PHONE, password: 'newpw123' })
+      expect(relogin.body.code).toBe(0)
+    })
+
+    it('change-password：带 token 企图改他人密码 ⇒ 403（不再信任客户端 phone）', async () => {
+      const token = await registerAndLogin()
+      await request(app).post('/api/auth/register').send({ phone: '13700137000', password: 'otherpw1' })
+      const res = await request(app)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ phone: '13700137000', oldPassword: 'whatever', newPassword: 'hacked123' })
+      expect(res.status).toBe(403)
+      // 他人密码未被篡改
+      const other = await request(app).post('/api/auth/login').send({ phone: '13700137000', password: 'otherpw1' })
+      expect(other.body.code).toBe(0)
+    })
+
+    it('/api/user/profile 身份取自令牌（手机号用户返回自己，而非首个用户）', async () => {
+      const token = await registerAndLogin()
+      const res = await request(app).get('/api/user/profile').set('Authorization', `Bearer ${token}`)
+      expect(res.status).toBe(200)
+      expect(res.body.data.id).toBe('u_' + PHONE)
+    })
+  })
 })
