@@ -416,7 +416,7 @@ node scripts/smoke.mjs --base https://<域名>     # 生产（不跳过 TLS 校�
 - 接口：`POST /api/gov/login`、`GET /api/gov/me`、`GET /api/gov/dashboard`、`/api/gov/viewers`（管理员 CRUD，`is_leader`）。
 - 门禁：CI ✅（后端 **167** / 前端 **134**）；QA 对抗式验证：**发现 1 个真实安全缺陷**（gov 令牌曾可穿透业务鉴权，因密钥回落）→ 已修并独立复验；其余 9 项 PASS。
 - 文档：`deliverables/software-company/gov-dashboard-{prd,design}.md`（+ `gov-dashboard-{sequence,class}.mermaid`）。
-- **遗留（P1 / 后续）**：`district` 存量回填；覆盖率需外部人口/面积基线；SSO / IP 白名单；gov 前端单测；CSV/PDF 导出；省级卫健委平台对接。
+- **遗留（P1 / 后续）**：`district` 存量回填；覆盖率需外部人口/面积基线；SSO / IP 白名单；~~gov 前端单测~~（✅ 已补，见下）；CSV/PDF 导出；省级卫健委平台对接。
 
 ### ✅ P2-9 薄页面复核（已完成，2026-09-11）
 
@@ -486,3 +486,19 @@ node scripts/smoke.mjs --base https://<域名>     # 生产（不跳过 TLS 校�
 - 迁移机制固有特性（非缺陷，知悉即可）：canonical 已含列的迁移（001/023-028/036/037）在全新库中永不记录、每次 initDb 重跑并 skipped。
 
 - 门禁：CI ✅（后端 **229** / 前端 **134**）；工作树干净。
+
+## ✅ P2-8 政府看板 · 前端单测补齐（已完成）
+
+补上 P2-8 的最大覆盖缺口：gov 前端此前**零单测**（`api/gov.ts`、`stores/gov.ts`、`pages/gov/{dashboard,login}.vue`、`components/{GovStat,GovBarChart}`）。
+
+- commit：`00271aa`（5 个新测试文件 + `setup.ts` 补 `redirectTo` 一行，+497）→ `cd7d8da`（补 `GovStat` 合法零值用例 + 把「无未处理 rejection」升级为直接断言，仅 2 个测试文件，+28/−7）。**均未触碰生产源码、未改 vitest 配置**。
+- 覆盖锁定：
+  - `api/gov.ts` —— ★**令牌隔离**（仅存业务 `jwt_token` 时 `govAuthHeader()==={}`、`getGovToken()===''`）；`district` URL 编码；`callData` 的「code=0 且无 data 抛错」；管理面 `listGovViewers` 恰以 `{url:'/gov/viewers'}`（**无 gov header**，证走业务令牌）；`govLogin` 错误语义、`callVoid` 非 0 抛错。
+  - `stores/gov.ts` —— `districtOptions` 四分支；`login` **只写 `gov_token`**；`loadMe` 失败吞异常置 null；`loadDashboard` 记 error 并抛、`loading` 复位；`setWindow/setDistrict` 用新值重载且失败**无未处理 rejection**；`logout` 清态。
+  - `GovStat` —— ★`null` ⇒ 「数据积累中」且**不渲染 0**；★`value=0` ⇒ **渲染 0**（防判空被写成 `!value` 把合法零值误吞）。
+  - `GovBarChart` —— 空态「暂无数据」；归一化；`≤0`/非有限值→0%；**正值保 ≥2% 最小可见条**。
+  - `pages/gov/*` —— 未登录跳 login；登录空参**不发请求**；合法凭据跳看板。
+- 门禁：`npm test` **178 passed / 37 files**（原 134，**+44**）；`type-check` **0 错**；CI `34653320342` **双绿**。
+- 验证方式（**突变测试 / 证明测试会红**，非重跑绿灯）：独立 QA 对 **13 处**源码行为逐一改坏 → 对应断言**全部精确变红**（证明断言有牙，无假测试）；43 条用例**连跑 3 次 + 乱序 5 次**零偶发/串扰。主理人**回归重放**上一轮暴露缺口的 2 处突变（`GovStat` 判空改 `!value`、`setWindow` 去 `.catch`）→ 现均 **RED**，缺口确已闭环。
+- 复核挖出并闭环的**真实缺口**：「合法 0 必须渲染 0」原先未被测 —— 突变证明现有 5 条全绿，补例后由 RED 证实。
+- 非阻塞备注：页面测试用 `shallowMount`（子组件 stub）属**有意分工**，`GovStat`/`GovBarChart` 由独立组件测试覆盖；`[Vue warn] picker` 仅告警、不掩盖断言。
