@@ -2,6 +2,7 @@ import express from 'express'
 import path from 'path'
 import fs from 'fs'
 import cors from 'cors'
+import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import { userRouter } from './routes/user'
 import { taskRouter } from './routes/task'
@@ -32,8 +33,26 @@ import { animalRouter } from './routes/animals'
 const app = express()
 
 // Middleware
-app.use(cors())
-app.use(express.json())
+// CORS（安全收敛 E）：来源白名单来自 env `CORS_ORIGINS`（逗号分隔）；
+// 未配置时：开发放开、生产告警（保持可用但提示收紧）。
+const corsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+if (corsOrigins.length > 0) {
+  app.use(cors({ origin: corsOrigins }))
+} else {
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('[cors] 生产环境未配置 CORS_ORIGINS，已放开全部来源（建议配置白名单收紧）')
+  }
+  app.use(cors())
+}
+
+// 安全响应头（安全收敛 D）：helmet 默认集；关闭 CSP 以免影响 /admin 静态页内联脚本
+app.use(helmet({ contentSecurityPolicy: false }))
+
+// 请求体大小上限（安全收敛 C）：1mb，防超大 JSON DoS
+app.use(express.json({ limit: '1mb' }))
 
 // Initialize DB
 initDb()
@@ -107,17 +126,42 @@ const uploadsDir = path.join(__dirname, '..', 'public', 'uploads')
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
 app.use('/uploads', express.static(uploadsDir))
 
-// Image upload (base64) — accepts image or file key
+// Image upload (base64 data URL) — 安全收敛 F：类型白名单 + 大小上限
+const ALLOWED_IMAGE_MIME: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+}
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 // 5MB
 app.post('/api/upload', (req, res) => {
   try {
-    const raw = req.body.image || req.body.file
-    if (!raw) return res.status(400).json({ code: -1, message: '缺少图片数据' })
-    const base64Data = raw.replace(/^data:image\/\w+;base64,/, '')
-    const ext = raw.includes('png') ? 'png' : 'jpg'
-    const filename = `upload_${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`
-    fs.writeFileSync(path.join(uploadsDir, filename), base64Data, 'base64')
+    const raw: unknown = req.body.image || req.body.file
+    if (typeof raw !== 'string' || !raw) {
+      return res.status(400).json({ code: -1, message: '缺少图片数据' })
+    }
+    const matched = /^data:([a-zA-Z0-9/+.-]+);base64,(.*)$/s.exec(raw)
+    if (!matched) {
+      return res.status(400).json({ code: -1, message: '仅支持 base64 data URL 图片' })
+    }
+    const mime = matched[1].toLowerCase()
+    const ext = ALLOWED_IMAGE_MIME[mime]
+    if (!ext) {
+      return res.status(400).json({ code: -1, message: '不支持的图片类型: ' + mime })
+    }
+    const buf = Buffer.from(matched[2], 'base64')
+    if (buf.length === 0) {
+      return res.status(400).json({ code: -1, message: '图片数据为空' })
+    }
+    if (buf.length > MAX_UPLOAD_BYTES) {
+      return res.status(413).json({ code: -1, message: '图片过大（上限 5MB）' })
+    }
+    const filename = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${ext}`
+    fs.writeFileSync(path.join(uploadsDir, filename), buf)
     res.json({ code: 0, data: { url: `/uploads/${filename}` }, message: 'ok' })
-  } catch (e: any) { res.status(500).json({ code: -1, message: e.message }) }
+  } catch (e: unknown) {
+    res.status(500).json({ code: -1, message: e instanceof Error ? e.message : '服务器错误' })
+  }
 })
 
 // Health check

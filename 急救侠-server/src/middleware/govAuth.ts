@@ -9,7 +9,6 @@
 
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
-import crypto from 'crypto'
 import { get } from '../db'
 import { error } from '../types'
 import { GOV_JWT_SECRET, GOV_TOKEN_TTL } from '../config'
@@ -55,22 +54,8 @@ export function verifyGovToken(token: string): GovTokenPayload {
   return { gov: true, govViewerId: p.govViewerId, name: typeof p.name === 'string' ? p.name : '' }
 }
 
-/** 密码哈希：scrypt，存 `saltHex:hashHex`（禁止明文）。 */
-export function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString('hex')
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex')
-  return `${salt}:${hash}`
-}
-
-/** 常量时间校验密码。 */
-export function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = (stored || '').split(':')
-  if (!salt || !hash) return false
-  const candidate = crypto.scryptSync(password, salt, 64)
-  const expected = Buffer.from(hash, 'hex')
-  if (candidate.length !== expected.length) return false
-  return crypto.timingSafeEqual(candidate, expected)
-}
+/** 密码哈希：复用统一口令工具（scrypt，`s1$salt$hash`；兼容历史 `salt:hash`）。 */
+export { hashPassword, verifyPassword } from '../services/password'
 
 /** 政府接口守卫：校验 `gov:true` 令牌 + 回查 active 白名单，注入 `req.gov`。 */
 export function govMiddleware(req: Request, res: Response, next: NextFunction) {

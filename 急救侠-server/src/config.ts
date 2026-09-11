@@ -6,7 +6,15 @@ import crypto from 'crypto'
  * 环境变量在模块加载时一次性捕获，所有模块通过此文件读取。
  */
 
-export const JWT_SECRET = process.env.JWT_SECRET || 'jiujiaxia-dev-secret'
+// ---- 业务 JWT 密钥（安全收敛 B）----
+// 生产环境**必须**显式配置：缺失即 fail-fast 阻止启动（不再使用可预测的弱默认值）。
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('[config] 生产环境必须配置 JWT_SECRET（拒绝以弱默认密钥启动）')
+}
+export const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex')
+if (!process.env.JWT_SECRET && process.env.NODE_ENV !== 'test') {
+  console.warn('[config] JWT_SECRET 未配置，已生成进程级随机密钥（生产必须显式配置；重启会使已签发令牌失效）')
+}
 export const WECHAT_APPID = process.env.WECHAT_APPID || ''
 export const WECHAT_SECRET = process.env.WECHAT_SECRET || ''
 export const DB_PATH = process.env.DB_PATH || './data/jiujiaxia.db'
