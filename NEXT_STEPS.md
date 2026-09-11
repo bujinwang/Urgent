@@ -201,3 +201,58 @@ npm rebuild better-sqlite3 --build-from-source             # better_sqlite3.node
 - **修法**：`.npmrc` 增加 `legacy-peer-deps=true`（提交 `1406067`），使 npm 与 pnpm 解析行为一致。已验证 `npm ci --dry-run` 从失败转为通过。
 - **遗留技术债**：这是"绕过"而非"解决"。应择机把 `vue` / `pinia` / `@vitejs/plugin-vue` 版本对齐后删掉该行（uni-app 对 vue 版本有约束，需谨慎评估）。
 - **另注**：`@vitejs/plugin-vue` 在 `package.json` 中为 `^6.0.6`，而 vite 为 `5.2.8`，同样存在版本错配，建议一并评估。
+
+---
+
+## ✅ P1 部署链路已完成（2026-09-11 收官）
+
+**TL;DR**：前端 H5 容器化 + `docker compose` 前后端一键拉起 + `BASE_URL` 去硬编码 + GHCR CD 自动发布，已端到端跑通并经 QA 独立验证（0 缺陷）。
+
+### 交付的 3 个提交（`0e0e7a9..ad39c06`，已推送 origin/main）
+| 提交 | 说明 |
+|------|------|
+| `0e0e7a9` | feat: 前端 H5 容器化 + compose web 服务 + BASE_URL 可配置 + GHCR CD |
+| `7040775` | fix: 修正 server `.dockerignore` 排除 `src/`/`tsconfig.json` 导致 CD 构建失败 |
+| `ad39c06` | fix: uniapp Dockerfile 显式加 `--legacy-peer-deps` 解决 Docker 构建的 pinia/vue ERESOLVE |
+
+### 新增 / 修改文件
+- **新增** `急救侠-uniapp/Dockerfile`（多阶段 node:22-alpine → nginx:alpine）、`nginx.conf`（SPA 回退 + `/api`、`/uploads` 反代 `server:3001`）、`.dockerignore`
+- **修改** `docker-compose.yml`（新增 `web` 服务，`8080:80`，`depends_on server healthy`）
+- **新增** `.github/workflows/cd.yml`（push main → 推 GHCR 镜像）
+- **修改** `急救侠-uniapp/src/api/index.ts`（`export let BASE_URL`；H5 `/api`；非 H5 走 `process.env.API_BASE_URL`，保留占位默认）
+- **修改** `急救侠-uniapp/src/pages/video/index.vue`（去掉重复的本地 `BASE_URL`，改为从 `@/api/index` import）
+- **修正** `急救侠-server/.dockerignore`（删掉与 Dockerfile 矛盾的 `src/`、`tsconfig.json`）
+
+### 门禁结果（commit `ad39c06`）
+| 门禁 | 结果 |
+|------|------|
+| CI — Server type-check + test | ✅ 25s |
+| CI — Uniapp type-check + test | ✅ 37s |
+| CD — Build & Push（server + web） | ✅ 1m37s |
+
+### 部署链被"真跑"暴露出的两个缺陷（文档级评估无法发现）
+1. **server 镜像构建失败**：`急救侠-server/.dockerignore`（`06dbab2` 引入）把 `tsconfig.json` 与 `src/` 排除了，但 `Dockerfile` 需要 `COPY tsconfig.json ./` + `COPY src/ src/` 才能编译 → 上下文缺 `src` → 构建失败。此前**从未真正构建过 server 镜像**（CI 只 type-check+test；本机无 Docker），故一直潜伏。修：删掉冲突两行。
+2. **web 镜像构建失败**：`RUN npm ci` 在 Docker 内复现了 P0-3 的 `pinia@3.0.4 ↔ vue@3.4.21` ERESOLVE。Dockerfile 顺序为 `COPY package.json package-lock.json` → `RUN npm ci` → `COPY . .`，`.npmrc` 到第三步才进镜像，第二步看不到 → 必然 ERESOLVE。修：`RUN npm ci --legacy-peer-deps`（显式自包含，不依赖复制顺序）。
+
+> **教训**：`docker-compose.yml`/`Dockerfile` 存在 ≠ 能跑通。CI（type-check+test）不构建镜像、本机无 Docker，都会让部署工程"看起来完成"。**部署链必须真的在干净 runner 上构建一次** —— 这是 CD 的核心价值。P0 的 `legacy-peer-deps` 只修了 CI 的 `npm ci`，Docker 子环境需单独处理。
+
+### QA 独立验证（严过关，0 缺陷）
+- **GHCR 镜像**：用**匿名 OCI 注册表协议**绕过 token scope 限制拿到硬证据 —— 两镜像 `public`、`tags:["latest"]`、manifest HTTP 200、server config `ExposedPorts=3001/tcp`。
+- **溯源**：解出 build-provenance 层，`runDetails.builder.id` = run `34555788912`，headSha = `ad39c06` → 证明 `latest` 就是本次 CD 产物（强于"步骤成功"）。
+- **部署链**：`docker compose up` → `http://localhost:8080/` → `POST /api/auth/login` 逐段追通，无缺口；`.dockerignore` 复核到位；`declare const process` 为模块级局部，未污染全局（P0 技术债 #2 未扩大）。
+- **回归**：本地 server 117 + uniapp 151 全绿。
+
+### 使用方式
+```bash
+cp 急救侠-server/.env.example 急救侠-server/.env   # 首次
+# 编辑 .env（务必更换 JWT_SECRET）
+docker compose up -d
+# 前端 http://localhost:8080/  →  nginx 反代 /api、/uploads 到 server:3001
+```
+镜像：`ghcr.io/bujinwang/jiujiaxia-server:latest`、`ghcr.io/bujinwang/jiujiaxia-web:latest`
+
+### P1 遗留（未做，非阻塞）
+- **TLS 未上**：当前仅 HTTP（决策"先 HTTP，TLS 后续"）。域名+证书就绪后可用 Caddy/certbot 前置终止 TLS。
+- **CD 仅发布镜像，无服务器部署**：尚未 SSH 部署到 VPS（决策"推 GHCR"）。需时补 deploy 步骤 + 主机密钥。
+- **`legacy-peer-deps` 仍是"绕过"**：应择机对齐 `vue`/`pinia`/`@vitejs/plugin-vue` 版本后移除。
+- 本机 arm64/x64 原生依赖问题（见"环境备注"），根治仍是换机 `npm ci`。
