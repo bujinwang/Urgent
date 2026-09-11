@@ -262,6 +262,123 @@ export const RescueCase = z.object({
   /** 关联新闻 ID（可空；无可靠数据来源时为空，前端据此降级为无互链） */
   newsId: z.string().optional(),
 })
+
+// ---- 政府数据监管看板（P2-8）----
+
+export const GovLoginInput = z.object({
+  username: z.string().min(1, '用户名不能为空'),
+  password: z.string().min(1, '密码不能为空'),
+})
+export type GovLoginInput = z.infer<typeof GovLoginInput>
+
+export const GovViewerInput = z.object({
+  username: z.string().min(1, '用户名不能为空'),
+  password: z.string().min(6, '密码至少 6 位'),
+  name: z.string().optional(),
+  orgName: z.string().optional(),
+  scopeAll: z.boolean().optional(),
+  scopeDistricts: z.array(z.string()).optional(),
+})
+export type GovViewerInput = z.infer<typeof GovViewerInput>
+
+export const GovViewerUpdateInput = z.object({
+  name: z.string().optional(),
+  orgName: z.string().optional(),
+  scopeAll: z.boolean().optional(),
+  scopeDistricts: z.array(z.string()).optional(),
+  active: z.boolean().optional(),
+  password: z.string().min(6, '密码至少 6 位').optional(),
+})
+export type GovViewerUpdateInput = z.infer<typeof GovViewerUpdateInput>
+
+/** 聚合元信息 */
+export interface GovMeta {
+  from: number
+  to: number
+  windowDays: number
+  district: string | null
+  generatedAt: number
+  dataGaps: string[]
+}
+export interface GovTrendPoint {
+  date: string
+  p95Ms: number | null
+  count: number
+}
+export interface GovChannelRow {
+  channel: string
+  count: number
+  ratio: number
+}
+export interface GovResponseTime {
+  hasData: boolean
+  sampleSize: number
+  p95Ms: number | null
+  slaRate: number | null
+  noResponseRate: number | null
+  alertTotal: number
+  trend: GovTrendPoint[]
+  channelDistribution: GovChannelRow[]
+}
+export interface GovCoverage {
+  per10k: number | null
+  perKm2: number | null
+  dataGap: boolean
+}
+export interface GovAed {
+  total: number
+  available: number
+  availabilityRate: number | null
+  pickups: number
+  activePickups: number
+  coverage: GovCoverage
+}
+export interface GovTypeCount {
+  type: string
+  count: number
+}
+export interface GovHourCount {
+  hour: number
+  count: number
+}
+export interface GovTasks {
+  total: number
+  completed: number
+  completionRate: number | null
+  typeDistribution: GovTypeCount[]
+  hourlyDistribution: GovHourCount[]
+}
+export interface GovRescue {
+  records: number
+  cases: number
+}
+export interface GovPeople {
+  certifiedVolunteers: number
+  onlineVolunteers: number
+  organizations: number
+  orgMembers: number
+}
+export interface GovDistrictRow {
+  district: string
+  aedCount: number
+  aedAvailableRate: number | null
+  responseP95Ms: number | null
+  slaRate: number | null
+  alertTotal: number
+  taskCount: number
+  taskCompletionRate: number | null
+  coveragePer10k: number | null
+}
+/** 政府看板聚合响应（**无任何 PII**） */
+export interface GovDashboard {
+  meta: GovMeta
+  responseTime: GovResponseTime
+  aed: GovAed
+  tasks: GovTasks
+  rescue: GovRescue
+  people: GovPeople
+  districts: GovDistrictRow[]
+}
 export type RescueCase = z.infer<typeof RescueCase>
 
 // ---- Atlas ----

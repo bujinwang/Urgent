@@ -265,6 +265,28 @@ export interface RescueCaseRow {
   news_id: string | undefined
 }
 
+/** 政府看板访问白名单行（独立于 users，无外键） */
+export interface GovViewerRow {
+  id: string
+  username: string
+  password_hash: string
+  name: string
+  org_name: string
+  scope_all: number
+  scope_districts: string        // JSON string
+  allowed_ips: string
+  active: number
+  last_login_at: number | null
+  created_at: number
+  updated_at: number
+}
+
+/** 通用聚合行（分组计数） */
+export interface NamedCountRow {
+  key: string
+  cnt: number
+}
+
 // ---- Organizations / Certificates ----
 
 export interface OrganizationRow {

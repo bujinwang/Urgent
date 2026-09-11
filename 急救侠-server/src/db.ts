@@ -48,7 +48,8 @@ export function initDb(options: { silent?: boolean } = {}) {
       volunteers_needed INTEGER NOT NULL,
       volunteers_responded INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'pending',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      district TEXT
     );
 
     CREATE TABLE IF NOT EXISTS aed_devices (
@@ -76,7 +77,8 @@ export function initDb(options: { silent?: boolean } = {}) {
       reported_by TEXT NOT NULL DEFAULT '',
       reported_at TEXT NOT NULL DEFAULT '',
       is_mobile INTEGER NOT NULL DEFAULT 0,
-      linked_user_id TEXT NOT NULL DEFAULT ''
+      linked_user_id TEXT NOT NULL DEFAULT '',
+      district TEXT
     );
 
     CREATE TABLE IF NOT EXISTS aed_checkins (
@@ -618,7 +620,8 @@ export function initDb(options: { silent?: boolean } = {}) {
       location TEXT NOT NULL,
       role TEXT NOT NULL,
       squad TEXT NOT NULL DEFAULT '[]',
-      result TEXT NOT NULL DEFAULT ''
+      result TEXT NOT NULL DEFAULT '',
+      district TEXT
     );
 
     CREATE TABLE IF NOT EXISTS rescue_cases (
@@ -684,6 +687,22 @@ export function initDb(options: { silent?: boolean } = {}) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS gov_viewers (
+      id               TEXT PRIMARY KEY,
+      username         TEXT NOT NULL,
+      password_hash    TEXT NOT NULL DEFAULT '',
+      name             TEXT NOT NULL DEFAULT '',
+      org_name         TEXT NOT NULL DEFAULT '',
+      scope_all        INTEGER NOT NULL DEFAULT 0,
+      scope_districts  TEXT NOT NULL DEFAULT '[]',
+      allowed_ips      TEXT NOT NULL DEFAULT '',
+      active           INTEGER NOT NULL DEFAULT 1,
+      last_login_at    INTEGER,
+      created_at       INTEGER NOT NULL,
+      updated_at       INTEGER NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_gov_viewers_username ON gov_viewers(username);
   `)
 
   // ---- Tracked migrations ----
@@ -769,6 +788,28 @@ export function initDb(options: { silent?: boolean } = {}) {
       description: 'add nullable news_id to rescue_cases for case<->news linkage',
       sql: "ALTER TABLE rescue_cases ADD COLUMN news_id TEXT"
     },
+    {
+      id: '032_add_gov_viewers',
+      description: 'create gov_viewers table + unique index (gov dashboard auth)',
+      sql: `CREATE TABLE IF NOT EXISTS gov_viewers (
+        id               TEXT PRIMARY KEY,
+        username         TEXT NOT NULL,
+        password_hash    TEXT NOT NULL DEFAULT '',
+        name             TEXT NOT NULL DEFAULT '',
+        org_name         TEXT NOT NULL DEFAULT '',
+        scope_all        INTEGER NOT NULL DEFAULT 0,
+        scope_districts  TEXT NOT NULL DEFAULT '[]',
+        allowed_ips      TEXT NOT NULL DEFAULT '',
+        active           INTEGER NOT NULL DEFAULT 1,
+        last_login_at    INTEGER,
+        created_at       INTEGER NOT NULL,
+        updated_at       INTEGER NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_gov_viewers_username ON gov_viewers(username);`
+    },
+    { id: '033_add_district_aed', description: 'add nullable district to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN district TEXT" },
+    { id: '034_add_district_tasks', description: 'add nullable district to tasks', sql: "ALTER TABLE tasks ADD COLUMN district TEXT" },
+    { id: '035_add_district_rescue', description: 'add nullable district to rescue_records', sql: "ALTER TABLE rescue_records ADD COLUMN district TEXT" },
   ]
 
   const applied = new Set(
@@ -806,7 +847,7 @@ export function all<T = Row>(sql: string, ...params: BindParam[]): T[] {
 export function clearAll() {
   // Disable FK constraints so DELETE order doesn't matter
   db.pragma('foreign_keys = OFF')
-  db.exec("DELETE FROM _migrations; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_custodian_alerts; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards;")
+  db.exec("DELETE FROM _migrations; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_custodian_alerts; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards; DELETE FROM gov_viewers;")
   db.pragma('foreign_keys = ON')
 }
 
