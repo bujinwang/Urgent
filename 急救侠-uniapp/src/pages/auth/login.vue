@@ -16,7 +16,7 @@
         <text style="font-size:20px">{{isBlueSky?'🔷':'◻️'}}</text>
         <text style="font-size:13px;color:#2C5282;font-weight:600">我是蓝天救援队队员</text>
       </view>
-      <view v-if="curTab==='register' && isBlueSky" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 14px;background:#FFF5F5;border-radius:12px" @click="isBlueSkyLeader=!isBlueSkyLeader">
+      <view v-if="curTab==='register' && isBlueSky" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 14px;background:#FFF5F5;border-radius:12px" @click="toggleLeader">
         <text style="font-size:20px">{{isBlueSkyLeader?'👑':'◻️'}}</text>
         <text style="font-size:13px;color:#991B1B;font-weight:600">我是队长</text>
       </view>
@@ -65,6 +65,18 @@ function toggle(k: string) {
   if (i >= 0) selected.splice(i, 1); else selected.push(k)
 }
 
+/**
+ * 「我是队长」仅作为**申报**，不再随注册自授权限：
+ * 后端 `is_leader` 同时是管理面判定依据，注册时自封会直接获得管理权限（NEW-1），
+ * 因此该标记只用于前端展示，实际队长身份需管理端授予。
+ */
+function toggleLeader() {
+  isBlueSkyLeader.value = !isBlueSkyLeader.value
+  if (isBlueSkyLeader.value) {
+    uni.showToast({ title: '队长身份需管理端授予，注册后默认为队员', icon: 'none' })
+  }
+}
+
 async function submit() {
   const p = phone.value; const w = pwd.value
   if (!p || p.length < 11) { uni.showToast({ title:'请输入11位手机号', icon:'none' }); return }
@@ -72,9 +84,9 @@ async function submit() {
   try {
     const interests = selected.length ? selected.join(',') : 'medical'
     const aff = isBlueSky.value ? '蓝天救援队' : undefined
-    const ld = isBlueSkyLeader.value ? true : undefined
+    // 队长身份（is_leader）不再随注册自授：后端已拒绝该字段，需管理端授予
     const result = curTab.value === 'register'
-      ? await phoneRegister(p, w, name.value, interests, aff, ld)
+      ? await phoneRegister(p, w, name.value, interests, aff)
       : await phoneLogin(p, w)
     uni.setStorageSync('jwt_token', result.token)
     uni.showToast({ title: curTab.value === 'register' ? '注册成功' : '登录成功', icon: 'none' })

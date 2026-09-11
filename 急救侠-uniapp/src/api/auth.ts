@@ -66,8 +66,20 @@ export async function fetchCurrentUser(): Promise<UserProfile> {
 }
 
 /** 手机号注册 */
-export async function phoneRegister(phone: string, password: string, name?: string, interests?: string, affiliation?: string, isLeader?: boolean): Promise<LoginResult> {
-  return request({ url: '/auth/register', method: 'POST', data: { phone, password, name, interests, affiliation, isLeader } })
+/**
+ * 手机号注册。
+ *
+ * 注：**不再接受 `isLeader`** —— 后端 `is_leader` 同时是管理面（`/api/admin/*` 等）判定
+ * 依据，注册时自封队长等同于自授管理权限（NEW-1）。队长身份只能由管理操作授予。
+ */
+export async function phoneRegister(
+  phone: string,
+  password: string,
+  name?: string,
+  interests?: string,
+  affiliation?: string
+): Promise<LoginResult> {
+  return request({ url: '/auth/register', method: 'POST', data: { phone, password, name, interests, affiliation } })
 }
 
 /** 手机号登录 */
