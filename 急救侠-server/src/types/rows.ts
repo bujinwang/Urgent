@@ -63,6 +63,8 @@ export interface UserRow {
   volunteer_type: string
   is_organizer: number
   is_public: number
+  /** 手机号（迁移 038）；供 AED 责任人联动短信降级「现取现用」，可空。 */
+  phone: string
   /** 平台管理员（迁移 036 引入，与「队伍队长」`is_leader` 正交）。公开接口不得输出。 */
   is_platform_admin: number
   password: string
@@ -826,7 +828,8 @@ export interface AedCustodianAlertRow {
   unlock_command_status: UnlockCommandStatus
   unlock_token: string
   responder_user_id: string
-  delivery_state: 'pending' | 'delivered' | 'failed' | 'no_subscription'
+  /** 投递状态；`sms_fallback` = 推送未送达但已短信降级（P1 阿里云短信）。 */
+  delivery_state: 'pending' | 'delivered' | 'failed' | 'no_subscription' | 'sms_fallback'
   consent_granted: number
   consent_version: string
   consent_at_ms: number | null

@@ -105,9 +105,9 @@ authRouter.post('/register', validate(AuthRegisterInput), (req, res) => {
     const points = isBsm ? 500 : 0
     const rescueCount = isBsm ? 3 : 0
     const certs = isBsm ? '["CPR / AED","Basic Life Support","野外急救"]' : '[]'
-    db.prepare('INSERT INTO users (id, name, avatar, tier, points, city, volunteer_id, certifications, rescue_count, public_id, is_leader, affiliation, volunteer_type, is_organizer, is_public, password) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(
+    db.prepare('INSERT INTO users (id, name, avatar, tier, points, city, volunteer_id, certifications, rescue_count, public_id, is_leader, affiliation, volunteer_type, is_organizer, is_public, phone, password) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(
       id, name || '急救侠' + phone.slice(-4), (name || '侠').charAt(0), tier, points, '', 'PH-' + phone.slice(0,4),
-      certs, rescueCount, 'PU' + phone.slice(-6), 0, affiliation || '', volunteerType, 0, 0, hashPassword(password)
+      certs, rescueCount, 'PU' + phone.slice(-6), 0, affiliation || '', volunteerType, 0, 0, phone, hashPassword(password)
     )
     // 签发真实 JWT（此前为明文 'token_<phone>_<ts>'，无法通过 authMiddleware）
     const token = signToken({ userId: id })

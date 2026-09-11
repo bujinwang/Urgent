@@ -20,6 +20,15 @@ export const WECHAT_SECRET = process.env.WECHAT_SECRET || ''
 export const DB_PATH = process.env.DB_PATH || './data/jiujiaxia.db'
 export const PORT = parseInt(process.env.PORT || '3001', 10)
 
+// ---- 阿里云短信（AED 责任人联动「推送失败 → 即时短信降级」，P1）----
+// 配置门控：前 4 项**任一为空**即视为功能关闭（降级为既有行为），dev/test 静默、不打 warn。
+// 生产启用需：企业实名 + 短信签名/模板报备，拿到真实值后填入（见 .env.example）。
+export const ALIYUN_SMS_ACCESS_KEY_ID = process.env.ALIYUN_SMS_ACCESS_KEY_ID || ''
+export const ALIYUN_SMS_ACCESS_KEY_SECRET = process.env.ALIYUN_SMS_ACCESS_KEY_SECRET || ''
+export const ALIYUN_SMS_SIGN_NAME = process.env.ALIYUN_SMS_SIGN_NAME || ''
+export const ALIYUN_SMS_TEMPLATE_CODE = process.env.ALIYUN_SMS_TEMPLATE_CODE || ''
+export const ALIYUN_SMS_REGION = process.env.ALIYUN_SMS_REGION || 'cn-hangzhou'
+
 // ---- 政府数据监管看板（P2-8）----
 // 政府访问令牌**必须**使用独立密钥：绝不回落到业务 `JWT_SECRET`
 // （否则 gov 令牌可通过业务 authMiddleware 验签 → 违反「互不通用」锁定决策）。

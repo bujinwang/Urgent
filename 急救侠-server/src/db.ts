@@ -80,6 +80,9 @@ export function initDb(options: { silent?: boolean } = {}) {
       volunteer_type TEXT NOT NULL DEFAULT 'medical',
       is_organizer INTEGER NOT NULL DEFAULT 0,
       is_public INTEGER NOT NULL DEFAULT 0,
+      -- 手机号（可空；迁移 038）：供「AED 责任人联动」推送失败时的短信降级「现取现用」。
+      -- 电话注册用户写入；微信用户为空 => 降级时回落设备级 aed_devices.custodian_phone。
+      phone TEXT NOT NULL DEFAULT '',
       -- 平台管理员（与"队伍队长" is_leader 正交）：仅用于管理面判定，
       -- 见迁移 036。公开接口绝不可输出此字段。
       is_platform_admin INTEGER NOT NULL DEFAULT 0
@@ -891,6 +894,13 @@ export function initDb(options: { silent?: boolean } = {}) {
         value TEXT NOT NULL DEFAULT '',
         updated_at INTEGER NOT NULL
       )`,
+    },
+    {
+      id: '038_add_user_phone',
+      description: 'add phone to users (AED custodian SMS fallback, taken at send time)',
+      // 幂等：canonical schema 已建同列 ⇒ 全新库此 ALTER 会因「duplicate column」被外层
+      // catch 记为 skipped（与迁移 036 同机制）；既有库则真正补列。
+      sql: "ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''",
     },
   ]
 

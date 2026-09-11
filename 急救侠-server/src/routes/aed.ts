@@ -14,6 +14,7 @@ import { authMiddleware, AuthPayload } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { logAudit } from '../services/aedAudit'
 import { sendPushToUser, PUSH_TEMPLATES } from '../services/pushService'
+import { isSmsConfigured, sendSms } from '../services/smsService'
 
 export const aedRouter = Router()
 
@@ -514,6 +515,17 @@ function resolveCustodians(aedId: string): AedManagerRow[] {
   )
 }
 
+/**
+ * 解析责任人号码（**现取现用，不落快照**）：
+ * 优先 `users.phone`，为空则回落设备级 `aed_devices.custodian_phone`。
+ */
+function resolveCustodianPhone(userId: string, device: AedRow): string {
+  const u = get<{ phone: string }>('SELECT phone FROM users WHERE id = ?', userId)
+  const p = (u?.phone || '').trim()
+  if (p) return p
+  return (device.custodian_phone || '').trim()
+}
+
 /** 行 → 对外的 camelCase 领域对象（不返回责任人手机号）。 */
 function rowToAlert(row: AedCustodianAlertRow): AedCustodianAlert {
   return {
@@ -614,6 +626,7 @@ aedRouter.post('/:id/notify-custodian', authMiddleware, validate(CustodianNotify
     }
     let delivered = false
     let anyHasSubscription = false
+    const failedManagers: AedManagerRow[] = []
     for (const m of managers) {
       const r = await sendPushToUser(m.user_id, {
         templateId: PUSH_TEMPLATES.aedCustodianRequest,
@@ -621,24 +634,44 @@ aedRouter.post('/:id/notify-custodian', authMiddleware, validate(CustodianNotify
         data: pushData,
       })
       if (r.ok) delivered = true
+      else failedManagers.push(m)
       if (r.reason !== 'no_subscription') anyHasSubscription = true
     }
 
-    const status: AedCustodianAlertRow['status'] = delivered ? 'sent' : 'unreachable'
+    // P1 短信即时降级：**仅当推送未送达**时，对推送失败的责任人逐个短信（inline，无定时器、无新端点）。
+    // 号码现取现用（users.phone → 空则设备 custodian_phone），**不写** custodian_phone_snapshot（不在库中留存 PII）。
+    let smsAccepted = 0
+    if (!delivered && failedManagers.length > 0 && isSmsConfigured()) {
+      for (const m of failedManagers) {
+        const phone = resolveCustodianPhone(m.user_id, device)
+        const r = await sendSms(phone, {
+          device: device.name,
+          address: device.address || '',
+        })
+        if (r.ok) smsAccepted++
+      }
+    }
+
+    const sent = delivered || smsAccepted > 0
+    const status: AedCustodianAlertRow['status'] = sent ? 'sent' : 'unreachable'
     const deliveryState: AedCustodianAlertRow['delivery_state'] = delivered
       ? 'delivered'
-      : anyHasSubscription ? 'failed' : 'no_subscription'
+      : smsAccepted > 0
+        ? 'sms_fallback'
+        : anyHasSubscription ? 'failed' : 'no_subscription'
 
     db.prepare(
       'UPDATE aed_custodian_alerts SET status = ?, first_sent_time_ms = ?, delivery_state = ?, updated_at = ? WHERE id = ?'
-    ).run(status, delivered ? now : null, deliveryState, now, alertId)
+    ).run(status, sent ? now : null, deliveryState, now, alertId)
 
     logAudit(
       aedId,
       'custodian_notified',
       delivered
         ? `已通知责任人（${managers.length} 名，投递：${deliveryState}）`
-        : `通知责任人未送达（${deliveryState}）`,
+        : smsAccepted > 0
+          ? `推送未送达，已短信降级 ${smsAccepted} 名（投递：${deliveryState}）`
+          : `通知责任人未送达（${deliveryState}）`,
       callerId,
       requester?.name || ''
     )

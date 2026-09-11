@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import request from 'supertest'
 import { server, seedTestData, addCustodian, addPushSubscription, db } from './setup'
 import * as pushService from '../services/pushService'
+import * as smsService from '../services/smsService'
 
 const AED_ID = 'aed_001'
 const TPL = 'tpl_aed_custodian_request'
@@ -340,5 +341,99 @@ describe('AED 责任人联动 — 回读 / 收件箱 / 撤回同意', () => {
       .send({})
     expect(res.status).toBe(403)
     expect(res.body.code).toBe(4003)
+  })
+})
+
+/* ══════════════════ 短信即时降级（P1，配置门控） ══════════════════ */
+
+describe('AED 责任人联动 — 短信即时降级', () => {
+  beforeEach(() => { seedTestData() })
+
+  async function notify(token: string) {
+    return request(server)
+      .post(`/api/aed/${AED_ID}/notify-custodian`)
+      .set(auth(token))
+      .send({ consentGranted: true })
+  }
+
+  function lastAudit(): string {
+    const row = db
+      .prepare("SELECT description FROM aed_audit_log WHERE event_type='custodian_notified' ORDER BY rowid DESC LIMIT 1")
+      .get() as { description: string } | undefined
+    return row?.description || ''
+  }
+
+  it('未配置短信：推送失败不发起任何短信（回归，delivery_state 维持旧值）', async () => {
+    const req = await login('requester')
+    const cp = await login('primary')
+    addCustodian(AED_ID, cp.id, '陈敏', 'primary') // 无订阅
+    vi.spyOn(smsService, 'isSmsConfigured').mockReturnValue(false)
+    const sendSpy = vi.spyOn(smsService, 'sendSms')
+
+    const res = await notify(req.token)
+    expect(res.body.data.status).toBe('unreachable')
+    expect(res.body.data.deliveryState).toBe('no_subscription')
+    expect(sendSpy).not.toHaveBeenCalled()
+  })
+
+  it('配置短信 + 推送失败(no_subscription) → sms_fallback / sent，发给 users.phone', async () => {
+    const req = await login('requester')
+    const cp = await login('primary')
+    addCustodian(AED_ID, cp.id, '陈敏', 'primary') // 无订阅
+    db.prepare('UPDATE users SET phone=? WHERE id=?').run('13800138000', cp.id)
+    vi.spyOn(smsService, 'isSmsConfigured').mockReturnValue(true)
+    const sendSpy = vi.spyOn(smsService, 'sendSms').mockResolvedValue({ ok: true, code: 'OK' })
+
+    const res = await notify(req.token)
+    expect(res.body.data.status).toBe('sent')
+    expect(res.body.data.deliveryState).toBe('sms_fallback')
+    expect(sendSpy).toHaveBeenCalledTimes(1)
+    expect(sendSpy.mock.calls[0][0]).toBe('13800138000')
+    // PII：审计描述不含完整号码，且提及降级人数
+    expect(lastAudit()).not.toContain('13800138000')
+    expect(lastAudit()).toContain('短信降级 1 名')
+  })
+
+  it('无 users.phone → 回落设备 custodian_phone', async () => {
+    const req = await login('requester')
+    const cp = await login('primary')
+    addCustodian(AED_ID, cp.id, '陈敏', 'primary')
+    db.prepare('UPDATE aed_devices SET custodian_phone=? WHERE id=?').run('13900139000', AED_ID)
+    vi.spyOn(smsService, 'isSmsConfigured').mockReturnValue(true)
+    const sendSpy = vi.spyOn(smsService, 'sendSms').mockResolvedValue({ ok: true, code: 'OK' })
+
+    const res = await notify(req.token)
+    expect(res.body.data.deliveryState).toBe('sms_fallback')
+    expect(sendSpy.mock.calls[0][0]).toBe('13900139000')
+  })
+
+  it('推送成功 → 不发短信（不浪费）', async () => {
+    const req = await login('requester')
+    const cp = await login('primary')
+    addCustodian(AED_ID, cp.id, '陈敏', 'primary')
+    addPushSubscription(cp.id, TPL, true) // dev 模式送达
+    vi.spyOn(smsService, 'isSmsConfigured').mockReturnValue(true)
+    const sendSpy = vi.spyOn(smsService, 'sendSms')
+
+    const res = await notify(req.token)
+    expect(res.body.data.status).toBe('sent')
+    expect(res.body.data.deliveryState).toBe('delivered')
+    expect(sendSpy).not.toHaveBeenCalled()
+  })
+
+  it('推送失败且两处号码都无 → 回落旧 delivery_state，不崩', async () => {
+    const req = await login('requester')
+    const cp = await login('primary')
+    addCustodian(AED_ID, cp.id, '陈敏', 'primary') // 无订阅、无号码
+    vi.spyOn(smsService, 'isSmsConfigured').mockReturnValue(true)
+    const sendSpy = vi.spyOn(smsService, 'sendSms')
+
+    const res = await notify(req.token)
+    expect(res.status).toBe(200)
+    expect(res.body.data.status).toBe('unreachable')
+    expect(res.body.data.deliveryState).toBe('no_subscription')
+    // 号码为空 ⇒ sendSms 自会拒绝（invalid_phone），不会发起网络请求
+    expect(sendSpy).toHaveBeenCalledTimes(1)
+    expect(sendSpy.mock.calls[0][0]).toBe('')
   })
 })
