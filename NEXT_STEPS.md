@@ -270,6 +270,44 @@ docker compose up -d
 
 **待主机接入（唯一剩余动作，非代码工作）**：拿到服务器+域名后，按 `docs/DEPLOY.md` ① 主机建 `/opt/jiujiaxia/.env`（`openssl rand -hex 32` 生成两个不同密钥）② 仓库配 `SSH_HOST`/`SSH_USER`/`SSH_KEY`(+可选 `SSH_PORT`) ③ 域名 A 记录指向主机并放行 80/443 ④ push main 即自动部署。
 
+### ✅ P1 部署遗留 · 本机生产同构自测（macOS/colima，已完成 2026-09-12）
+
+**目标**：上线前在本机跑一套**与生产同构**的栈（Caddy TLS → web nginx → server），做真实端到端验证。用户要求"先充分测试再上线"，且暂无主机。
+
+**交付文件**（均为本机专用，与生产文件隔离）：
+
+| 文件 | 作用 |
+|------|------|
+| `docker-compose.local.yml`（新增） | 与 `docker-compose.prod.yml` 同构；差异仅：本机 `build:`（arm64 原生，无需 GHCR）、宿主端口 **8443**、`server-data-local`/`caddy-data-local` 卷 |
+| `Caddyfile.local`（新增，`.gitignore` 例外入库） | `localhost { tls internal }` —— Caddy 内部 CA 自签，**不联网/不需域名/不需 80 端口** |
+| `.env.local`（生成，chmod 600，gitignored） | 两个**不同**随机密钥 + `CORS_ORIGINS=https://localhost:8443` |
+| `docs/DEPLOY.md` §9（新增） | 本机自测全流程 + 踩坑表 |
+| `docs/screenshots/local-e2e-home.png` | 无头 Chrome 渲染首页截图（E2E 证据） |
+
+**真跑暴露并修复的 1 个缺陷（重要，影响生产）**：
+- **现象**：`docker compose up` 中 `web` 永远 `health: starting` → `caddy` 卡在 `Waiting` → 整个 `up` 挂死超时。
+- **根因**：`急救侠-uniapp/nginx.conf` 自定义 `server{}` **覆盖**了 nginx 基础镜像的 `default.conf`，使镜像自带的 `10-listen-on-ipv6-by-default.sh` 不再生效 → nginx **只监听 IPv4**；容器内 `getent hosts localhost` 返回 `::1` 优先 → 健康检查 `wget http://localhost/` 连接被拒。
+- **影响面**：`docker-compose.prod.yml` 同一处健康检查（`http://localhost/`）→ **生产部署会以完全相同的方式挂死**。属纯工程链路缺陷，静态审查与 CI（只做 type-check+test）均无法发现。
+- **修复**：① `nginx.conf` 增加 `listen [::]:80;`（恢复双栈，根治）；② `docker-compose.local.yml` + `docker-compose.prod.yml` 的 web 健康检查改用 `http://127.0.0.1/`（确定性，不依赖 IPv6）。
+
+**端到端验证结果（全部实测通过）**：
+
+| 项 | 结果 |
+|---|---|
+| 三容器状态 | `server`/`web` healthy、`caddy` up（`0.0.0.0:8443->443`） |
+| Caddy TLS | 内部 CA 成功签发 `localhost` 证书（日志 `certificate obtained successfully`） |
+| SPA（`/`） | HTTP 200 `text/html`，`<title>急救侠</title>`；4 个静态资源 `/assets/*` 全 200 |
+| 客户端渲染 | 无头 Chrome 截图确认 Vue 应用**真实挂载**（见截图，非空白壳） |
+| `/api/health` | `{"code":0,"message":"急救侠 API 运行中"}` |
+| 注册→登录→受保护端点 | register 200 → login 返回真实 JWT → `/api/auth/me` 200 |
+| 鉴权负例 | 无令牌 `/auth/me` → 401；错误口令 → `密码错误`；`/gov/viewers` 无令牌 401 / 普通用户 403 |
+| 令牌隔离（P2-8） | 业务 JWT 打 gov 端点（`govMiddleware`）→ 401「令牌无效或已过期」 |
+| 口令散列 | DB 中密码为 `s1$...`（scrypt，非明文） |
+| 持久化 | 重启 `server` 后用户数据完好（`server-data-local` 卷） |
+| 安全加固（活体） | helmet 头齐全；CORS 白名单外 Origin **无** ACAO；1.6MB 请求体 → **413** |
+
+**环境踩坑（已记入 DEPLOY.md §9.6）**：`~/.docker/config.json` 残留 Docker Desktop 的 `"credsStore": "desktop"` → `docker-credential-desktop not found`（删该行）；`colima start` 需 `export PATH="/opt/homebrew/bin:$PATH"`。
+
 ### 其他 P1 遗留（非阻塞）
 - **`legacy-peer-deps` 仍是"绕过"**：应择机对齐 `vue`/`pinia`/`@vitejs/plugin-vue` 版本后移除。
 - 本机 arm64/x64 原生依赖问题（见"环境备注"），根治仍是换机 `npm ci`。

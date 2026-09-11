@@ -231,3 +231,89 @@ $DC down                     # 停止（**不要**加 -v，会删数据卷与证
 docker run --rm -v jiujiaxia_server-data:/data -v "$PWD":/backup alpine \
   tar czf /backup/jiujiaxia-db-$(date +%F).tar.gz -C /data .
 ```
+
+---
+
+## 9. 本机生产同构自测（macOS / colima，上线前）
+
+上线前想在**本机**跑一套与生产**同构**的栈（Caddy TLS + web nginx + Node API）做端到端测试，
+用这组专用文件，**不要**碰生产文件：
+
+| 文件 | 作用 |
+|---|---|
+| `docker-compose.local.yml` | 与 `docker-compose.prod.yml` 同构；差别仅在：本机 `build:` 构建（arm64 原生）、端口 **8443**、Caddy 用 `Caddyfile.local` |
+| `Caddyfile.local` | `localhost { tls internal ... }` —— Caddy 内部 CA 自签，**不联网**、不需域名、不需 80 端口 |
+| `.env.local` | 本机运行时变量（随机 `JWT_SECRET`/`GOV_JWT_SECRET` + `CORS_ORIGINS=https://localhost:8443`）；**含密钥，已 gitignore** |
+
+> ⚠️ `docker-compose.local.yml` / `Caddyfile.local` **不可**用于生产；生产走第 1–4 节的 GitHub Actions + `docker-compose.prod.yml`。
+
+### 9.1 前置：安装容器运行时（colima，无需 Docker Desktop）
+
+```bash
+brew install colima docker docker-compose
+# 若 ~/.docker/config.json 残留 Docker Desktop 的 "credsStore": "desktop"，
+# 会报 docker-credential-desktop: executable file not found —— 删掉该行即可。
+export PATH="/opt/homebrew/bin:$PATH"
+colima start --cpu 2 --memory 4 --disk 30     # 首次约 1 分钟（macOS 虚拟化框架，arm64 原生）
+docker context use colima
+docker info --format '{{.ServerVersion}} {{.Architecture}}'   # 期望 29.x aarch64
+```
+
+### 9.2 生成 `.env.local` 并启动
+
+```bash
+cd <项目根>
+# 两个密钥必须不同（与生产同一要求，见第 2 节说明）
+{ echo "PORT=3001";
+  echo "JWT_SECRET=$(openssl rand -hex 32)";
+  echo "GOV_JWT_SECRET=$(openssl rand -hex 32)";
+  echo "DB_PATH=./data/jiujiaxia.db";
+  echo "CORS_ORIGINS=https://localhost:8443"; } > .env.local
+chmod 600 .env.local
+
+docker compose -f docker-compose.local.yml --env-file .env.local up -d --build
+docker compose -f docker-compose.local.yml --env-file .env.local ps   # 三个服务均应 healthy
+```
+
+### 9.3 端到端验证
+
+```bash
+curl -k https://localhost:8443/                 # SPA（自签证书，-k 跳过校验）
+curl -k https://localhost:8443/api/health       # {"code":0,"message":"急救侠 API 运行中"}
+
+# 业务链路：注册 → 登录（真实 JWT）→ 受保护端点
+curl -k -X POST https://localhost:8443/api/auth/register \
+  -H 'Content-Type: application/json' -d '{"phone":"13900000001","password":"test1234","name":"测试"}'
+TOKEN=$(curl -k -X POST https://localhost:8443/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"phone":"13900000001","password":"test1234"}' \
+  | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+curl -k https://localhost:8443/api/auth/me -H "Authorization: Bearer $TOKEN"   # 200
+curl -k https://localhost:8443/api/auth/me                                     # 401（未登录）
+```
+
+### 9.4 消除浏览器证书警告（可选）
+
+```bash
+docker compose -f docker-compose.local.yml --env-file .env.local cp \
+  caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
+sudo security add-trusted-cert -d -r trustRoot \
+  -k /Library/Keychains/System.keychain ./caddy-root.crt
+```
+
+### 9.5 停止 / 清理
+
+```bash
+DC="docker compose -f docker-compose.local.yml --env-file .env.local"
+$DC down              # 停止（保留数据卷）
+$DC down -v           # 停止并删除数据卷（SQLite 数据一并清空，慎用）
+colima stop           # 停掉虚拟机
+```
+
+### 9.6 本机自测踩坑记录
+
+| 现象 | 根因 / 处理 |
+|---|---|
+| `docker compose up` 立即失败：`docker-credential-desktop: executable file not found` | `~/.docker/config.json` 残留 Docker Desktop 的 `"credsStore": "desktop"`；删该行（及失效的 `desktop-linux` context） |
+| `web` 容器一直 `health: starting`，`caddy` 卡在 `Waiting`，整个 `up` 挂住 | `nginx.conf` 自定义 `server{}` 覆盖了基础镜像的 `default.conf`，导致镜像自带的 IPv6 监听脚本失效 → 容器内 `localhost` 解析为 `::1` 却无监听。**已修**：`nginx.conf` 增加 `listen [::]:80;`，健康检查改用 `http://127.0.0.1/`（生产 `docker-compose.prod.yml` 同一处也修） |
+| `colima start` 报 `limactl: executable file not found` | brew 前缀未进 PATH；用 `export PATH="/opt/homebrew/bin:$PATH"` 前缀重跑 |
+

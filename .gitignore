@@ -2,6 +2,10 @@ node_modules/
 dist/
 .DS_Store
 *.local
+# 例外：本机生产栈自测的 Caddy 配置（不含密钥，需入库以便换机复用）
+!Caddyfile.local
+# 本机自测导出的 Caddy 内部根证书（每台机器/每次重装都会变，不入库）
+caddy-root.crt
 .pnpm-store/
 
 # 本地工作区数据（Agent 记忆 / 团队与任务状态），不入库

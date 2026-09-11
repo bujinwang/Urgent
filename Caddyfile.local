@@ -1,0 +1,21 @@
+# ============================================================
+# 急救侠 — Caddyfile（本机生产栈自测）
+# ============================================================
+# 与生产 Caddyfile 的差别：站点地址写死 `localhost`，并使用 `tls internal`
+# （Caddy 内部 CA 自签）—— 不联网申请证书、不需要域名、不需要 80 端口。
+#
+# 浏览器访问 https://localhost:8443 会提示证书不受信任（自签所致），属预期。
+# 如需消除警告：把 Caddy 内部根证书装入系统钥匙串（见 docs/DEPLOY.md 本机自测一节）：
+#   docker compose -f docker-compose.local.yml cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
+#   sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ./caddy-root.crt
+# ============================================================
+
+localhost {
+	tls internal
+	encode gzip
+	reverse_proxy web:80
+	log {
+		output stdout
+		format console
+	}
+}

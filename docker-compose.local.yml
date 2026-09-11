@@ -1,0 +1,76 @@
+# ============================================================
+# 急救侠 — 本机生产栈自测（macOS / colima）
+# ============================================================
+# 目的：在**本机**跑一套与生产**同构**的栈（Caddy TLS 终止 + web nginx + server），
+#       用于上线前的端到端测试。与生产配置的**唯一差别**：
+#         1) 镜像用 `build:` 本机构建（arm64 原生），而非拉 GHCR 的 amd64 镜像；
+#         2) Caddyfile 用 `Caddyfile.local`（`localhost` + `tls internal` 内部 CA，
+#            不联网申请证书，无需域名与 80 端口）；
+#         3) 端口映射到 8443（避开本机特权端口与常见占用）。
+#
+# 用法：
+#   ./.env.local           # 见 .env.local.example（含随机密钥，不入库）
+#   docker compose -f docker-compose.local.yml --env-file .env.local up -d --build
+#   浏览器/curl 访问 https://localhost:8443  （自签证书，curl 需 -k）
+#
+# 与生产文件互不影响：docker-compose.yml（开发）/ docker-compose.prod.yml（生产）
+# ============================================================
+
+services:
+  # ---------- TLS 终止（内部 CA 自签，本机可信）----------
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "8443:443"        # 宿主 8443 → 容器 443（本机无需 80：不走 ACME HTTP-01）
+    volumes:
+      - ./Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - caddy-data-local:/data
+      - caddy-config-local:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------- 后端 API（本机构建，仅内网可达）----------
+  server:
+    build:
+      context: ./急救侠-server
+      dockerfile: Dockerfile
+    expose:
+      - "3001"
+    volumes:
+      - server-data-local:/app/data
+    env_file:
+      - ./.env.local
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ---------- 前端静态站 + 内网 API 代理 ----------
+  web:
+    build:
+      context: ./急救侠-uniapp
+      dockerfile: Dockerfile
+    expose:
+      - "80"
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  server-data-local:
+  caddy-data-local:
+  caddy-config-local:
