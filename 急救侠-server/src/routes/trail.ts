@@ -1,19 +1,20 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error } from '../types'
+import type { HikerRow, UserTrailRow, TrailEventRow, TrailEventOrganizerRow } from '../types/rows'
 
 export const trailRouter = Router()
 
 trailRouter.get('/hikers', (_req, res) => {
   try {
-    const rows = all('SELECT ut.*, u.tier, u.avatar, u.city, u.rescue_count FROM user_trails ut JOIN users u ON u.id=ut.user_id ORDER BY ut.total_distance DESC', )
-    res.json(success(rows.map((r: any) => ({ userId: r.user_id, userName: r.user_name, avatar: r.avatar, tier: r.tier, city: r.city, totalDistance: r.total_distance, totalElevation: r.total_elevation, hikesCompleted: r.hikes_completed, longestHike: r.longest_hike, lastHikeDate: r.last_hike_date, badge: r.badge, rescueCount: r.rescue_count }))))
+    const rows = all<HikerRow>('SELECT ut.*, u.tier, u.avatar, u.city, u.rescue_count FROM user_trails ut JOIN users u ON u.id=ut.user_id ORDER BY ut.total_distance DESC')
+    res.json(success(rows.map((r: HikerRow) => ({ userId: r.user_id, userName: r.user_name, avatar: r.avatar, tier: r.tier, city: r.city, totalDistance: r.total_distance, totalElevation: r.total_elevation, hikesCompleted: r.hikes_completed, longestHike: r.longest_hike, lastHikeDate: r.last_hike_date, badge: r.badge, rescueCount: r.rescue_count }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
 trailRouter.get('/experience/:userId', (req, res) => {
   try {
-    const row = get('SELECT * FROM user_trails WHERE user_id=?', req.params.userId)
+    const row = get<UserTrailRow>('SELECT * FROM user_trails WHERE user_id=?', req.params.userId)
     if (!row) return res.json(success({ totalDistance: 0, totalElevation: 0, hikesCompleted: 0, longestHike: 0, badge: '' }))
     res.json(success({ userId: row.user_id, userName: row.user_name, totalDistance: row.total_distance, totalElevation: row.total_elevation, hikesCompleted: row.hikes_completed, longestHike: row.longest_hike, lastHikeDate: row.last_hike_date, badge: row.badge }))
   } catch (e: any) { res.status(500).json(error(e.message)) }
@@ -24,7 +25,7 @@ trailRouter.post('/experience', (req, res) => {
     const { userId, userName, distance, elevation, date } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
     const d = parseFloat(distance) || 0; const e = parseFloat(elevation) || 0
-    const ex = get('SELECT * FROM user_trails WHERE user_id=?', userId)
+    const ex = get<UserTrailRow>('SELECT * FROM user_trails WHERE user_id=?', userId)
     let badge = ''; const td = (ex?.total_distance || 0) + d; const te = (ex?.total_elevation || 0) + e
     if (td >= 500) badge = '🏔️ 雪山行者'; else if (td >= 200) badge = '⛰️ 山野达人'; else if (td >= 50) badge = '🥾 徒步爱好者'
     if (ex) db.prepare('UPDATE user_trails SET total_distance=?,total_elevation=?,hikes_completed=hikes_completed+1,last_hike_date=?,longest_hike=MAX(longest_hike,?),badge=? WHERE user_id=?').run(td, te, date || '', d, badge, userId)
@@ -35,8 +36,8 @@ trailRouter.post('/experience', (req, res) => {
 
 trailRouter.get('/events', (_req, res) => {
   try {
-    const rows = all('SELECT * FROM trail_events ORDER BY date ASC LIMIT 20', )
-    res.json(success(rows.map((r: any) => ({ id: r.id, title: r.title, description: r.description, route: r.route, distance: r.distance, elevation: r.elevation, difficulty: r.difficulty, date: r.date, meetingPoint: r.meeting_point, maxParticipants: r.max_participants, currentParticipants: r.current_participants, organizerId: r.organizer_id, organizerName: r.organizer_name, status: r.status }))))
+    const rows = all<TrailEventRow>('SELECT * FROM trail_events ORDER BY date ASC LIMIT 20')
+    res.json(success(rows.map((r: TrailEventRow) => ({ id: r.id, title: r.title, description: r.description, route: r.route, distance: r.distance, elevation: r.elevation, difficulty: r.difficulty, date: r.date, meetingPoint: r.meeting_point, maxParticipants: r.max_participants, currentParticipants: r.current_participants, organizerId: r.organizer_id, organizerName: r.organizer_name, status: r.status }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
@@ -62,7 +63,7 @@ trailRouter.post('/events/:id/join', (req, res) => {
 
 trailRouter.put('/events/:id/complete', (req, res) => {
   try {
-    const ev = get('SELECT organizer_id FROM trail_events WHERE id=?', req.params.id)
+    const ev = get<TrailEventOrganizerRow>('SELECT organizer_id FROM trail_events WHERE id=?', req.params.id)
     if (!ev) return res.json(error('活动不存在'))
     db.prepare("UPDATE trail_events SET status='completed' WHERE id=?").run(req.params.id)
     db.prepare('UPDATE users SET is_organizer = 1 WHERE id = ?').run(ev.organizer_id)

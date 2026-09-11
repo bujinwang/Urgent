@@ -1,12 +1,13 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error, AtlasCard } from '../types'
+import type { AtlasCardRow } from '../types/rows'
 
 export const atlasRouter = Router()
 
 atlasRouter.get('/cards', (_req, res) => {
   try {
-    const rows = all('SELECT * FROM atlas_cards', )
+    const rows = all<AtlasCardRow>('SELECT * FROM atlas_cards')
     const cards: AtlasCard[] = rows.map(row => ({
       id: row.id, title: row.title, category: row.category,
       description: row.description, steps: JSON.parse(row.steps),

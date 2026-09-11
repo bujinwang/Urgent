@@ -204,6 +204,12 @@ async function load(){
 
 function switchTab(k:string){activeTab.value=k;page.value=1;load()}
 
+/** 跳转作者主页：本人跳「我的」，他人暂提示（无独立用户主页） */
+function goProfile(userId?:string){
+  if(userId&&userId===s.profile.id){uni.switchTab({url:'/pages/cert/index'});return}
+  uni.showToast({title:'用户主页开发中',icon:'none'})
+}
+
 async function recordView(v:any){try{await request({url:`/video/${v.id}/view`,method:'POST'});v.viewCount++}catch{}}
 async function doLike(v:any){try{await request({url:`/video/${v.id}/like`,method:'POST'});v.likeCount++;v.liked=true}catch{}}
 function playVideo(v:any){

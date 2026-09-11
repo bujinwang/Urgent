@@ -21,7 +21,7 @@ export const useUserStore = defineStore('user', () => {
     fetchProfile().then(p => { profile.value = p }).catch(() => {})
   }
 
-  function awardPoints(amount: number) {
+  function awardPoints(amount: number, _reason?: string) {
     profile.value.points += amount
     const old = profile.value.tier
     if (profile.value.points>=5000) profile.value.tier='diamond'

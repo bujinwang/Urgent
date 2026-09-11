@@ -12,6 +12,8 @@ export interface UserProfile {
   volunteerId: string
   certifications: string[]
   rescueCount: number
+  /** 志愿者兴趣方向，逗号分隔（medical,pet,wildlife,disaster,trail） */
+  volunteer_type?: string
 }
 
 const MOCK_USER: UserProfile = {

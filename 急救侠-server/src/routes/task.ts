@@ -1,12 +1,13 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error, RescueTask } from '../types'
+import type { TaskRow } from '../types/rows'
 
 export const taskRouter = Router()
 
 taskRouter.get('/active', (_req, res) => {
   try {
-    const row = get("SELECT * FROM tasks WHERE status = 'active' LIMIT 1", )
+    const row = get<TaskRow>("SELECT * FROM tasks WHERE status = 'active' LIMIT 1")
     if (!row) return res.json(success(null, '无活跃任务'))
     const task: RescueTask = {
       id: row.id, type: row.type, address: row.address,
@@ -23,7 +24,7 @@ taskRouter.get('/active', (_req, res) => {
 
 taskRouter.get('/list', (_req, res) => {
   try {
-    const rows = all('SELECT * FROM tasks ORDER BY created_at DESC', )
+    const rows = all<TaskRow>('SELECT * FROM tasks ORDER BY created_at DESC')
     const tasks: RescueTask[] = rows.map(row => ({
       id: row.id, type: row.type, address: row.address,
       distance: row.distance, lat: row.lat, lng: row.lng,

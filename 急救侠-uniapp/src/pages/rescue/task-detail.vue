@@ -57,7 +57,7 @@ async function takePhoto(){
 }
 function preview(url:string){uni.previewImage({urls:[url]})}
 
-async function loadLive(){try{const r=await request({url:`/rescue/live/${taskId.value}`});liveCount.value=r.length}catch{}}
+async function loadLive(){try{const r=await request<unknown[]>({url:`/rescue/live/${taskId.value}`});liveCount.value=r.length}catch{}}
 async function toggleLive(){
   const p=s.profile
   if(isLive.value){

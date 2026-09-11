@@ -22,7 +22,7 @@
           <view v-if="d.status==='upcoming' && d.organizerId===userStore.profile.id" class="drill-btn complete" @click="complete(d)">✅ 完成演习</view>
         </view>
       </view>
-      <view v-if="displayDrills.length===0 && tab!=='records'" class="drill-empty">{{tab==='completed'?'暂无已完成演习':'暂无演习'}}</view>
+      <view v-if="displayDrills.length===0" class="drill-empty">{{tab==='completed'?'暂无已完成演习':'暂无演习'}}</view>
     </view>
     <!-- Training Records -->
     <view v-if="tab==='records'" class="drill-list">

@@ -1,9 +1,45 @@
 // Must set DB_PATH before any app imports
 process.env.DB_PATH = ':memory:'
 
+import { afterAll, afterEach } from 'vitest'
 import app from '../app'
-import { clearAll } from '../db'
+import { clearAll, resetSchema } from '../db'
 import db from '../db'
+
+// ---------------------------------------------------------------------------
+// 1) 常驻 listener，显式绑定 127.0.0.1
+//
+// 不能用 supertest 默认的 `request(expressApp)`：那种写法内部会 `listen(0)`
+// 绑到通配地址（`::` / `0.0.0.0`）。在 macOS 上，通配绑定与已存在的
+// `127.0.0.1:<port>` 绑定可以**同时并存**，而 supertest 固定连 127.0.0.1，
+// 内核会把请求投递给「更具体」的那个 socket —— 于是请求被本机其它应用的
+// 监听端接走，测试拿到外部进程的响应，表现为本仓库路由表根本不会产生的
+// 404 / 400 / 500（实测 20 次连跑约 10% 概率中招，如 GET /api/drill/organizers
+// 返回 404、POST /api/push/register 期望 401 实得 500）。
+//
+// 显式绑定 127.0.0.1 后，OS 只会分配在 127.0.0.1 上真正空闲的端口，请求必然
+// 落到我们自己的 server；同时每个测试文件只 listen 一次，免去 supertest
+// 逐请求 listen/close 的端口抖动。
+//
+// 注：这里导出的是 server 而非 express app，两者 supertest 都接受；
+// 全仓库测试仅以 `request(app)` 形式使用它，没有 express 专有用法。
+const server = app.listen(0, '127.0.0.1')
+
+afterAll(() => { server.close() })
+
+// ---------------------------------------------------------------------------
+// 2) 每个用例结束后从零重建数据库 schema
+//
+// vitest 配置为 singleFork + fileParallelism:false：所有测试文件在同一个子进程内
+// 顺序执行；且 isolate 默认开启，每个文件都会重新加载模块，因此每个文件各自新建
+// 一个 :memory: 库（实测 17 个文件各打印一次 "Migration applied: 001_add_password"）
+// ——跨文件污染已被模块隔离消除。
+//
+// 这里兜底的是**同一文件内**的破坏性用例：coverage-fill.test.ts 有 7 处故意
+// DROP TABLE 以覆盖 catch 分支；这些用例已用 try/finally 恢复，此全局钩子再加一道
+// 保险——无论某用例通过还是抛异常，下一个用例开始时 schema 都是完整规范结构
+// （DROP 全部表含 _migrations 后 initDb() 重建）。
+afterEach(() => { resetSchema() })
 
 // Seed helper used by individual tests
 export function seedTestData() {
@@ -43,6 +79,6 @@ export function seedTestData() {
     'atlas_001', 'CPR 心肺复苏', '基础技能', '测试描述', '["步骤1","步骤2"]', '❤️')
 }
 
-export { app }
+export { server as app }
 export { clearAll } from '../db'
 export { default as db } from '../db'

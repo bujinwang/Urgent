@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error, UserProfile, Stats } from '../types'
+import type { UserRow, StatRow, OrgRoleRow, TrainingRecordRow } from '../types/rows'
 
 export const userRouter = Router()
 
@@ -10,8 +11,8 @@ userRouter.get('/profile', (req, res) => {
     let userId = ''
     if (token.startsWith('token_')) userId = 'u_' + token.split('_')[1]
     const row = userId
-      ? (get('SELECT * FROM users WHERE id = ?', userId))
-      : (get('SELECT * FROM users LIMIT 1', ))
+      ? (get<UserRow>('SELECT * FROM users WHERE id = ?', userId))
+      : (get<UserRow>('SELECT * FROM users LIMIT 1'))
     if (!row) return res.json(error('用户不存在'))
     const user: UserProfile = {
       id: row.id, name: row.name, avatar: row.avatar,
@@ -28,7 +29,7 @@ userRouter.get('/profile', (req, res) => {
 
 userRouter.get('/stats', (_req, res) => {
   try {
-    const row = get('SELECT * FROM stats WHERE id = 1', )
+    const row = get<StatRow>('SELECT * FROM stats WHERE id = 1')
     if (!row) return res.json(error('统计数据不存在'))
     const stats: Stats = {
       certifiedRescuers: row.certified_rescuers,
@@ -47,12 +48,12 @@ userRouter.get('/stats', (_req, res) => {
 userRouter.get('/org-roles', (req, res) => {
   try {
     const userId = (req.query.userId as string) || ''
-    const rows = db.prepare(`
+    const rows = all<OrgRoleRow>(`
       SELECT om.org_id, om.role, o.name as org_name, o.type as org_type
       FROM organization_members om
       JOIN organizations o ON o.id = om.org_id
       WHERE om.user_id = ? AND om.role IN ('admin', 'manager')
-    `).all(userId)
+    `, userId)
     const roles = rows.map(r => ({
       orgId: r.org_id, orgName: r.org_name, orgType: r.org_type, role: r.role,
     }))
@@ -66,8 +67,8 @@ userRouter.get('/org-roles', (req, res) => {
 userRouter.get('/training-records', (req, res) => {
   try {
     const userId = (req.query.userId as string) || ''
-    const rows = all('SELECT * FROM training_records WHERE user_id = ? ORDER BY date DESC LIMIT 30', userId)
-    res.json(success(rows.map((r: any) => ({
+    const rows = all<TrainingRecordRow>('SELECT * FROM training_records WHERE user_id = ? ORDER BY date DESC LIMIT 30', userId)
+    res.json(success(rows.map((r: TrainingRecordRow) => ({
       id: r.id, scenario: r.scenario, date: r.date,
       organizerName: r.organizer_name, drillId: r.drill_id, notes: r.notes,
     }))))
@@ -97,7 +98,7 @@ userRouter.put('/privacy', (req, res) => {
 userRouter.post('/points', (req, res) => {
   try {
     const { amount, reason } = req.body
-    const row = get('SELECT * FROM users LIMIT 1', )
+    const row = get<UserRow>('SELECT * FROM users LIMIT 1')
     if (!row) return res.json(error('用户不存在'))
     const newPoints = row.points + (amount || 0)
     let newTier = row.tier

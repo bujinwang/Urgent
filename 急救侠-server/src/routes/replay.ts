@@ -1,27 +1,28 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error } from '../types'
+import type { RescueReplayRow, TaskMediaRow, ReplayCommentRow } from '../types/rows'
 
 export const replayRouter = Router()
 
 replayRouter.get('/', (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10
-    const rows = all('SELECT * FROM rescue_replays ORDER BY created_at DESC LIMIT ?', limit)
+    const rows = all<RescueReplayRow>('SELECT * FROM rescue_replays ORDER BY created_at DESC LIMIT ?', limit)
     res.json(success(rows.map(formatReplay)))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
 replayRouter.get('/:id', (req, res) => {
   try {
-    const rp = get('SELECT * FROM rescue_replays WHERE id=?', req.params.id)
+    const rp = get<RescueReplayRow>('SELECT * FROM rescue_replays WHERE id=?', req.params.id)
     if (!rp) return res.json(error('回放不存在'))
-    const media = all('SELECT * FROM task_media WHERE task_id=? ORDER BY created_at ASC', rp.task_id)
-    const comments = all('SELECT * FROM replay_comments WHERE replay_id=? ORDER BY created_at DESC LIMIT 30', req.params.id)
+    const media = all<TaskMediaRow>('SELECT * FROM task_media WHERE task_id=? ORDER BY created_at ASC', rp.task_id)
+    const comments = all<ReplayCommentRow>('SELECT * FROM replay_comments WHERE replay_id=? ORDER BY created_at DESC LIMIT 30', req.params.id)
     res.json(success({
       ...formatReplay(rp),
-      timeline: media.map((m:any) => ({ id:m.id,userId:m.user_id,userName:m.user_name,userAvatar:m.user_avatar,type:m.type,content:m.content,mediaUrl:m.media_url,createdAt:m.created_at })),
-      comments: comments.map((c:any) => ({ id:c.id,userId:c.user_id,userName:c.user_name,userAvatar:c.user_avatar,content:c.content,createdAt:c.created_at })),
+      timeline: media.map((m: TaskMediaRow) => ({ id:m.id,userId:m.user_id,userName:m.user_name,userAvatar:m.user_avatar,type:m.type,content:m.content,mediaUrl:m.media_url,createdAt:m.created_at })),
+      comments: comments.map((c: ReplayCommentRow) => ({ id:c.id,userId:c.user_id,userName:c.user_name,userAvatar:c.user_avatar,content:c.content,createdAt:c.created_at })),
     }))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -44,6 +45,6 @@ replayRouter.post('/:id/bookmark', (req, res) => {
   try { db.prepare('UPDATE rescue_replays SET bookmark_count=bookmark_count+1 WHERE id=?').run(req.params.id); res.json(success(null)) } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-function formatReplay(r: any) {
+function formatReplay(r: RescueReplayRow) {
   return { id:r.id,taskId:r.task_id,title:r.title,description:r.description,address:r.address,sceneType:r.scene_type,patientAge:r.patient_age,patientGender:r.patient_gender,volunteersCount:r.volunteers_count,duration:r.duration,outcome:r.outcome,likeCount:r.like_count,commentCount:r.comment_count,bookmarkCount:r.bookmark_count,createdAt:r.created_at }
 }

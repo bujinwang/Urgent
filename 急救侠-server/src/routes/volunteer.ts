@@ -1,12 +1,13 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error, VolunteerRank, CoachSummary, CoachDetail } from '../types'
+import type { VolunteerRow } from '../types/rows'
 
 export const volunteerRouter = Router()
 
 volunteerRouter.get('/rankings', (_req, res) => {
   try {
-    const rows = all('SELECT * FROM volunteers ORDER BY rank_pos ASC', )
+    const rows = all<VolunteerRow>('SELECT * FROM volunteers ORDER BY rank_pos ASC')
     const rankings: VolunteerRank[] = rows.map(row => ({
       id: row.id, name: row.name, avatar: row.avatar, tier: row.tier,
       points: row.points, rescueCount: row.rescue_count,
@@ -21,9 +22,9 @@ volunteerRouter.get('/rankings', (_req, res) => {
 // GET /volunteer/coaches — list all CPR/Emergency coaches
 volunteerRouter.get('/coaches', (_req, res) => {
   try {
-    const rows = db.prepare(
+    const rows = all<VolunteerRow>(
       "SELECT * FROM volunteers WHERE role = 'coach' ORDER BY rescue_count DESC"
-    ).all()
+    )
     const coaches: CoachSummary[] = rows.map(row => ({
       id: row.id,
       name: row.name,
@@ -44,9 +45,10 @@ volunteerRouter.get('/coaches', (_req, res) => {
 // GET /volunteer/coaches/:id — coach detail
 volunteerRouter.get('/coaches/:id', (req, res) => {
   try {
-    const row = db.prepare(
-      "SELECT * FROM volunteers WHERE id = ? AND role = 'coach'"
-    ).get(req.params.id)
+    const row = get<VolunteerRow>(
+      "SELECT * FROM volunteers WHERE id = ? AND role = 'coach'",
+      req.params.id
+    )
     if (!row) return res.json(error('教练不存在'))
     const coach: CoachDetail = {
       id: row.id,

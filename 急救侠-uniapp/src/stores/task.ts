@@ -19,6 +19,8 @@ export interface RescueTask {
   sceneType: string
   patientAge?: string
   patientGender?: string
+  /** 现场直播人数（部分任务带此字段，用于首页「N 人直播中」提示） */
+  liveCount?: number
 }
 
 export type MissionPhase = 'idle' | 'confirming' | 'running' | 'arrived'

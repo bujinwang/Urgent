@@ -3,6 +3,7 @@ import path from 'path'
 import multer from 'multer'
 import db, { get, all } from '../db'
 import { success, error } from '../types'
+import type { VideoPostRow, VideoCommentRow } from '../types/rows'
 
 const VIDEOS_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'videos')
 
@@ -50,7 +51,7 @@ videoRouter.get('/recommend', (req, res) => {
     const page = parseInt(req.query.page as string) || 1
     const size = parseInt(req.query.size as string) || 10
     const offset = (page - 1) * size
-    const rows = all('SELECT *,(view_count*0.3+like_count*0.5+share_count*0.2) as score FROM video_posts ORDER BY score DESC,created_at DESC LIMIT ? OFFSET ?', size, offset)
+    const rows = all<VideoPostRow & { score: number }>('SELECT *,(view_count*0.3+like_count*0.5+share_count*0.2) as score FROM video_posts ORDER BY score DESC,created_at DESC LIMIT ? OFFSET ?', size, offset)
     res.json(success({ items: rows.map(formatVideo), page, hasMore: rows.length === size }))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -59,7 +60,7 @@ videoRouter.get('/category/:cat', (req, res) => {
   try {
     const page = parseInt(req.query.page as string) || 1
     const size = parseInt(req.query.size as string) || 10
-    const rows = all('SELECT * FROM video_posts WHERE category=? ORDER BY created_at DESC LIMIT ? OFFSET ?', req.params.cat, size, (page-1)*size)
+    const rows = all<VideoPostRow>('SELECT * FROM video_posts WHERE category=? ORDER BY created_at DESC LIMIT ? OFFSET ?', req.params.cat, size, (page-1)*size)
     res.json(success({ items: rows.map(formatVideo), page, hasMore: rows.length === size }))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -85,8 +86,8 @@ videoRouter.post('/:id/like', (req, res) => {
 // ---- 评论 ----
 videoRouter.get('/:id/comments', (req, res) => {
   try {
-    const rows = all('SELECT * FROM video_comments WHERE video_id=? ORDER BY created_at DESC LIMIT 50', req.params.id)
-    res.json(success(rows.map((c: any) => ({
+    const rows = all<VideoCommentRow>('SELECT * FROM video_comments WHERE video_id=? ORDER BY created_at DESC LIMIT 50', req.params.id)
+    res.json(success(rows.map((c: VideoCommentRow) => ({
       id: c.id, userId: c.user_id, userName: c.user_name,
       userAvatar: c.user_avatar, content: c.content, createdAt: c.created_at,
     }))))
@@ -105,7 +106,7 @@ videoRouter.post('/:id/comment', (req, res) => {
 
 videoRouter.delete('/:id/comment/:commentId', (req, res) => {
   try {
-    const row = get('SELECT user_id FROM video_comments WHERE id=?', req.params.commentId)
+    const row = get<{ user_id: string }>('SELECT user_id FROM video_comments WHERE id=?', req.params.commentId)
     if (!row) return res.json(error('评论不存在'))
     const { userId } = req.body
     if (!userId || row.user_id !== userId) return res.json(error('无权删除'))
@@ -115,6 +116,6 @@ videoRouter.delete('/:id/comment/:commentId', (req, res) => {
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-function formatVideo(r: any) {
+function formatVideo(r: VideoPostRow) {
   return { id: r.id, userId: r.user_id, userName: r.user_name, userAvatar: r.user_avatar, title: r.title, description: r.description, videoUrl: r.video_url, thumbnail: r.thumbnail, duration: r.duration, viewCount: r.view_count, likeCount: r.like_count, shareCount: r.share_count, commentCount: r.comment_count||0, category: r.category, createdAt: r.created_at }
 }

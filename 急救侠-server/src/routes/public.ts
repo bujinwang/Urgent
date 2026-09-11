@@ -1,28 +1,31 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error } from '../types'
+import type {
+  UserRow, UserTrailRow, PublicCertificateRow, PublicTrainingRow, PublicExternalCertRow,
+} from '../types/rows'
 
 export const publicRouter = Router()
 
 publicRouter.get('/verify/:publicId', (req, res) => {
   try {
-    const row = get('SELECT * FROM users WHERE public_id = ?', req.params.publicId)
+    const row = get<UserRow>('SELECT * FROM users WHERE public_id = ?', req.params.publicId)
     if (!row) return res.json(error('无效的验证码'))
     if (!row.is_public) return res.json(error('该用户未开启公开档案'))
 
-    const certs = all('SELECT type, issuer, issue_date, expiry_date, status FROM certificates WHERE user_id=? ORDER BY expiry_date ASC', row.id)
-    const training = all('SELECT scenario, date, organizer_name, notes FROM training_records WHERE user_id=? ORDER BY date DESC LIMIT 10', row.id)
-    const trail = get('SELECT * FROM user_trails WHERE user_id=?', row.id)
-    const extCerts = all("SELECT type, issuer, cert_number FROM external_certifications WHERE user_id=? AND status='verified'", row.id)
+    const certs = all<PublicCertificateRow>('SELECT type, issuer, issue_date, expiry_date, status FROM certificates WHERE user_id=? ORDER BY expiry_date ASC', row.id)
+    const training = all<PublicTrainingRow>('SELECT scenario, date, organizer_name, notes FROM training_records WHERE user_id=? ORDER BY date DESC LIMIT 10', row.id)
+    const trail = get<UserTrailRow>('SELECT * FROM user_trails WHERE user_id=?', row.id)
+    const extCerts = all<PublicExternalCertRow>("SELECT type, issuer, cert_number FROM external_certifications WHERE user_id=? AND status='verified'", row.id)
 
     res.json(success({
       tier: row.tier, tierLabel: tierLabel(row.tier),
       avatar: row.avatar, city: row.city, rescueCount: row.rescue_count,
-      certifications: certs.map((c: any) => ({ type: c.type, issuer: c.issuer, expiryDate: c.expiry_date, status: c.status })),
+      certifications: certs.map((c: PublicCertificateRow) => ({ type: c.type, issuer: c.issuer, expiryDate: c.expiry_date, status: c.status })),
       badges: computeBadges(row.tier, row.rescue_count, row.points),
-      trainingRecords: training.map((t: any) => ({ scenario: t.scenario, date: t.date, organizer: t.organizer_name, notes: t.notes })),
+      trainingRecords: training.map((t: PublicTrainingRow) => ({ scenario: t.scenario, date: t.date, organizer: t.organizer_name, notes: t.notes })),
       trailExperience: trail ? { totalDistance: trail.total_distance, totalElevation: trail.total_elevation, hikesCompleted: trail.hikes_completed, longestHike: trail.longest_hike, badge: trail.badge } : null,
-      externalCertifications: extCerts.map((e: any) => ({ type: e.type, issuer: e.issuer, certNumber: e.cert_number })),
+      externalCertifications: extCerts.map((e: PublicExternalCertRow) => ({ type: e.type, issuer: e.issuer, certNumber: e.cert_number })),
       volunteerType: row.volunteer_type,
       affiliation: row.affiliation || undefined,
       isOrganizer: row.is_organizer === 1,

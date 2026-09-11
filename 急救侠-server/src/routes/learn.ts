@@ -1,12 +1,13 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error, CourseItem } from '../types'
+import type { CourseRow } from '../types/rows'
 
 export const learnRouter = Router()
 
 learnRouter.get('/courses', (_req, res) => {
   try {
-    const rows = all('SELECT * FROM courses', )
+    const rows = all<CourseRow>('SELECT * FROM courses')
     const items: CourseItem[] = rows.map(row => ({
       id: row.id, title: row.title, category: row.category,
       duration: row.duration, completed: !!row.completed,

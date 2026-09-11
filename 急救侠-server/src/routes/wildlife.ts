@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error } from '../types'
+import type { WildlifeReportRow, WildlifeRescueTaskRow, WildlifeOrgRow } from '../types/rows'
 
 export const wildlifeRouter = Router()
 
@@ -10,7 +11,7 @@ wildlifeRouter.post('/report', (req, res) => {
     if (!userId || !species) return res.json(error('参数不完整'))
     const cat = category || 'wildlife'
     if (cat === 'wildlife') {
-      const user = get("SELECT volunteer_type FROM users WHERE id=? AND volunteer_type LIKE '%wildlife%'", userId)
+      const user = get<{ volunteer_type: string }>("SELECT volunteer_type FROM users WHERE id=? AND volunteer_type LIKE '%wildlife%'", userId)
       if (!user) return res.json(error('仅选择野生动物救援的用户可上报'))
     }
     db.prepare('INSERT INTO wildlife_reports (id,user_id,user_name,category,species,description,lat,lng,location,photos) VALUES (?,?,?,?,?,?,?,?,?,?)').run('wr_'+Date.now(), userId, userName||'', cat, species, description||'', lat||0, lng||0, location||'', photos||'')
@@ -22,11 +23,11 @@ wildlifeRouter.get('/reports', (req, res) => {
   try {
     const cat = req.query.category as string
     let sql = 'SELECT * FROM wildlife_reports'
-    const params: any[] = []
+    const params: string[] = []
     if (cat) { sql += ' WHERE category=?'; params.push(cat) }
     sql += ' ORDER BY created_at DESC LIMIT 30'
-    const rows = all(sql, ...params)
-    res.json(success(rows.map((r: any) => ({ id: r.id, userId: r.user_id, userName: r.user_name, category: r.category, species: r.species, description: r.description, lat: r.lat, lng: r.lng, location: r.location, photos: r.photos, status: r.status, assignedTo: r.assigned_to, createdAt: r.created_at }))))
+    const rows = all<WildlifeReportRow>(sql, ...params)
+    res.json(success(rows.map((r: WildlifeReportRow) => ({ id: r.id, userId: r.user_id, userName: r.user_name, category: r.category, species: r.species, description: r.description, lat: r.lat, lng: r.lng, location: r.location, photos: r.photos, status: r.status, assignedTo: r.assigned_to, createdAt: r.created_at }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
@@ -49,14 +50,14 @@ wildlifeRouter.post('/rescue', (req, res) => {
 // GET /api/wildlife/conservation-orgs
 wildlifeRouter.get('/conservation-orgs', (_req, res) => {
   try {
-    const rows = all("SELECT * FROM organizations WHERE type='conservation'", )
-    res.json(success(rows.map((r: any) => ({ id: r.id, name: r.name, adminUserId: r.admin_user_id }))))
+    const rows = all<WildlifeOrgRow>("SELECT * FROM organizations WHERE type='conservation'")
+    res.json(success(rows.map((r: WildlifeOrgRow) => ({ id: r.id, name: r.name, adminUserId: r.admin_user_id }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
 wildlifeRouter.get('/rescue', (_req, res) => {
   try {
-    const rows = all('SELECT * FROM wildlife_rescue_tasks ORDER BY created_at DESC LIMIT 20', )
-    res.json(success(rows.map((r: any) => ({ id: r.id, reportId: r.report_id, title: r.title, species: r.species, description: r.description, address: r.address, volunteersNeeded: r.volunteers_needed, volunteersResponded: r.volunteers_responded, leaderId: r.leader_id, leaderName: r.leader_name, status: r.status, createdAt: r.created_at }))))
+    const rows = all<WildlifeRescueTaskRow>('SELECT * FROM wildlife_rescue_tasks ORDER BY created_at DESC LIMIT 20')
+    res.json(success(rows.map((r: WildlifeRescueTaskRow) => ({ id: r.id, reportId: r.report_id, title: r.title, species: r.species, description: r.description, address: r.address, volunteersNeeded: r.volunteers_needed, volunteersResponded: r.volunteers_responded, leaderId: r.leader_id, leaderName: r.leader_name, status: r.status, createdAt: r.created_at }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })

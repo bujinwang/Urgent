@@ -89,7 +89,7 @@ async function lr(){
   }catch{}
 }
 async function lt(){try{tasks.value=(await fetch(`${U}/wildlife/rescue`).then(r=>r.json())).data||[]}catch(e){}}
-function tp(){uni.chooseImage({count:1,sizeType:['compressed'],success:async(res)=>{const f=res.tempFiles[0],fs=uni.getFileSystemManager(),b64=fs.readFileSync(f.path!,'base64'),m=f.path!.endsWith('.png')?'image/png':'image/jpeg';try{const r=await fetch(`${U}/upload`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:`data:${m};base64,${b64}`})}).then(r=>r.json());if(r.code===0)form.value.photos.push(r.data.url)}catch(e){uni.showToast({title:'上传失败',icon:'none'})}}})}
+function tp(){uni.chooseImage({count:1,sizeType:['compressed'],success:async(res)=>{const p=Array.isArray(res.tempFilePaths)?res.tempFilePaths[0]:res.tempFilePaths;if(!p)return;const fs=uni.getFileSystemManager(),b64=fs.readFileSync(p,'base64'),m=p.endsWith('.png')?'image/png':'image/jpeg';try{const r=await fetch(`${U}/upload`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:`data:${m};base64,${b64}`})}).then(r=>r.json());if(r.code===0)form.value.photos.push(r.data.url)}catch(e){uni.showToast({title:'上传失败',icon:'none'})}}})}
 function rp(i:number){form.value.photos.splice(i,1)}
 function pv(url:string){uni.previewImage({urls:[url]})}
 async function sub(){

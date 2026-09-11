@@ -18,7 +18,7 @@ if (DB_PATH === ':memory:') {
 
 db.pragma('foreign_keys = ON')
 
-export function initDb() {
+export function initDb(options: { silent?: boolean } = {}) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -699,9 +699,9 @@ export function initDb() {
     try {
       db.exec(m.sql)
       db.prepare('INSERT INTO _migrations (id, description) VALUES (?, ?)').run(m.id, m.description || m.id)
-      console.log(`[DB] Migration applied: ${m.id}`)
+      if (!options.silent) console.log(`[DB] Migration applied: ${m.id}`)
     } catch (err) {
-      console.warn(`[DB] Migration skipped (likely already applied): ${m.id}`)
+      if (!options.silent) console.warn(`[DB] Migration skipped (likely already applied): ${m.id}`)
     }
   }
 }
@@ -727,6 +727,30 @@ export function clearAll() {
   db.pragma('foreign_keys = OFF')
   db.exec("DELETE FROM _migrations; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards;")
   db.pragma('foreign_keys = ON')
+}
+
+/**
+ * 从零重建整个数据库 schema（用于测试隔离）。
+ *
+ * 先 DROP 掉 `sqlite_master` 中的全部业务表与 `_migrations`，再调用 initDb()
+ * 依据唯一规范 schema 重建。之所以要连 `_migrations` 一起删除：initDb() 采用
+ * `CREATE TABLE IF NOT EXISTS`，若保留 `_migrations`，已被记录的迁移会被跳过
+ * （例如 `001_add_password`），导致重建后的 users 表缺少 `password` 列。
+ * 只有清空 `_migrations` 才能让全部迁移重新执行，恢复出完整 schema。
+ */
+export function resetSchema() {
+  db.pragma('foreign_keys = OFF')
+  try {
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+      .all() as Array<{ name: string }>
+    for (const t of tables) {
+      db.exec(`DROP TABLE IF EXISTS "${t.name}"`)
+    }
+  } finally {
+    db.pragma('foreign_keys = ON')
+  }
+  initDb({ silent: true })
 }
 
 export default db

@@ -1,23 +1,24 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error } from '../types'
+import type { StrayAnimalRow, AnimalCareRecordRow, AnimalHealthRecordRow } from '../types/rows'
 
 export const animalRouter = Router()
 
 animalRouter.get('/', (_req, res) => {
   try {
-    const rows = all('SELECT * FROM stray_animals ORDER BY created_at DESC LIMIT 20', )
-    res.json(success(rows.map((r: any) => ({ id: r.id, name: r.name, species: r.species, color: r.color, size: r.size, features: r.features, photos: r.photos, location: r.location, lat: r.lat, lng: r.lng, status: r.status, createdBy: r.created_by, createdAt: r.created_at }))))
+    const rows = all<StrayAnimalRow>('SELECT * FROM stray_animals ORDER BY created_at DESC LIMIT 20')
+    res.json(success(rows.map((r: StrayAnimalRow) => ({ id: r.id, name: r.name, species: r.species, color: r.color, size: r.size, features: r.features, photos: r.photos, location: r.location, lat: r.lat, lng: r.lng, status: r.status, createdBy: r.created_by, createdAt: r.created_at }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
 animalRouter.get('/:id', (req, res) => {
   try {
-    const a = get('SELECT * FROM stray_animals WHERE id=?', req.params.id)
+    const a = get<StrayAnimalRow>('SELECT * FROM stray_animals WHERE id=?', req.params.id)
     if (!a) return res.json(error('动物不存在'))
-    const care = all('SELECT * FROM animal_care_records WHERE animal_id=? ORDER BY created_at DESC', req.params.id)
-    const health = all('SELECT * FROM animal_health_records WHERE animal_id=? ORDER BY created_at DESC', req.params.id)
-    res.json(success({ id: a.id, name: a.name, species: a.species, color: a.color, size: a.size, features: a.features, photos: a.photos, location: a.location, lat: a.lat, lng: a.lng, status: a.status, createdBy: a.created_by, createdAt: a.created_at, careRecords: care.map((c: any) => ({ id: c.id, userId: c.user_id, userName: c.user_name, careType: c.care_type, description: c.description, photos: c.photos, lat: c.lat, lng: c.lng, createdAt: c.created_at })), healthRecords: health.map((h: any) => ({ id: h.id, userId: h.user_id, userName: h.user_name, checkType: h.check_type, findings: h.findings, vetName: h.vet_name, photos: h.photos, createdAt: h.created_at })) }))
+    const care = all<AnimalCareRecordRow>('SELECT * FROM animal_care_records WHERE animal_id=? ORDER BY created_at DESC', req.params.id)
+    const health = all<AnimalHealthRecordRow>('SELECT * FROM animal_health_records WHERE animal_id=? ORDER BY created_at DESC', req.params.id)
+    res.json(success({ id: a.id, name: a.name, species: a.species, color: a.color, size: a.size, features: a.features, photos: a.photos, location: a.location, lat: a.lat, lng: a.lng, status: a.status, createdBy: a.created_by, createdAt: a.created_at, careRecords: care.map((c: AnimalCareRecordRow) => ({ id: c.id, userId: c.user_id, userName: c.user_name, careType: c.care_type, description: c.description, photos: c.photos, lat: c.lat, lng: c.lng, createdAt: c.created_at })), healthRecords: health.map((h: AnimalHealthRecordRow) => ({ id: h.id, userId: h.user_id, userName: h.user_name, checkType: h.check_type, findings: h.findings, vetName: h.vet_name, photos: h.photos, createdAt: h.created_at })) }))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 

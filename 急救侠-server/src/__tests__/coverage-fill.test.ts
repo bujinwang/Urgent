@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
 import { app, seedTestData, clearAll, db } from './setup'
-import { initDb } from '../db'  // restore full schema after destructive tests
+import { resetSchema } from '../db'  // 从零重建完整 schema，兜底恢复被破坏的表结构
 
 describe('Coverage: middleware/auth.ts', () => {
   beforeEach(() => { seedTestData() })
@@ -45,21 +45,19 @@ describe('Coverage: middleware/auth.ts', () => {
 describe('Coverage: routes/auth.ts', () => {
   beforeEach(() => { seedTestData() })
 
-  // --- catch block: cause DB error by corrupting table ---
+  // --- catch block: cause DB error by dropping the table ---
   it('wechat-login catch block triggers on DB error', async () => {
     // Drop the users table to force a DB error in the login path
     db.exec('DROP TABLE IF EXISTS users')
-    const res = await request(app)
-      .post('/api/auth/wechat-login')
-      .send({ code: 'error_test' })
-    expect(res.status).toBe(500)
-    // Recreate for other tests
-    db.exec(`CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY, name TEXT NOT NULL, avatar TEXT NOT NULL DEFAULT '',
-      tier TEXT NOT NULL DEFAULT 'bronze', points INTEGER NOT NULL DEFAULT 0,
-      city TEXT NOT NULL DEFAULT '', volunteer_id TEXT NOT NULL DEFAULT '',
-      certifications TEXT NOT NULL DEFAULT '[]', rescue_count INTEGER NOT NULL DEFAULT 0
-    )`)
+    try {
+      const res = await request(app)
+        .post('/api/auth/wechat-login')
+        .send({ code: 'error_test' })
+      expect(res.status).toBe(500)
+    } finally {
+      // 无论断言是否抛异常都恢复完整规范 schema（含迁移新增列，如 password）
+      resetSchema()
+    }
   })
 
   // --- /me catch block: make DB fail ---
@@ -71,17 +69,14 @@ describe('Coverage: routes/auth.ts', () => {
 
     // Drop users table to cause error
     db.exec('DROP TABLE IF EXISTS users')
-    const res = await request(app)
-      .get('/api/auth/me')
-      .set('Authorization', `Bearer ${token}`)
-    expect(res.status).toBe(500)
-    // Restore
-    db.exec(`CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY, name TEXT NOT NULL, avatar TEXT NOT NULL DEFAULT '',
-      tier TEXT NOT NULL DEFAULT 'bronze', points INTEGER NOT NULL DEFAULT 0,
-      city TEXT NOT NULL DEFAULT '', volunteer_id TEXT NOT NULL DEFAULT '',
-      certifications TEXT NOT NULL DEFAULT '[]', rescue_count INTEGER NOT NULL DEFAULT 0
-    )`)
+    try {
+      const res = await request(app)
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${token}`)
+      expect(res.status).toBe(500)
+    } finally {
+      resetSchema()
+    }
   })
 
   // --- /me: user not found path ---
@@ -108,21 +103,22 @@ describe('Coverage: routes/task.ts', () => {
   // --- Catch blocks: trigger DB errors ---
   it('task active returns 500 on DB error', async () => {
     db.exec('DROP TABLE IF EXISTS tasks')
-    const res = await request(app).get('/api/task/active')
-    expect(res.status).toBe(500)
-    db.exec(`CREATE TABLE IF NOT EXISTS tasks (
-      id TEXT PRIMARY KEY, type TEXT NOT NULL, address TEXT NOT NULL,
-      distance REAL NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL,
-      volunteers_needed INTEGER NOT NULL, volunteers_responded INTEGER NOT NULL DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'pending', created_at TEXT NOT NULL
-    )`)
+    try {
+      const res = await request(app).get('/api/task/active')
+      expect(res.status).toBe(500)
+    } finally {
+      resetSchema()
+    }
   })
 
   it('task list returns 500 on DB error', async () => {
     db.exec('DROP TABLE IF EXISTS tasks')
-    const res = await request(app).get('/api/task/list')
-    expect(res.status).toBe(500)
-    initDb() // restore full schema for subsequent tests
+    try {
+      const res = await request(app).get('/api/task/list')
+      expect(res.status).toBe(500)
+    } finally {
+      resetSchema()
+    }
   })
 
   // --- Accept task: edge cases ---
@@ -190,32 +186,36 @@ describe('Coverage: routes/user.ts', () => {
   // --- /profile catch block ---
   it('profile returns 500 on DB error', async () => {
     db.exec('DROP TABLE IF EXISTS users')
-    const res = await request(app).get('/api/user/profile')
-    expect(res.status).toBe(500)
-    db.exec(`CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY, name TEXT NOT NULL, avatar TEXT NOT NULL DEFAULT '',
-      tier TEXT NOT NULL DEFAULT 'bronze', points INTEGER NOT NULL DEFAULT 0,
-      city TEXT NOT NULL DEFAULT '', volunteer_id TEXT NOT NULL DEFAULT '',
-      certifications TEXT NOT NULL DEFAULT '[]', rescue_count INTEGER NOT NULL DEFAULT 0
-    )`)
+    try {
+      const res = await request(app).get('/api/user/profile')
+      expect(res.status).toBe(500)
+    } finally {
+      resetSchema()
+    }
   })
 
   // --- /stats catch block ---
   it('stats returns 500 on DB error', async () => {
     db.exec('DROP TABLE IF EXISTS stats')
-    const res = await request(app).get('/api/user/stats')
-    expect(res.status).toBe(500)
-    db.exec('CREATE TABLE IF NOT EXISTS stats (id INTEGER PRIMARY KEY CHECK (id = 1), certified_rescuers INTEGER NOT NULL DEFAULT 0, networked_aeds INTEGER NOT NULL DEFAULT 0, monthly_rescues INTEGER NOT NULL DEFAULT 0, online_volunteers INTEGER NOT NULL DEFAULT 0, aeds_within_1km INTEGER NOT NULL DEFAULT 0)')
+    try {
+      const res = await request(app).get('/api/user/stats')
+      expect(res.status).toBe(500)
+    } finally {
+      resetSchema()
+    }
   })
 
   // --- /points catch block ---
   it('points returns 500 on DB error', async () => {
     db.exec('DROP TABLE IF EXISTS users')
-    const res = await request(app)
-      .post('/api/user/points')
-      .send({ amount: 100, reason: 'test' })
-    expect(res.status).toBe(500)
-    initDb() // restore full schema for subsequent tests
+    try {
+      const res = await request(app)
+        .post('/api/user/points')
+        .send({ amount: 100, reason: 'test' })
+      expect(res.status).toBe(500)
+    } finally {
+      resetSchema()
+    }
   })
 
   // --- /points: no user exists path ---

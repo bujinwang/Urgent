@@ -174,6 +174,7 @@ import { useTaskStore } from '@/stores/task'
 import { useNewsStore } from '@/stores/news'
 import { voice } from '@/utils/voice'
 import { playAlertSound } from '@/utils/audio'
+import { request } from '@/api/index'
 
 // --- stores ---
 const userStore = useUserStore()
@@ -294,9 +295,14 @@ function onScrollToLower() {
 loadMoreFeed()
 
 // --- 救援回放（融入推荐流） ---
+interface ReplaySummary {
+  id: string
+  title?: string
+  description?: string
+}
 async function loadReplays() {
   try {
-    const rps = await request<any[]>({ url: '/replay?limit=5' })
+    const rps = await request<ReplaySummary[]>({ url: '/replay?limit=5' })
     // 将回放作为特殊卡片插入推荐流
     rps.forEach((rp, i) => {
       feedItems.value.splice(i * 4 + 2, 0, { ...rp, _isReplay: true })
@@ -312,7 +318,7 @@ const tierLabel = userStore.tierLabel
 const interestIcons: Record<string, string> = { medical:'🩺', pet:'🐱', wildlife:'🦅', disaster:'🚨', trail:'🥾' }
 const interestTags = computed(() => {
   if (!user.id) return []
-  const t = (user as any).volunteer_type || ''
+  const t: string = user.volunteer_type || ''
   return t.split(',').filter(Boolean).map(k => interestIcons[k] || '').filter(Boolean)
 })
 const hasAnimalInterest = computed(() => {
