@@ -6,6 +6,36 @@
 
 ---
 
+## ✅ P0 已完成（2026-09-10）
+
+已提交，**工作区干净**：
+
+| 提交 | 说明 |
+|------|------|
+| `3da99d3` | fix: 修复前后端类型检查失败并消除后端测试偶发失败（36 files, +1176/−263） |
+| `a67eb47` | chore: 忽略 `.workbuddy/` 与 vitest 临时产物，补充本路线图 |
+
+| 门禁 | 修复前 | 修复后 |
+|------|-------:|-------:|
+| 后端 `tsc --noEmit` | 238 错误 / 16 文件 | **0 错误** |
+| 后端 `vitest run` | 117 通过（本地偶发 ~20% 失败） | **117 通过，连续 40 次全绿** |
+| 前端 `vue-tsc --noEmit` | 49 错误 | **0 错误** |
+| 前端 `vitest run` | 151 通过 | **151 通过** |
+
+未新增任何 `as any` / `@ts-ignore`（反而移除了 2 处既有的）。
+
+**P0 完成后的两项修正说明**
+1. **P0-1 的修法**：没有回退那次"去 any 重构"，而是新增 `src/types/rows.ts` 按真实 DDL 推导各表行类型，
+   并在 21 个路由的 `get<T>()` / `all<T>()` 调用点显式传入 —— 把重构真正做完了。
+2. **P0-3 的定性要收窄**：后端测试的 ~20% 抖动经取证是**两个叠加**——① `coverage-fill` 的
+   `DROP TABLE` 后恢复写在断言之后、无 `try/finally`（且手写 `CREATE TABLE users` 只有 9 列，缺 6 列）
+   导致文件内级联；② `app.listen(0)` 绑通配地址，在 macOS 上被本机其它进程更具体的
+   `127.0.0.1:<port>` 绑定**抢答**（实测本机 52 个 loopback 监听）。
+   **这两者都属开发机条件，CI（ubuntu 干净 runner）不会发生 —— CI 红的唯一原因始终是 type-check。**
+   修复仍有价值（消除环境无关的级联缺陷 + 改善本地开发体验），但不应表述为"修好了导致 CI 红的问题"。
+
+---
+
 ## 一、项目现状快照
 
 | 维度 | 后端 `急救侠-server` | 前端 `急救侠-uniapp` |
@@ -124,3 +154,29 @@ P0-2 前端 49 类型错误   ├─→ P0-3 push + CI 变绿  ─→ P1 工程/
 - ⚠️ `.env` 中 `JWT_SECRET=jiujiaxia-dev-secret` 为开发默认值，**上线前必须更换为强随机串**；
 - ✅ 已有 `authMiddleware` + admin 路由鉴权 + 登录限流 + Zod 入参校验；
 - ⚠️ 图片上传为 base64 直写磁盘（`/api/upload`），未见类型/大小白名单校验，建议补。
+
+---
+
+## 七、执行 P0 过程中新发现的技术债
+
+以下均为**非阻塞**项，不阻碍 CI 转绿，建议择机收敛：
+
+| # | 位置 | 问题 | 建议 |
+|---|------|------|------|
+| 1 | `急救侠-server/src/__tests__/setup.ts` | `export { server as app }` 把 `http.Server` 当 `app` 导出，命名误导（17 个测试文件全部只有 `request(app)` 一种用法，共 132 处，故功能安全） | 改名为 `server` 并同步 17 个文件的 import，或加显著注释 |
+| 2 | `急救侠-uniapp/src/global.d.ts` | 用 12 行全局声明给 lib.dom 的 `EventTarget.value` / `Event.detail` 打上可选属性 —— 一处改动会影响全仓所有事件，今后写错 `.value` 也不再报错（注释掉该增强后实测冒出 33 个错误） | 收窄为 uni 事件类型或项目内 `UniInputEvent`，不要动全局 DOM 接口 |
+| 3 | `急救侠-uniapp/src/stores/user.ts` | `awardPoints(amount, _reason?)` 第二参数被静默丢弃，但 3 个调用点（`stores/aed.ts:34`、`stores/aed.ts:63`、`__tests__/stores/user.test.ts:29`）都在传有意义的加分理由 | 二选一：真正使用 `reason`（落库/调 `awardPointsApi`），或删掉该参数并同步 3 个调用点 |
+| 4 | 两个 `package.json` | 后端运行时 `express ^4.21.1` 与 `@types/express ^5.0.0` **主版本不一致**，排查时易被类型定义带偏 | 对齐到同一主版本 |
+| 5 | `急救侠-server/src/routes/*.ts` | 大量 `'xx_' + Date.now()` 单时间戳主键，同毫秒内两次同前缀 INSERT 会撞 `PRIMARY KEY`。重复前缀：`'tm_'`（`rescue.ts` 4 处）、`'om_'`、`'msg_'`、`'gm_'` 各 2 处 | 统一追加随机后缀（照抄 `push.ts:44`、`video.ts:19` 的 `Date.now() + '_' + Math.random().toString(36).slice(2,6)`），或改用 `crypto.randomUUID()` |
+
+### 环境备注（换机必看）
+
+本机 arm64，但 `node_modules` 内的原生依赖是 **x86_64**（疑似从 Intel 机器拷贝或在 Rosetta 下安装），会直接导致测试无法运行：
+
+```bash
+cd 急救侠-server
+npm install @rollup/rollup-darwin-arm64@4.60.3 --no-save   # 缺 arm64 rollup 二进制
+npm rebuild better-sqlite3 --build-from-source             # better_sqlite3.node 为 x86_64（约 1.5 分钟）
+```
+
+根治：换机后删除 `node_modules` 重新 `npm ci`。
