@@ -94,6 +94,8 @@ async function forgotPwd() {
 }
 
 function demoLogin() {
+  // 仅用于纯 UI 演示（离线预览）。该令牌**不是**合法 JWT，绝不可发往
+  // authMiddleware 受保护端点（如 P2-7 AED 联动接口）；真实流程请走手机号登录拿真 JWT。
   uni.setStorageSync('jwt_token', 'demo_token_demo')
   uni.showToast({ title: 'Demo 登录成功', icon: 'none' })
   setTimeout(() => { window.location.href = '/#/pages/home/index' }, 500)

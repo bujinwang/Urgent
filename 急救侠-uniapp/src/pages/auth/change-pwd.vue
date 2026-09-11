@@ -10,13 +10,27 @@
   </view>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue';import { request } from '@/api/index'
+import { ref } from 'vue';import { requestFull } from '@/api/index'
+import { useUserStore } from '@/stores/user'
 const oldPwd=ref(''),newPwd=ref(''),newPwd2=ref('')
+const userStore = useUserStore()
 async function submit(){
   if(!oldPwd.value||!newPwd.value){uni.showToast({title:'请填写所有字段',icon:'none'});return}
   if(newPwd.value!==newPwd2.value){uni.showToast({title:'两次新密码不一致',icon:'none'});return}
-  const phone=uni.getStorageSync('jwt_token')?.replace(/^(demo_|token_)?/,'').replace(/_.*/,'')||''
-  await request({url:'/auth/change-password',method:'POST',data:{phone,oldPassword:oldPwd.value,newPassword:newPwd.value}})
+  // 身份由后端从令牌（authMiddleware）解析；phone 仅作一致性校验，不再从 token 字符串截取
+  let uid = userStore.profile.id || ''
+  if(!uid.startsWith('u_')){
+    // 首次进入 / store 尚未加载：主动拉取一次当前登录用户
+    try{ await userStore.refresh() }catch{ /* 下面统一提示 */ }
+    uid = userStore.profile.id || ''
+  }
+  const phone = uid.startsWith('u_') ? uid.slice(2) : ''
+  if(!phone){uni.showToast({title:'无法识别当前账号，请重新登录',icon:'none'});return}
+  const res = await requestFull({
+    url:'/auth/change-password',method:'POST',
+    data:{phone,oldPassword:oldPwd.value,newPassword:newPwd.value},
+  })
+  if(res.code!==0){uni.showToast({title:res.message||'修改失败',icon:'none'});return}
   uni.showToast({title:'密码已修改',icon:'success'});setTimeout(()=>uni.navigateBack(),600)
 }
 </script>

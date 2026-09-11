@@ -25,11 +25,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function checkLogin() {
     if (!token.value) return false
-    if (token.value.startsWith('demo_') || token.value.startsWith('token_')) return true
+    // demo 令牌仅用于纯 UI 演示（离线走通页面），不会发往 authMiddleware 受保护端点
+    if (token.value.startsWith('demo_')) return true
     try {
       const u = await fetchCurrentUser(); user.value = u; return true
     } catch {
-      return !!token.value
+      // 令牌无效/过期（含历史遗留的明文 `token_...`）→ 清理并强制重新登录
+      logout()
+      return false
     }
   }
 
