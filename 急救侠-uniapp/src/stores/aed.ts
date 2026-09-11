@@ -1,15 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getNearbyAeds, getAedById, getDiscoveredCount, getTotalCount, fetchAedList } from '@/api/aed'
+import { fetchAedList } from '@/api/aed'
 import type { AedDevice, CheckInRecord } from '@/api/aed'
 import { useUserStore } from '@/stores/user'
 
 export const useAedStore = defineStore('aed', () => {
-  const aeds = ref<AedDevice[]>(getNearbyAeds())
+  const aeds = ref<AedDevice[]>([])
   const selectedAed = ref<AedDevice | null>(null)
-  const totalCount = ref(getTotalCount())
   const loading = ref(false)
+  const error = ref('')
 
+  const totalCount = computed(() => aeds.value.length)
   const discoveredCount = computed(() => aeds.value.filter((a) => a.discovered).length)
   const verifiedCount = computed(() => aeds.value.filter((a) => a.verified).length)
 
@@ -22,7 +23,7 @@ export const useAedStore = defineStore('aed', () => {
   )
 
   function selectAed(id: string) {
-    const found = getAedById(id)
+    const found = aeds.value.find((a) => a.id === id)
     if (found) selectedAed.value = found
   }
 
@@ -57,29 +58,10 @@ export const useAedStore = defineStore('aed', () => {
     aed.verified = status === 'ok'
     aed.lastCheck = record.date
 
-    // 首次打卡额外奖励
     const isFirst = aed.checkIns.length === 1
     const points = isFirst ? 30 : 15
     userStore.awardPoints(points, `AED 打卡：${aed.name}`)
 
-    // 通知责任人
-    if (aed.custodian) {
-      uni.showToast({ title: `演习 · 已模拟通知责任人 ${aed.custodian.name}`, icon: 'none', duration: 2500 })
-    }
-
-    return true
-  }
-
-  /** 通知责任人 */
-  function notifyCustodian(id: string) {
-    const aed = aeds.value.find((a) => a.id === id)
-    if (!aed || !aed.custodian) return false
-    uni.showModal({
-      title: '演习模式 · 通知责任人',
-      content: `将向 ${aed.custodian.name}（${aed.custodian.phone}）发送设备检查通知。\n\n真实场景下，该责任人会收到短信和 App 推送。`,
-      showCancel: false,
-      confirmText: '知道了',
-    })
     return true
   }
 
@@ -94,31 +76,38 @@ export const useAedStore = defineStore('aed', () => {
     })
   }
 
-  async function refresh() {
+  /** 拉取真实 AED 列表。失败时显式记 `error` 并抛出（不静默兜底）。 */
+  async function refresh(): Promise<void> {
     loading.value = true
+    error.value = ''
     try {
       const list = await fetchAedList()
-      if (list && list.length) {
-        // Preserve discovered/verified/checkIns from existing data
-        const oldMap = new Map(aeds.value.map(a => [a.id, a]))
-        for (const a of list) {
-          const old = oldMap.get(a.id)
-          if (old) { a.discovered = old.discovered; a.verified = old.verified; a.checkIns = old.checkIns }
+      const oldMap = new Map(aeds.value.map((a) => [a.id, a]))
+      for (const a of list) {
+        const old = oldMap.get(a.id)
+        if (old) {
+          a.discovered = old.discovered
+          a.verified = old.verified
+          a.checkIns = old.checkIns
         }
-        aeds.value = list
       }
-    } catch {
-      aeds.value = getNearbyAeds()
+      aeds.value = list
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载 AED 失败'
+      throw e
+    } finally {
+      loading.value = false
     }
-    totalCount.value = getTotalCount()
-    loading.value = false
   }
+
+  void refresh().catch(() => { /* 错误已记录于 error */ })
 
   return {
     aeds,
     selectedAed,
-    totalCount,
     loading,
+    error,
+    totalCount,
     discoveredCount,
     verifiedCount,
     nearbyAeds,
@@ -126,7 +115,6 @@ export const useAedStore = defineStore('aed', () => {
     selectAed,
     discoverAed,
     checkInAed,
-    notifyCustodian,
     navigateToAed,
     refresh,
   }

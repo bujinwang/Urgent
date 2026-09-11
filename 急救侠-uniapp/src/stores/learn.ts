@@ -1,13 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getLessons, getTrainings, fetchLessons, fetchTrainings } from '@/api/learn'
+import { fetchLessons, fetchTrainings } from '@/api/learn'
 import type { Lesson, Training } from '@/api/learn'
 
 export const useLearnStore = defineStore('learn', () => {
-  const lessons = ref<Lesson[]>(getLessons())
-  const trainings = ref<Training[]>(getTrainings())
+  const lessons = ref<Lesson[]>([])
+  const trainings = ref<Training[]>([])
   const currentTab = ref<'knowledge' | 'training'>('knowledge')
   const loading = ref(false)
+  const error = ref('')
 
   /** 推荐课程（取第一个未完成的，若无则取第一个） */
   const featuredLesson = computed(() => {
@@ -32,24 +33,30 @@ export const useLearnStore = defineStore('learn', () => {
     return training?.route || null
   }
 
-  async function refresh() {
+  /** 拉取真实课程/训练。失败时显式记 `error` 并抛出（不静默兜底）。 */
+  async function refresh(): Promise<void> {
     loading.value = true
+    error.value = ''
     try {
       const [l, t] = await Promise.all([fetchLessons(), fetchTrainings()])
       lessons.value = l
       trainings.value = t
-    } catch {
-      lessons.value = getLessons()
-      trainings.value = getTrainings()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载学习内容失败'
+      throw e
+    } finally {
+      loading.value = false
     }
-    loading.value = false
   }
+
+  void refresh().catch(() => { /* 错误已记录于 error */ })
 
   return {
     lessons,
     trainings,
     currentTab,
     loading,
+    error,
     featuredLesson,
     totalStudents,
     completedCount,

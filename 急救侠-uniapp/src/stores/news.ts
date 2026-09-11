@@ -1,13 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getNewsList, getNewsByCategory, getNewsById, fetchNewsList, fetchNewsById } from '@/api/news'
+import { fetchNewsList } from '@/api/news'
 import type { NewsItem } from '@/api/news'
 
 export const useNewsStore = defineStore('news', () => {
-  const items = ref<NewsItem[]>(getNewsList())
+  const items = ref<NewsItem[]>([])
   const selected = ref<NewsItem | null>(null)
   const activeCategory = ref('recommend')
   const loading = ref(false)
+  const error = ref('')
 
   const categories = [
     { id: 'recommend', label: '推荐' },
@@ -26,22 +27,28 @@ export const useNewsStore = defineStore('news', () => {
   }
 
   function selectNews(id: string) {
-    const found = items.value.find((n) => n.id === id) || getNewsById(id)
-    if (found) selected.value = found
+    const found = items.value.find((n) => n.id === id) || selected.value
+    if (found && found.id === id) selected.value = found
   }
 
-  async function refresh() {
+  /** 拉取真实动态。失败时显式记 `error` 并抛出（不静默兜底）。 */
+  async function refresh(): Promise<void> {
     loading.value = true
+    error.value = ''
     try {
       items.value = await fetchNewsList()
-    } catch {
-      items.value = getNewsList()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载动态失败'
+      throw e
+    } finally {
+      loading.value = false
     }
-    loading.value = false
   }
 
+  void refresh().catch(() => { /* 错误已记录于 error */ })
+
   return {
-    items, selected, activeCategory, categories, loading,
+    items, selected, activeCategory, categories, loading, error,
     filteredItems, setCategory, selectNews, refresh,
   }
 })

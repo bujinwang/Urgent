@@ -1,9 +1,14 @@
 /**
- * 媒体报警上传 API — Mock
+ * 媒体报警上传 API — 真实接口（POST /api/media-alert/upload，multipart）
  *
- * 模拟将图片/视频上传至 120 急救中心。
- * 支持进度回调，模拟分段上传过程。
+ * 已移除纯模拟上传（原先 0 真实请求 + `Math.random()` 伪造成功率）。
+ * 现用 `uni.uploadFile` 逐文件真实上传，进度来自 `onProgressUpdate`。
+ *
+ * ⚠️ 结构限制：后端 `/media-alert/upload` 当前仅记录元数据、**未持久化二进制**
+ * （见交付映射表）；前端仍真实发起 multipart 上传并以后端返回为准。
  */
+
+import { BASE_URL } from './index'
 
 export interface MediaFile {
   type: 'image' | 'video'
@@ -23,11 +28,17 @@ export interface UploadResult {
   message: string
 }
 
+interface UploadResponseBody {
+  code?: number
+  data?: { uploadId?: string; message?: string }
+  message?: string
+}
+
 /**
- * 模拟上传 — 逐文件上报进度
+ * 逐文件真实上传至 120 急救中心端点，并上报进度。
  *
- * @param files   待上传文件列表
- * @param onProgress  进度回调
+ * @param files       待上传文件列表
+ * @param onProgress  进度回调（0-100）
  * @param onFileDone  单文件完成回调
  */
 export function uploadMedia(
@@ -36,59 +47,61 @@ export function uploadMedia(
   onFileDone?: (index: number, ok: boolean) => void,
 ): Promise<UploadResult> {
   return new Promise((resolve) => {
-    let doneCount = 0
-    let okCount = 0
     const total = files.length
-
     if (total === 0) {
       resolve({ success: true, uploadedCount: 0, failedCount: 0, message: '没有文件需要上传' })
       return
     }
 
+    let done = 0
+    let ok = 0
+    let reportId: string | undefined
+    let lastMessage = ''
+
+    const finish = (uploadId?: string) => {
+      if (uploadId) reportId = uploadId
+      done++
+      if (done === total) {
+        const success = ok === total
+        resolve({
+          success,
+          uploadedCount: ok,
+          failedCount: total - ok,
+          reportId: success ? reportId : undefined,
+          message: success
+            ? (lastMessage || `已成功将 ${ok} 个文件发送至 120 急救中心`)
+            : `${ok}/${total} 个文件上传成功，${total - ok} 个失败`,
+        })
+      }
+    }
+
     files.forEach((file, i) => {
-      // 每个文件的模拟上传
-      let progress = 0
-      const duration = file.type === 'video' ? 4000 : 2000 // 视频更慢
-      const steps = file.type === 'video' ? 20 : 10
-      const stepMs = duration / steps
-
-      const timer = setInterval(() => {
-        progress += 100 / steps
-        if (progress >= 100) progress = 100
-
-        onProgress({ fileIndex: i, progress: Math.round(progress) })
-
-        if (progress >= 100) {
-          clearInterval(timer)
-          // 80% 成功率，模拟网络波动
-          const ok = Math.random() < 0.8
-          if (ok) okCount++
-          onFileDone?.(i, ok)
-          doneCount++
-
-          if (doneCount === total) {
-            const success = okCount === total
-            resolve({
-              success,
-              uploadedCount: okCount,
-              failedCount: total - okCount,
-              reportId: success ? 'RPT-' + Date.now().toString(36).toUpperCase() : undefined,
-              message: success
-                ? `已成功将 ${okCount} 个文件发送至 120 急救中心`
-                : `${okCount}/${total} 个文件上传成功，${total - okCount} 个失败`,
-            })
+      const task = uni.uploadFile({
+        url: BASE_URL + '/media-alert/upload',
+        filePath: file.path,
+        name: 'file',
+        formData: { type: file.type },
+        success: (r) => {
+          let body: UploadResponseBody = {}
+          try {
+            body = JSON.parse(r.data) as UploadResponseBody
+          } catch {
+            body = {}
           }
-        }
-      }, stepMs)
+          const isOk = body.code === 0
+          if (isOk) ok++
+          lastMessage = body.data?.message || body.message || lastMessage
+          onFileDone?.(i, isOk)
+          finish(body.data?.uploadId)
+        },
+        fail: () => {
+          onFileDone?.(i, false)
+          finish()
+        },
+      })
+      task?.onProgressUpdate?.((r) => {
+        onProgress({ fileIndex: i, progress: r.progress })
+      })
     })
   })
-}
-
-/** 默认导出：兼容 API 请求层 */
-export default function (params?: Record<string, unknown>) {
-  return {
-    code: 0,
-    data: { message: '演习模式 · 未真实发送' },
-    message: 'ok',
-  }
 }

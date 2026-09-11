@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getActiveTask, getTaskList } from '@/api/task'
+import { fetchActiveTask, fetchTaskList } from '@/api/task'
 
 export interface RescueTask {
   id: string
@@ -19,19 +19,20 @@ export interface RescueTask {
   sceneType: string
   patientAge?: string
   patientGender?: string
-  /** 现场直播人数（部分任务带此字段，用于首页「N 人直播中」提示） */
   liveCount?: number
 }
 
 export type MissionPhase = 'idle' | 'confirming' | 'running' | 'arrived'
 
 export const useTaskStore = defineStore('task', () => {
-  const activeTask = ref<RescueTask | null>(getActiveTask())
-  const tasks = ref<RescueTask[]>(getTaskList())
+  const activeTask = ref<RescueTask | null>(null)
+  const tasks = ref<RescueTask[]>([])
   const missionAccepted = ref(false)
   const missionPhase = ref<MissionPhase>('idle')
   const runningDistance = ref(240)
   const runningTimeRemaining = ref(100)
+  const loading = ref(false)
+  const error = ref('')
 
   const hasMission = computed(() => activeTask.value !== null && !missionAccepted.value)
 
@@ -49,7 +50,6 @@ export const useTaskStore = defineStore('task', () => {
   function acceptMission() {
     missionAccepted.value = true
     missionPhase.value = 'running'
-    // 使用实际任务距离，而非硬编码
     const baseDist = activeTask.value?.distance ?? 240
     runningDistance.value = baseDist
     runningTimeRemaining.value = Math.round(baseDist / 2.4)
@@ -72,14 +72,27 @@ export const useTaskStore = defineStore('task', () => {
     runningTimeRemaining.value = 100
   }
 
-  function refresh() {
-    activeTask.value = getActiveTask()
-    tasks.value = getTaskList()
+  /** 拉取真实任务。失败时显式记 `error` 并抛出（不静默兜底）。 */
+  async function refresh(): Promise<void> {
+    loading.value = true
+    error.value = ''
+    try {
+      const [a, l] = await Promise.all([fetchActiveTask(), fetchTaskList()])
+      activeTask.value = a
+      tasks.value = l
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载任务失败'
+      throw e
+    } finally {
+      loading.value = false
+    }
   }
+
+  void refresh().catch(() => { /* 错误已记录于 error */ })
 
   return {
     activeTask, tasks, missionAccepted, missionPhase,
-    runningDistance, runningTimeRemaining,
+    runningDistance, runningTimeRemaining, loading, error,
     hasMission, showConfirm, hideConfirm,
     acceptMission, updateRunning, arrive, finishMission, refresh,
   }

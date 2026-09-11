@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getLeaderboard, type LeaderboardType, type VolunteerRankEntry } from '@/api/volunteer'
+import { fetchLeaderboard, type LeaderboardType, type VolunteerRankEntry } from '@/api/volunteer'
 import { useUserStore } from '@/stores/user'
 
 export interface LeaderboardItem {
@@ -14,8 +14,10 @@ export interface LeaderboardItem {
 }
 
 export const useVolunteerStore = defineStore('volunteer', () => {
-  const rawData = ref<VolunteerRankEntry[]>(getLeaderboard('points'))
+  const rawData = ref<VolunteerRankEntry[]>([])
   const currentTab = ref<LeaderboardType>('points')
+  const loading = ref(false)
+  const error = ref('')
 
   /** 合并用户 profile 后的排行榜展示数据 */
   const leaderboard = computed<LeaderboardItem[]>(() => {
@@ -48,9 +50,7 @@ export const useVolunteerStore = defineStore('volunteer', () => {
     })
   })
 
-  const myRank = computed(() => {
-    return leaderboard.value.findIndex((e) => e.me) + 1
-  })
+  const myRank = computed(() => leaderboard.value.findIndex((e) => e.me) + 1)
 
   function leaderboardColor(index: number): string {
     const colors = [
@@ -75,15 +75,34 @@ export const useVolunteerStore = defineStore('volunteer', () => {
     return ''
   }
 
+  /** 拉取真实榜单；按姓名匹配标记「我」。失败显式记 error 并抛出。 */
+  async function load(type: LeaderboardType): Promise<void> {
+    loading.value = true
+    error.value = ''
+    try {
+      const list = await fetchLeaderboard(type)
+      const userStore = useUserStore()
+      const myName = userStore.profile.name
+      rawData.value = list.map((entry) => ({ ...entry, isMe: !!myName && entry.name === myName }))
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : '加载排行榜失败'
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
   /** 切换排行类型并重新加载数据 */
   function setTab(type: LeaderboardType) {
     currentTab.value = type
-    rawData.value = getLeaderboard(type)
+    void load(type).catch(() => { /* 错误已记录于 error */ })
   }
 
-  function refresh() {
-    rawData.value = getLeaderboard(currentTab.value)
+  async function refresh(): Promise<void> {
+    await load(currentTab.value)
   }
 
-  return { leaderboard, currentTab, myRank, rankClass, setTab, refresh }
+  void load(currentTab.value).catch(() => { /* 错误已记录于 error */ })
+
+  return { leaderboard, currentTab, loading, error, myRank, rankClass, setTab, refresh }
 })
