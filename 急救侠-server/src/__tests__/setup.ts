@@ -5,6 +5,7 @@ import { afterAll, afterEach } from 'vitest'
 import app from '../app'
 import { clearAll, resetSchema } from '../db'
 import db from '../db'
+import { hashPassword, signGovToken } from '../middleware/govAuth'
 
 // ---------------------------------------------------------------------------
 // 1) 常驻 listener，显式绑定 127.0.0.1
@@ -98,6 +99,27 @@ export function addPushSubscription(userId: string, templateId: string, accepted
   db.prepare('INSERT INTO push_subscriptions (id, user_id, template_id, accepted) VALUES (?,?,?,?)').run(
     'ps_' + userId + '_' + templateId, userId, templateId, accepted ? 1 : 0
   )
+}
+
+/** 政府看板账号夹具（P2-8）：返回可用于登录/直连的凭据与令牌。 */
+export function seedGovViewer(opts: {
+  username?: string; password?: string; name?: string; orgName?: string
+  scopeAll?: boolean; scopeDistricts?: string[]; active?: boolean
+} = {}) {
+  const username = opts.username || 'gov_admin'
+  const password = opts.password || 'gov-pass-123'
+  const name = opts.name || '政府监管员'
+  const id = 'gv_test_' + Math.random().toString(36).slice(2, 8)
+  const now = Date.now()
+  db.prepare(`INSERT INTO gov_viewers
+    (id, username, password_hash, name, org_name, scope_all, scope_districts, allowed_ips, active, last_login_at, created_at, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    id, username, hashPassword(password), name, opts.orgName || '市卫健委',
+    opts.scopeAll ? 1 : 0, JSON.stringify(opts.scopeDistricts || []), '',
+    opts.active === false ? 0 : 1, null, now, now
+  )
+  const token = signGovToken({ govViewerId: id, name })
+  return { id, username, password, token }
 }
 
 export { server as app }
