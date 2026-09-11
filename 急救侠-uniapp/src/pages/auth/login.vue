@@ -84,14 +84,33 @@ async function submit() {
   }
 }
 
+/**
+ * 重置密码（安全收敛 F1 之后）
+ *
+ * 后端 `/auth/reset-password` 已要求登录（此前匿名即可改任意账号口令）。
+ * 本项目暂无短信/邮箱验证码通道，因此**未登录时不再发起请求**，直接引导用户
+ * 用其它方式登录后再重置，避免匿名自助重置造成账号接管。
+ */
 async function forgotPwd() {
   const p = phone.value
   if (!p || p.length < 11) { uni.showToast({ title:'请先输入手机号', icon:'none' }); return }
+
+  const token = (uni.getStorageSync('jwt_token') || '') as string
+  const isJwt = token.split('.').length === 3 // demo/历史令牌不是合法 JWT，会被后端 401 拒绝
+  if (!isJwt) {
+    uni.showToast({ title:'为账号安全，重置密码需先登录（或用微信登录）', icon:'none' })
+    return
+  }
+
   const { value: np } = await uni.showModal({ title:'重置密码', content:`为 ${p} 设置新密码？`, editable:true, placeholderText:'新密码（至少2位）' }) as any
   if (!np) return
-  await request({ url:'/auth/reset-password', method:'POST', data:{ phone:p, newPassword:np } })
-  pwd.value = np
-  uni.showToast({ title:'密码已重置，请登录', icon:'success' })
+  try {
+    await request({ url:'/auth/reset-password', method:'POST', data:{ phone:p, newPassword:np } })
+    pwd.value = np
+    uni.showToast({ title:'密码已重置，请登录', icon:'success' })
+  } catch (e: any) {
+    uni.showToast({ title: '重置失败：仅可重置本人密码', icon: 'none' })
+  }
 }
 
 function demoLogin() {
