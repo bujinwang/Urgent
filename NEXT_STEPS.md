@@ -366,3 +366,28 @@ docker compose up -d
 
 - 门禁：CI ✅（后端 **174** / 前端 **134**）。
 - 过程备注：第 5 项曾出现一次批量脚本**误吞行尾换行**（造成行合并），已 `git checkout` 回退并用带 lookahead 的脚本重做，**逐文件行数与 HEAD 一致**、diff 为 16 行一对一替换。
+
+## ✅ 安全收敛（2026-09-12 完成）
+
+**加固六项**（`5580676`）：A 业务用户口令 scrypt 哈希（`services/password.ts`，`s1$<salt>$<hash>` 版本化格式 + `timingSafeEqual`，零新增依赖；存量明文登录即**透明升级**）｜B `JWT_SECRET` 生产 fail-fast（未配置启动即抛错，非生产随机密钥+warn）｜C body 1mb 上限｜D helmet 安全头｜E CORS 白名单（`CORS_ORIGINS`）｜F 三个上传入口（`/api/upload`/`media-alert`/`video`）类型白名单+大小上限。
+
+**QA 对抗式验证挖出并修复的四项既有越权缺陷**（单点加固挡不住旁路，四项均非加固引入）：
+| # | 缺陷 | 修复 |
+|---|------|------|
+| F1 | `reset-password` 零鉴权 → 凭手机号接管任意账号 | 加 `authMiddleware`；仅本人或**同队**队长（`affiliation` 非空相等），匿名 401/越权 403 |
+| F2 | 空口令账号用**任意**口令可登录（`if (!stored) return true`） | `verifyAndUpgrade` 三态 `ok\|no-password\|fail`；空口令拒绝口令登录，可凭本人令牌走 change-password **首次设口令** |
+| F3 | `POST /user/points` 匿名写且 `LIMIT 1` 给首个用户加分 | 加 `authMiddleware` + 按令牌身份写入 |
+| NEW-1 | **注册接口接受 `isLeader` → 自封队长 → 绕过 F1 + 进全站管理面**（`/api/admin/*`、`/api/gov/viewers`、`/push/send`、救援动员均以 `is_leader` 为门禁） | schema 移除 `isLeader`（Zod 剥离，落库恒 0）；队长重置收窄到同队 |
+| 附 | `/api/upload` 匿名可写盘（无前端调用方的孤儿端点） | `14e3ee6` 加 `authMiddleware` + 匿名 401 断言 |
+
+**角色拆分**（`cf755f1` + `ccd4736`，用户拍板）：`is_leader`（队伍队长）与 `is_platform_admin`（平台管理员）正交，迁移 `036`；`admin/gov/push` 判定改用平台管理员，`rescue` 两处保持队伍角色；**一次性回填**（保权非授权，幂等 + warn 日志留账号名单）；新字段不可自授；`public.ts` 绝不输出管理员标志（深扫断言）；`role-split.test.ts` 16 条逐判定点断言。
+
+**产品口径沉淀**（已写入代码注释，防重复上报）：`affiliation='蓝天救援队'` 注册即得 silver/500分/3救援/3证书 —— **用户裁定保留**（可信自述），未来上线队籍核验再改审核授予；magic-bytes 内容嗅探本期不做（已有登录+白名单+限额三重防护）。
+
+**验证方式备注**：本轮 QA 中途因额度（429）中断，角色拆分复验由主理人接手完成——亲跑 `role-split.test.ts`（220 全绿）+ 三组只读探针（双重身份并集行为 / 回填语义边界 / QA 遗留探针 A1 定性）。其中 **QA 探针 A1 失败已定性为"场景构造不成立"而非源码缺陷**：测试 `:memory:` 新库中 `024_add_user_is_leader` 因 canonical 已含列而永不记录，DROP 列后 initDb 会自愈重跑补列；D3 探针证明在真实升级库条件下（024 已记录、列真缺失）`ccd4736` 的"after 失败报真实错误"**确实生效**（`no such column: is_leader` 被完整报出）。
+
+**遗留（待派）**：
+- **收窄工单**：把不该有管理权的"回填固化"账号降级（需业务/运营确认名单；回填 warn 日志是定位依据）。⚠️ 语义边界：**收窄落地后不得再调用 `backfillPlatformAdmins()`**（其 WHERE `is_leader=1 AND is_platform_admin=0` 会把已降级队长重新提权；生产迁移只跑一次，正常不会触发，但需知悉）。
+- 迁移机制固有特性（非缺陷，知悉即可）：canonical 已含列的迁移（001/023-028/036）在全新库中永不记录、每次 initDb 重跑并 skipped。
+
+- 门禁：CI ✅（后端 **220** / 前端 **134**）；工作树干净。
