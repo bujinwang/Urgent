@@ -5,6 +5,12 @@ import { requestFull } from '@/api/index'
 import { useGovStore } from '@/stores/gov'
 import type { GovViewer, GovDashboard } from '@/api/gov'
 
+// tsconfig 的 types 仅含 @dcloudio/types，process 非全局类型；此处仅为测试内监听使用。
+declare const process: {
+  on(event: 'unhandledRejection', listener: (reason: unknown, promise: unknown) => void): void
+  off(event: 'unhandledRejection', listener: (reason: unknown, promise: unknown) => void): void
+}
+
 const viewer: GovViewer = {
   id: 'g1', name: '张监管', orgName: '天河卫健委', scopeAll: false, districts: ['天河区'],
 }
@@ -142,13 +148,22 @@ describe('Gov Store（政府看板状态层）', () => {
     )
   })
 
-  it('setWindow：重载失败不产生未处理 rejection（error 已记录）', async () => {
-    vi.mocked(requestFull).mockResolvedValueOnce({ code: -1, message: 'boom' })
-    const store = useGovStore()
-    store.setWindow(90)
-    await flushPromises()
-    expect(store.windowDays).toBe(90)
-    expect(store.error).toBe('boom')
+  it('setWindow：重载失败不产生未处理 rejection（直接监听 unhandledRejection）', async () => {
+    const unhandled: unknown[] = []
+    const onUnhandled = (reason: unknown): void => { unhandled.push(reason) }
+    process.on('unhandledRejection', onUnhandled)
+    try {
+      vi.mocked(requestFull).mockResolvedValueOnce({ code: -1, message: 'boom' })
+      const store = useGovStore()
+      store.setWindow(90) // 内部 loadDashboard 失败后已 .catch 兜底
+      await flushPromises()
+      await new Promise((r) => setTimeout(r, 0)) // 给 unhandledRejection 派发时机
+      expect(unhandled).toHaveLength(0)
+      expect(store.windowDays).toBe(90)
+      expect(store.error).toBe('boom')
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+    }
   })
 
   // ---- logout ----

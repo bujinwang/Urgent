@@ -9,6 +9,12 @@ describe('GovStat 指标卡（null 不渲染 0）', () => {
     expect(wrapper.text()).not.toContain('0')
   })
 
+  it('value=0 ⇒ 渲染 0，且不显示「数据积累中」（合法零值不被吞）', () => {
+    const wrapper = mount(GovStat, { props: { label: '取用次数', value: 0 } })
+    expect(wrapper.text()).toContain('0')
+    expect(wrapper.text()).not.toContain('数据积累中')
+  })
+
   it('整数原样展示，并渲染单位', () => {
     const wrapper = mount(GovStat, { props: { label: '在线志愿者', value: 12, unit: '人' } })
     expect(wrapper.text()).toContain('12')
