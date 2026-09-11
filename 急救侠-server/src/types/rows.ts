@@ -262,6 +262,7 @@ export interface RescueCaseRow {
   result: string
   volunteers: string
   body: string | undefined
+  news_id: string | undefined
 }
 
 // ---- Organizations / Certificates ----

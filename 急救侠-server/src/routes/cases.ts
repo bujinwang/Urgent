@@ -12,6 +12,7 @@ casesRouter.get('/list', (_req, res) => {
       id: row.id, title: row.title, summary: row.summary,
       date: row.date, location: row.location, result: row.result,
       volunteers: JSON.parse(row.volunteers), body: row.body,
+      newsId: row.news_id || undefined,
     }))
     res.json(success(rc))
   } catch (e: any) {
@@ -27,6 +28,7 @@ casesRouter.get('/:id', (req, res) => {
       id: row.id, title: row.title, summary: row.summary,
       date: row.date, location: row.location, result: row.result,
       volunteers: JSON.parse(row.volunteers), body: row.body,
+      newsId: row.news_id || undefined,
     }
     res.json(success(c))
   } catch (e: any) {

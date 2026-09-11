@@ -629,7 +629,8 @@ export function initDb(options: { silent?: boolean } = {}) {
       location TEXT NOT NULL,
       result TEXT NOT NULL DEFAULT '',
       volunteers TEXT NOT NULL DEFAULT '[]',
-      body TEXT
+      body TEXT,
+      news_id TEXT
     );
 
     CREATE TABLE IF NOT EXISTS atlas_cards (
@@ -762,6 +763,11 @@ export function initDb(options: { silent?: boolean } = {}) {
       CREATE INDEX IF NOT EXISTS idx_custodian_alerts_custodian ON aed_custodian_alerts(custodian_user_id, status);
       CREATE INDEX IF NOT EXISTS idx_custodian_alerts_status ON aed_custodian_alerts(status);
       CREATE INDEX IF NOT EXISTS idx_custodian_alerts_requester ON aed_custodian_alerts(requester_user_id);`
+    },
+    {
+      id: '031_add_case_news_link',
+      description: 'add nullable news_id to rescue_cases for case<->news linkage',
+      sql: "ALTER TABLE rescue_cases ADD COLUMN news_id TEXT"
     },
   ]
 

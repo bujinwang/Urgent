@@ -5,13 +5,20 @@ import type { VolunteerRow } from '../types/rows'
 
 export const volunteerRouter = Router()
 
-volunteerRouter.get('/rankings', (_req, res) => {
+volunteerRouter.get('/rankings', (req, res) => {
   try {
-    const rows = all<VolunteerRow>('SELECT * FROM volunteers ORDER BY rank_pos ASC')
-    const rankings: VolunteerRank[] = rows.map(row => ({
+    // type: points（默认，按积分降序） | rescue（按救援次数降序）
+    // 注意：只新增 type 维度；既有 rank 字段语义保持为 `rank_pos`，另增 `position` 表示所选维度位次。
+    const type = (req.query.type as string) === 'rescue' ? 'rescue' : 'points'
+    const orderBy = type === 'rescue'
+      ? 'rescue_count DESC, points DESC'
+      : 'points DESC, rescue_count DESC'
+    const rows = all<VolunteerRow>(`SELECT * FROM volunteers ORDER BY ${orderBy}`)
+    const rankings: VolunteerRank[] = rows.map((row, i) => ({
       id: row.id, name: row.name, avatar: row.avatar, tier: row.tier,
       points: row.points, rescueCount: row.rescue_count,
       city: row.city, rank: row.rank_pos,
+      position: i + 1,
     }))
     res.json(success(rankings))
   } catch (e: any) {

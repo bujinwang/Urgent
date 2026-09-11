@@ -18,3 +18,19 @@ recordsRouter.get('/list', (_req, res) => {
     res.status(500).json(error(e.message || '服务器错误'))
   }
 })
+
+// GET /api/records/:id — 单条救援记录（结构与列表项一致）
+recordsRouter.get('/:id', (req, res) => {
+  try {
+    const row = get<RescueRecordRow>('SELECT * FROM rescue_records WHERE id = ?', req.params.id)
+    if (!row) return res.status(404).json(error('救援记录不存在'))
+    const record: RescueRecord = {
+      id: row.id, type: row.type, date: row.date,
+      location: row.location, role: row.role,
+      squad: JSON.parse(row.squad), result: row.result,
+    }
+    res.json(success(record))
+  } catch (e: any) {
+    res.status(500).json(error(e.message || '服务器错误'))
+  }
+})

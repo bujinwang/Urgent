@@ -232,6 +232,8 @@ export const VolunteerRank = z.object({
   rescueCount: z.number(),
   city: z.string(),
   rank: z.number(),
+  /** 所选榜单维度（points|rescue）下的位次（1-based） */
+  position: z.number().optional(),
 })
 export type VolunteerRank = z.infer<typeof VolunteerRank>
 
@@ -257,6 +259,8 @@ export const RescueCase = z.object({
   result: z.string(),
   volunteers: z.array(z.string()),
   body: z.string().optional(),
+  /** 关联新闻 ID（可空；无可靠数据来源时为空，前端据此降级为无互链） */
+  newsId: z.string().optional(),
 })
 export type RescueCase = z.infer<typeof RescueCase>
 
