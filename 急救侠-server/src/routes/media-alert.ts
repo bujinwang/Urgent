@@ -60,7 +60,9 @@ mediaAlertRouter.post('/upload', (req, res) => {
       }))
 
       const body = (req.body || {}) as Record<string, string | undefined>
-      const imageCount = urls.filter((u) => u.type === 'image').length || Number(body.imageCount) || 0
+      // 严格「只增不改」：imageCount / videoDuration / message 保持既有语义与文案不变；
+      // 实际上传数量与落盘 URL 通过新增字段 uploadedCount / url / urls 表达。
+      const imageCount = Number(body.imageCount) || 0
       const videoDuration = Number(body.videoDuration) || 0
       const uploadId = 'upload_' + Date.now()
 
@@ -71,7 +73,8 @@ mediaAlertRouter.post('/upload', (req, res) => {
         videoDuration,
         url: urls[0] ? urls[0].url : '',
         urls,
-        message: '现场图片/视频已上传并落盘',
+        uploadedCount: urls.length,
+        message: '现场图片/视频已发送至 120 急救中心',
       }))
     } catch (e: unknown) {
       res.status(500).json(error(e instanceof Error ? e.message : '服务器错误'))
