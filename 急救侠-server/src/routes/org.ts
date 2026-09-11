@@ -53,7 +53,7 @@ orgRouter.post('/', (req, res) => {
     const id = 'org_' + Date.now()
     db.prepare('INSERT INTO organizations (id, name, type, admin_user_id) VALUES (?, ?, ?, ?)').run(id, name, type || 'company', adminUserId)
     // Auto-add admin as member
-    const mid = 'om_' + Date.now() + '_0'
+    const mid = 'om_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT OR IGNORE INTO organization_members (id, org_id, user_id, role) VALUES (?, ?, ?, ?)').run(mid, id, adminUserId, 'admin')
     const org = get<OrganizationRow>('SELECT * FROM organizations WHERE id = ?', id)!
     res.json(success({ id: org.id, name: org.name, type: org.type, adminUserId: org.admin_user_id, createdAt: org.created_at }))

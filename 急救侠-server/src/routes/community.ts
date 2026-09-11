@@ -43,7 +43,7 @@ communityRouter.post('/messages', (req, res) => {
   try {
     const { fromUserId, fromUserName, toUserId, content } = req.body
     if (!fromUserId || !toUserId || !content) return res.json(error('参数不完整'))
-    db.prepare('INSERT INTO messages (id, from_user_id, from_user_name, to_user_id, content) VALUES (?, ?, ?, ?, ?)').run('msg_' + Date.now(), fromUserId, fromUserName || '', toUserId, content)
+    db.prepare('INSERT INTO messages (id, from_user_id, from_user_name, to_user_id, content) VALUES (?, ?, ?, ?, ?)').run('msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), fromUserId, fromUserName || '', toUserId, content)
     res.json(success(null, '已发送'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -55,7 +55,7 @@ communityRouter.post('/contact-aed/:aedId', (req, res) => {
     const mgr = get<AedManagerRow>("SELECT * FROM aed_managers WHERE aed_id=? AND role='primary' LIMIT 1", req.params.aedId)
     if (!mgr) return res.json(error('该 AED 暂无维护者'))
     const { fromUserId, fromUserName, content } = req.body
-    db.prepare('INSERT INTO messages (id, from_user_id, from_user_name, to_user_id, content) VALUES (?, ?, ?, ?, ?)').run('msg_' + Date.now(), fromUserId, fromUserName || '', mgr.user_id, `[${aed.name}] ${content}`)
+    db.prepare('INSERT INTO messages (id, from_user_id, from_user_name, to_user_id, content) VALUES (?, ?, ?, ?, ?)').run('msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), fromUserId, fromUserName || '', mgr.user_id, `[${aed.name}] ${content}`)
     res.json(success(null, '已发送给 AED 维护者'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -73,7 +73,7 @@ communityRouter.post('/groups', (req, res) => {
     if (!name || !createdBy) return res.json(error('name 和 createdBy 不能为空'))
     const gid = 'grp_' + Date.now()
     db.prepare('INSERT INTO volunteer_groups (id, name, description, created_by) VALUES (?, ?, ?, ?)').run(gid, name, description || '', createdBy)
-    db.prepare('INSERT OR IGNORE INTO group_members (id, group_id, user_id, user_name) VALUES (?, ?, ?, ?)').run('gm_' + Date.now(), gid, createdBy, createdByName || '')
+    db.prepare('INSERT OR IGNORE INTO group_members (id, group_id, user_id, user_name) VALUES (?, ?, ?, ?)').run('gm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), gid, createdBy, createdByName || '')
     res.json(success({ id: gid }, '群组已创建'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -82,7 +82,7 @@ communityRouter.post('/groups/:id/join', (req, res) => {
   try {
     const { userId, userName } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
-    db.prepare('INSERT OR IGNORE INTO group_members (id, group_id, user_id, user_name) VALUES (?, ?, ?, ?)').run('gm_' + Date.now(), req.params.id, userId, userName || '')
+    db.prepare('INSERT OR IGNORE INTO group_members (id, group_id, user_id, user_name) VALUES (?, ?, ?, ?)').run('gm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), req.params.id, userId, userName || '')
     res.json(success(null, '已加入'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })

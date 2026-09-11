@@ -118,7 +118,7 @@ rescueRouter.post('/live/:taskId/start', (req, res) => {
     if (!userId) return res.json(error('userId 不能为空'))
     const lid = 'live_' + Date.now()
     db.prepare('INSERT INTO live_sessions (id,task_id,user_id,user_name,user_avatar,device_info) VALUES (?,?,?,?,?,?)').run(lid, req.params.taskId, userId, userName||'', userAvatar||'', deviceInfo||'')
-    db.prepare('INSERT INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content) VALUES (?,?,?,?,?,?,?)').run('tm_'+Date.now(), req.params.taskId, userId, userName||'', userAvatar||'', 'status', '🔴 '+(userName||'志愿者')+' 正在现场直播')
+    db.prepare('INSERT INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content) VALUES (?,?,?,?,?,?,?)').run('tm_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), req.params.taskId, userId, userName||'', userAvatar||'', 'status', '🔴 '+(userName||'志愿者')+' 正在现场直播')
     res.json(success({ id: lid }, '直播已开始'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -128,7 +128,7 @@ rescueRouter.post('/live/end/:sessionId', (req, res) => {
   try {
     db.prepare("UPDATE live_sessions SET ended_at = datetime('now') WHERE id = ?").run(req.params.sessionId)
     const s = get<LiveSessionRow>('SELECT * FROM live_sessions WHERE id=?', req.params.sessionId)
-    if (s) db.prepare('INSERT INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content) VALUES (?,?,?,?,?,?,?)').run('tm_'+Date.now(), s.task_id, s.user_id, s.user_name, s.user_avatar, 'status', (s.user_name||'志愿者')+' 直播已结束')
+    if (s) db.prepare('INSERT INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content) VALUES (?,?,?,?,?,?,?)').run('tm_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), s.task_id, s.user_id, s.user_name, s.user_avatar, 'status', (s.user_name||'志愿者')+' 直播已结束')
     res.json(success(null, '直播已结束'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -138,7 +138,7 @@ rescueRouter.post('/mobilizations/:taskId/media', (req, res) => {
   try {
     const { userId, userName, userAvatar, type, content, mediaUrl, lat, lng } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
-    const mid = 'tm_' + Date.now()
+    const mid = 'tm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO task_media (id, task_id, user_id, user_name, user_avatar, type, content, media_url, lat, lng) VALUES (?,?,?,?,?,?,?,?,?,?)').run(mid, req.params.taskId, userId, userName||'', userAvatar||'', type||'text', content||'', mediaUrl||'', lat||0, lng||0)
     res.json(success({ id: mid }, '已发布'))
   } catch (e: any) { res.status(500).json(error(e.message)) }

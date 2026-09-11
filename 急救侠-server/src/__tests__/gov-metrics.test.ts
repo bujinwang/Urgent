@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { app, seedTestData, seedGovViewer, db } from './setup'
+import { server, seedTestData, seedGovViewer, db } from './setup'
 
 const GOV = '/api/gov'
 
@@ -38,7 +38,7 @@ function addAlert(opts: {
 }
 
 async function dashboard(token: string, query = '') {
-  return request(app).get(`${GOV}/dashboard${query}`).set('Authorization', `Bearer ${token}`)
+  return request(server).get(`${GOV}/dashboard${query}`).set('Authorization', `Bearer ${token}`)
 }
 
 describe('Gov Dashboard 指标口径（P2-8）', () => {

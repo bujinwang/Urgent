@@ -122,6 +122,6 @@ export function seedGovViewer(opts: {
   return { id, username, password, token }
 }
 
-export { server as app }
+export { server }
 export { clearAll } from '../db'
 export { default as db } from '../db'

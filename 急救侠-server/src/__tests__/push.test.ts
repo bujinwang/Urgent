@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { app, seedTestData, db } from './setup'
+import { server, seedTestData, db } from './setup'
 import { sendPushToUser, PUSH_TEMPLATES } from '../services/pushService'
 
 describe('Push Routes', () => {
@@ -8,19 +8,19 @@ describe('Push Routes', () => {
 
   describe('POST /api/push/register', () => {
     it('requires auth', async () => {
-      const res = await request(app)
+      const res = await request(server)
         .post('/api/push/register')
         .send({ templateId: 'xxx', accepted: true })
       expect(res.status).toBe(401)
     })
 
     it('registers push with valid token', async () => {
-      const login = await request(app)
+      const login = await request(server)
         .post('/api/auth/wechat-login')
         .send({ code: 'push_test' })
       const token = login.body.data.token
 
-      const res = await request(app)
+      const res = await request(server)
         .post('/api/push/register')
         .set('Authorization', `Bearer ${token}`)
         .send({ templateId: 'mission', accepted: true })
@@ -29,19 +29,19 @@ describe('Push Routes', () => {
     })
 
     it('upserts duplicate registration', async () => {
-      const login = await request(app)
+      const login = await request(server)
         .post('/api/auth/wechat-login')
         .send({ code: 'push_dup' })
       const token = login.body.data.token
       const openid = login.body.data.openid
 
       // Register twice with same template
-      await request(app)
+      await request(server)
         .post('/api/push/register')
         .set('Authorization', `Bearer ${token}`)
         .send({ templateId: 'mission', accepted: true })
 
-      await request(app)
+      await request(server)
         .post('/api/push/register')
         .set('Authorization', `Bearer ${token}`)
         .send({ templateId: 'mission', accepted: false })
@@ -55,17 +55,17 @@ describe('Push Routes', () => {
 
   describe('POST /api/push/send', () => {
     it('requires auth', async () => {
-      const res = await request(app).post('/api/push/send')
+      const res = await request(server).post('/api/push/send')
       expect(res.status).toBe(401)
     })
 
     it('rejects non-admin user with 403', async () => {
-      const login = await request(app)
+      const login = await request(server)
         .post('/api/auth/wechat-login')
         .send({ code: 'push_nonadmin' })
       const token = login.body.data.token
 
-      const res = await request(app)
+      const res = await request(server)
         .post('/api/push/send')
         .set('Authorization', `Bearer ${token}`)
       expect(res.status).toBe(403)
@@ -73,7 +73,7 @@ describe('Push Routes', () => {
     })
 
     it('returns success for admin user', async () => {
-      const login = await request(app)
+      const login = await request(server)
         .post('/api/auth/wechat-login')
         .send({ code: 'push_admin' })
       const token = login.body.data.token
@@ -82,7 +82,7 @@ describe('Push Routes', () => {
       // Grant admin
       db.prepare('UPDATE users SET is_leader = 1 WHERE id = ?').run(openid)
 
-      const res = await request(app)
+      const res = await request(server)
         .post('/api/push/send')
         .set('Authorization', `Bearer ${token}`)
       expect(res.status).toBe(200)
@@ -104,7 +104,7 @@ describe('sendPushToUser（定向推送）', () => {
   })
 
   it('dev 模式有订阅 → 发送成功', async () => {
-    const login = await request(app).post('/api/auth/wechat-login').send({ code: 'push_to_user' })
+    const login = await request(server).post('/api/auth/wechat-login').send({ code: 'push_to_user' })
     const id = login.body.data.openid as string
     db.prepare('INSERT INTO push_subscriptions (id, user_id, template_id, accepted) VALUES (?,?,?,?)').run(
       'ps_to_user', id, PUSH_TEMPLATES.aedCustodianRequest, 1
@@ -117,7 +117,7 @@ describe('sendPushToUser（定向推送）', () => {
   })
 
   it('订阅 accepted=0 视为无订阅', async () => {
-    const login = await request(app).post('/api/auth/wechat-login').send({ code: 'push_to_user_off' })
+    const login = await request(server).post('/api/auth/wechat-login').send({ code: 'push_to_user_off' })
     const id = login.body.data.openid as string
     db.prepare('INSERT INTO push_subscriptions (id, user_id, template_id, accepted) VALUES (?,?,?,?)').run(
       'ps_to_user_off', id, PUSH_TEMPLATES.aedCustodianRequest, 0

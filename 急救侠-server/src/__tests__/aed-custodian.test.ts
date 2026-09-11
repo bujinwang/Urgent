@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import request from 'supertest'
-import { app, seedTestData, addCustodian, addPushSubscription, db } from './setup'
+import { server, seedTestData, addCustodian, addPushSubscription, db } from './setup'
 import * as pushService from '../services/pushService'
 
 const AED_ID = 'aed_001'
@@ -8,7 +8,7 @@ const TPL = 'tpl_aed_custodian_request'
 
 /** 微信登录拿 token 与身份 id（openid）。 */
 async function login(code: string): Promise<{ token: string; id: string }> {
-  const res = await request(app).post('/api/auth/wechat-login').send({ code })
+  const res = await request(server).post('/api/auth/wechat-login').send({ code })
   return { token: res.body.data.token as string, id: res.body.data.openid as string }
 }
 
@@ -33,7 +33,7 @@ async function setupAlert() {
   addCustodian(AED_ID, cb.id, '王磊', 'backup')
   addPushSubscription(cp.id, TPL, true)
   addPushSubscription(cb.id, TPL, true)
-  const n = await request(app)
+  const n = await request(server)
     .post(`/api/aed/${AED_ID}/notify-custodian`)
     .set(auth(req.token))
     .send({ consentGranted: true })
@@ -46,7 +46,7 @@ describe('AED 责任人联动 — notify-custodian', () => {
   beforeEach(() => { seedTestData() })
 
   it('需要登录（无 token → 401）', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/notify-custodian`)
       .send({ consentGranted: true })
     expect(res.status).toBe(401)
@@ -54,7 +54,7 @@ describe('AED 责任人联动 — notify-custodian', () => {
 
   it('未同意 PIPL → HTTP 200 + code 4006', async () => {
     const req = await login('requester')
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/notify-custodian`)
       .set(auth(req.token))
       .send({ consentGranted: false })
@@ -64,7 +64,7 @@ describe('AED 责任人联动 — notify-custodian', () => {
 
   it('缺少 consentGranted → 400 参数校验失败', async () => {
     const req = await login('requester')
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/notify-custodian`)
       .set(auth(req.token))
       .send({})
@@ -73,7 +73,7 @@ describe('AED 责任人联动 — notify-custodian', () => {
 
   it('设备不存在 → 404 + 4007', async () => {
     const req = await login('requester')
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/aed/aed_not_exist/notify-custodian')
       .set(auth(req.token))
       .send({ consentGranted: true })
@@ -83,7 +83,7 @@ describe('AED 责任人联动 — notify-custodian', () => {
 
   it('无责任人 → HTTP 200 + 4001，且不落 alert（不阻断急救）', async () => {
     const req = await login('requester')
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/notify-custodian`)
       .set(auth(req.token))
       .send({ consentGranted: true })
@@ -104,7 +104,7 @@ describe('AED 责任人联动 — notify-custodian', () => {
     // 记录定向推送的扇出（spy 保留真实实现：dev 模式下仍会真正送达）
     const spy = vi.spyOn(pushService, 'sendPushToUser')
 
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/notify-custodian`)
       .set(auth(req.token))
       .send({ consentGranted: true, consentVersion: 'v1' })
@@ -137,7 +137,7 @@ describe('AED 责任人联动 — notify-custodian', () => {
     const req = await login('requester')
     const cp = await login('primary')
     addCustodian(AED_ID, cp.id, '陈敏', 'primary')
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/notify-custodian`)
       .set(auth(req.token))
       .send({ consentGranted: true })
@@ -161,7 +161,7 @@ describe('AED 责任人联动 — unlock（确认授权）', () => {
 
   it('责任人确认授权 → acknowledged + issued + unlockToken + slaMet=true', async () => {
     const { cp, alertId } = await setupAlert()
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/unlock`)
       .set(auth(cp.token))
       .send({ alertId, action: 'authorize' })
@@ -176,7 +176,7 @@ describe('AED 责任人联动 — unlock（确认授权）', () => {
 
   it('责任人拒绝 → rejected + not_issued + 无 token', async () => {
     const { cp, alertId } = await setupAlert()
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/unlock`)
       .set(auth(cp.token))
       .send({ alertId, action: 'deny' })
@@ -188,7 +188,7 @@ describe('AED 责任人联动 — unlock（确认授权）', () => {
 
   it('非责任人 → HTTP 403 + code 4003', async () => {
     const { req, alertId } = await setupAlert()
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/unlock`)
       .set(auth(req.token))
       .send({ alertId, action: 'authorize' })
@@ -199,7 +199,7 @@ describe('AED 责任人联动 — unlock（确认授权）', () => {
   it('alert 不存在 → 404 + 4002', async () => {
     const cp = await login('primary')
     addCustodian(AED_ID, cp.id, '陈敏', 'primary')
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/unlock`)
       .set(auth(cp.token))
       .send({ alertId: 'ca_missing', action: 'authorize' })
@@ -210,7 +210,7 @@ describe('AED 责任人联动 — unlock（确认授权）', () => {
   it('首确认幂等：同一人重试 → 200 idempotent；他人确认 → 409 / 4004', async () => {
     const { cp, cb, alertId } = await setupAlert()
 
-    const first = await request(app)
+    const first = await request(server)
       .post(`/api/aed/${AED_ID}/unlock`)
       .set(auth(cp.token))
       .send({ alertId, action: 'authorize' })
@@ -218,7 +218,7 @@ describe('AED 责任人联动 — unlock（确认授权）', () => {
     const firstRespondedMs = first.body.data.respondedTimeMs
 
     // 同一人同一动作重试 → 幂等，不覆盖 responded_time_ms
-    const retry = await request(app)
+    const retry = await request(server)
       .post(`/api/aed/${AED_ID}/unlock`)
       .set(auth(cp.token))
       .send({ alertId, action: 'authorize' })
@@ -227,7 +227,7 @@ describe('AED 责任人联动 — unlock（确认授权）', () => {
     expect(retry.body.data.respondedTimeMs).toBe(firstRespondedMs)
 
     // 他人确认（即便动作相同）→ 已被他人确认
-    const other = await request(app)
+    const other = await request(server)
       .post(`/api/aed/${AED_ID}/unlock`)
       .set(auth(cb.token))
       .send({ alertId, action: 'authorize' })
@@ -240,7 +240,7 @@ describe('AED 责任人联动 — unlock（确认授权）', () => {
     // 让 SLA 截止时间已成为过去
     db.prepare('UPDATE aed_custodian_alerts SET sla_deadline_ms = ? WHERE id = ?').run(Date.now() - 1000, alertId)
 
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/unlock`)
       .set(auth(cp.token))
       .send({ alertId, action: 'authorize' })
@@ -251,7 +251,7 @@ describe('AED 责任人联动 — unlock（确认授权）', () => {
 
   it('写入审计 custodian_acknowledged + unlock_issued', async () => {
     const { cp, alertId } = await setupAlert()
-    await request(app).post(`/api/aed/${AED_ID}/unlock`).set(auth(cp.token)).send({ alertId, action: 'authorize' })
+    await request(server).post(`/api/aed/${AED_ID}/unlock`).set(auth(cp.token)).send({ alertId, action: 'authorize' })
     const ack = db.prepare("SELECT COUNT(*) AS c FROM aed_audit_log WHERE event_type='custodian_acknowledged'").get() as { c: number }
     const issued = db.prepare("SELECT COUNT(*) AS c FROM aed_audit_log WHERE event_type='unlock_issued'").get() as { c: number }
     expect(ack.c).toBeGreaterThanOrEqual(1)
@@ -266,7 +266,7 @@ describe('AED 责任人联动 — 回读 / 收件箱 / 撤回同意', () => {
 
   it('状态回读：返回 camelCase 且不泄露责任人手机号', async () => {
     const { req, alertId } = await setupAlert()
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/aed/${AED_ID}/custodian-alerts/${alertId}`)
       .set(auth(req.token))
     expect(res.status).toBe(200)
@@ -282,7 +282,7 @@ describe('AED 责任人联动 — 回读 / 收件箱 / 撤回同意', () => {
   it('状态回读：惰性过期（超 SLA → expired）', async () => {
     const { req, alertId } = await setupAlert()
     db.prepare('UPDATE aed_custodian_alerts SET sla_deadline_ms = ? WHERE id = ?').run(Date.now() - 1000, alertId)
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/aed/${AED_ID}/custodian-alerts/${alertId}`)
       .set(auth(req.token))
     expect(res.body.data.status).toBe('expired')
@@ -292,7 +292,7 @@ describe('AED 责任人联动 — 回读 / 收件箱 / 撤回同意', () => {
 
   it('状态回读：设备不匹配 → 404 + 4002', async () => {
     const { req, alertId } = await setupAlert()
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/aed/aed_other/custodian-alerts/${alertId}`)
       .set(auth(req.token))
     expect(res.status).toBe(404)
@@ -302,13 +302,13 @@ describe('AED 责任人联动 — 回读 / 收件箱 / 撤回同意', () => {
   it('责任人收件箱：primary 与 backup 都能看到待处理求助', async () => {
     const { cp, cb } = await setupAlert()
 
-    const asPrimary = await request(app)
+    const asPrimary = await request(server)
       .get('/api/aed/custodian-alerts/pending')
       .set(auth(cp.token))
     expect(asPrimary.body.code).toBe(0)
     expect(asPrimary.body.data.length).toBe(1)
 
-    const asBackup = await request(app)
+    const asBackup = await request(server)
       .get('/api/aed/custodian-alerts/pending')
       .set(auth(cb.token))
     expect(asBackup.body.code).toBe(0)
@@ -317,7 +317,7 @@ describe('AED 责任人联动 — 回读 / 收件箱 / 撤回同意', () => {
 
   it('撤回同意：急救者本人可撤回', async () => {
     const { req, alertId } = await setupAlert()
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/custodian-alerts/${alertId}/revoke-consent`)
       .set(auth(req.token))
       .send({ reason: 'dev' })
@@ -334,7 +334,7 @@ describe('AED 责任人联动 — 回读 / 收件箱 / 撤回同意', () => {
   it('撤回同意：无关用户 → 403', async () => {
     const { alertId } = await setupAlert()
     const stranger = await login('stranger')
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/aed/${AED_ID}/custodian-alerts/${alertId}/revoke-consent`)
       .set(auth(stranger.token))
       .send({})

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { app, seedTestData, db } from './setup'
+import { server, seedTestData, db } from './setup'
 
 function seedExtraVolunteers() {
   // v_a：低积分、高救援；v_b：高积分、低救援 —— 用于区分两种榜单排序
@@ -15,7 +15,7 @@ describe('Volunteer Routes', () => {
 
   describe('GET /api/volunteer/rankings', () => {
     it('returns volunteer rankings', async () => {
-      const res = await request(app).get('/api/volunteer/rankings')
+      const res = await request(server).get('/api/volunteer/rankings')
       expect(res.status).toBe(200)
       expect(res.body.data.length).toBeGreaterThanOrEqual(1)
       expect(res.body.data[0].name).toBeTruthy()
@@ -27,8 +27,8 @@ describe('Volunteer Routes', () => {
     it('type=points 与 type=rescue 排序确实不同', async () => {
       seedExtraVolunteers()
 
-      const points = await request(app).get('/api/volunteer/rankings?type=points')
-      const rescue = await request(app).get('/api/volunteer/rankings?type=rescue')
+      const points = await request(server).get('/api/volunteer/rankings?type=points')
+      const rescue = await request(server).get('/api/volunteer/rankings?type=rescue')
 
       const pid = (points.body.data as Array<{ id: string }>).map((r) => r.id)
       const rid = (rescue.body.data as Array<{ id: string }>).map((r) => r.id)
@@ -47,8 +47,8 @@ describe('Volunteer Routes', () => {
     })
 
     it('缺省 type 等同 points', async () => {
-      const def = await request(app).get('/api/volunteer/rankings')
-      const pts = await request(app).get('/api/volunteer/rankings?type=points')
+      const def = await request(server).get('/api/volunteer/rankings')
+      const pts = await request(server).get('/api/volunteer/rankings?type=points')
       expect((def.body.data as Array<{ id: string }>).map((r) => r.id))
         .toEqual((pts.body.data as Array<{ id: string }>).map((r) => r.id))
     })
