@@ -4,3 +4,6 @@ dist/
 *.db-journal
 .env
 .node-gyp-cache/
+
+# 运行时上传落盘产物（测试/本地运行生成，勿入库）
+public/uploads/
