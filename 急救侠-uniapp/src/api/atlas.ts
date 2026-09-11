@@ -1,10 +1,12 @@
 /**
- * 急救图谱 API — Mock
+ * 急救图谱 API — 真实接口（GET /api/atlas/cards）
  *
- * 8 张静态急救知识卡片，覆盖常见急症处理。
- * 每张卡片对应一条急救指南。
+ * 已移除全部 mock 数据；后端为唯一数据源，失败时向调用方抛出，不做静默兜底。
  */
 
+import { request } from './index'
+
+/** 视图模型（页面消费）。 */
 export interface AtlasCard {
   id: string
   num: string
@@ -16,95 +18,47 @@ export interface AtlasCard {
   route: string
 }
 
-const MOCK_CARDS: AtlasCard[] = [
-  {
-    id: 'cpr',
-    num: '01',
-    icon: '❤️',
-    title: '心脏骤停',
-    desc: 'CPR + AED 全流程',
-    featured: true,
-    route: '/pages/rescue/index',
-  },
-  {
-    id: 'choking',
-    num: '02',
-    icon: '🫁',
-    title: '异物窒息',
-    desc: '海姆立克急救法',
-    badge: '分人群',
-    route: '/pages/guide/index?type=heimlich',
-  },
-  {
-    id: 'aed',
-    num: '03',
-    icon: '⚡',
-    title: 'AED 使用',
-    desc: '自动体外除颤器',
-    route: '/pages/aed/index',
-  },
-  {
-    id: 'bleeding',
-    num: '04',
-    icon: '🩸',
-    title: '出血止血',
-    desc: '加压包扎+止血带',
-    route: '/pages/guide/index?type=bleeding',
-  },
-  {
-    id: 'fracture',
-    num: '05',
-    icon: '🦴',
-    title: '骨折固定',
-    desc: '原位固定与搬运',
-    route: '/pages/guide/index?type=fracture',
-  },
-  {
-    id: 'epilepsy',
-    num: '06',
-    icon: '🧠',
-    title: '癫痫急救',
-    desc: '保护与侧卧位',
-    route: '/pages/guide/index?type=seizure',
-  },
-  {
-    id: 'psychological',
-    num: '07',
-    icon: '💬',
-    title: '心理干预',
-    desc: '情绪安抚与陪伴',
-    badge: '新增',
-    route: '/pages/guide/index?type=psychological',
-  },
-  {
-    id: 'transport',
-    num: '08',
-    icon: '🚑',
-    title: '伤员搬运',
-    desc: '轴线翻身与平移',
-    badge: '新增',
-    route: '/pages/guide/index?type=transport',
-  },
-]
-
-export function getAtlasCards(): AtlasCard[] {
-  return MOCK_CARDS.map((c) => ({ ...c }))
+/** 后端 `/api/atlas/cards` 返回的原始结构。 */
+export interface ApiAtlasCard {
+  id: string
+  title: string
+  category: string
+  description: string
+  steps: string[]
+  icon?: string
+  imageUrl?: string
 }
 
-export function getAtlasCardById(id: string): AtlasCard | undefined {
-  return MOCK_CARDS.find((c) => c.id === id)
+/** 已知卡片的跳转路由（UI 配置表；后端不返回 route）。 */
+const CARD_ROUTES: Record<string, string> = {
+  cpr: '/pages/rescue/index',
+  aed: '/pages/aed/index',
+  choking: '/pages/guide/index?type=heimlich',
+  bleeding: '/pages/guide/index?type=bleeding',
+  fracture: '/pages/guide/index?type=fracture',
+  epilepsy: '/pages/guide/index?type=seizure',
+  psychological: '/pages/guide/index?type=psychological',
+  transport: '/pages/guide/index?type=transport',
 }
 
-/** 获取推荐卡片（featured 标记的，始终为 CPR） */
-export function getFeaturedCard(): AtlasCard {
-  return MOCK_CARDS.find((c) => c.featured) || MOCK_CARDS[0]
+/**
+ * 后端卡片 → 视图模型（显式映射，禁用 `as any`）。
+ * `num` 由序号生成；`featured` 仅 CPR（后端无该字段）；`badge` 后端缺失故不设置。
+ */
+export function mapAtlasCard(raw: ApiAtlasCard, index: number): AtlasCard {
+  return {
+    id: raw.id,
+    num: String(index + 1).padStart(2, '0'),
+    icon: raw.icon || '📘',
+    title: raw.title,
+    desc: raw.description,
+    featured: raw.id === 'cpr',
+    route: CARD_ROUTES[raw.id] || '/pages/guide/index',
+  }
 }
 
-
-import { request } from './index'
-
-export async function fetchAtlasCards(): Promise<AtlasCard[]> { return request({ url: '/atlas/cards' }) }
-
-export default function () {
-  return { code: 0, data: MOCK_CARDS, message: 'ok' }
+/** 获取全部急救图谱卡片。失败时抛出，由调用方呈现错误。 */
+export async function fetchAtlasCards(): Promise<AtlasCard[]> {
+  const raw = await request<ApiAtlasCard[]>({ url: '/atlas/cards' })
+  return (raw || []).map((card, index) => mapAtlasCard(card, index))
 }
