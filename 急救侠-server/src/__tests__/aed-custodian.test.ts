@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import request from 'supertest'
 import { app, seedTestData, addCustodian, addPushSubscription, db } from './setup'
+import * as pushService from '../services/pushService'
 
 const AED_ID = 'aed_001'
 const TPL = 'tpl_aed_custodian_request'
@@ -19,6 +20,9 @@ function alertCount(): number {
   const row = db.prepare('SELECT COUNT(*) AS c FROM aed_custodian_alerts').get() as { c: number }
   return row.c
 }
+
+// 恢复对 pushService 的 spy，避免跨用例串扰
+afterEach(() => { vi.restoreAllMocks() })
 
 /** 造一个「急救者通知责任人」的 alert（primary + backup 均已订阅）。 */
 async function setupAlert() {
@@ -88,14 +92,17 @@ describe('AED 责任人联动 — notify-custodian', () => {
     expect(alertCount()).toBe(0)
   })
 
-  it('主备并行通知：仅 backup 订阅也能送达（proves parallel push）', async () => {
+  it('主备并行通知：primary 与 backup 均被扇出（谁先确认谁生效）', async () => {
     const req = await login('requester')
     const cp = await login('primary')
     const cb = await login('backup')
     addCustodian(AED_ID, cp.id, '陈敏', 'primary')
     addCustodian(AED_ID, cb.id, '王磊', 'backup')
-    // 关键：只给 backup 订阅。若仍 delivered，说明确实并行推送了 backup。
+    // 只给 backup 订阅：既证明 backup 可达，也证明 primary 仍会被「尝试」推送（扇出）。
     addPushSubscription(cb.id, TPL, true)
+
+    // 记录定向推送的扇出（spy 保留真实实现：dev 模式下仍会真正送达）
+    const spy = vi.spyOn(pushService, 'sendPushToUser')
 
     const res = await request(app)
       .post(`/api/aed/${AED_ID}/notify-custodian`)
@@ -110,6 +117,20 @@ describe('AED 责任人联动 — notify-custodian', () => {
     expect(res.body.data.commandStatus).toBe('not_issued')
     expect(res.body.data.slaDeadlineMs - res.body.data.notifyTimeMs).toBe(120000)
     expect(alertCount()).toBe(1)
+
+    // ★ 扇出断言 1：推送次数 == 该 AED 的 manager 数（2），且收件人集合 == {primary, backup}
+    expect(spy).toHaveBeenCalledTimes(2)
+    const calledUserIds = spy.mock.calls.map((call) => call[0])
+    expect(new Set(calledUserIds)).toEqual(new Set([cp.id, cb.id]))
+    for (const call of spy.mock.calls) {
+      expect(call[1].templateId).toBe(TPL)
+    }
+
+    // ★ 扇出断言 2：审计描述含 manager 数（"2 名"），锁死扇出语义
+    const audit = db
+      .prepare("SELECT description FROM aed_audit_log WHERE event_type='custodian_notified' ORDER BY rowid DESC LIMIT 1")
+      .get() as { description: string } | undefined
+    expect(audit?.description).toContain('2 名')
   })
 
   it('无订阅 → unreachable / no_subscription（仍返回 alertId）', async () => {
