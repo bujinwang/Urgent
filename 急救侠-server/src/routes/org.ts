@@ -50,7 +50,7 @@ orgRouter.post('/', (req, res) => {
   try {
     const { name, type, adminUserId } = req.body
     if (!name || !adminUserId) return res.json(error('name 和 adminUserId 不能为空'))
-    const id = 'org_' + Date.now()
+    const id = 'org_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO organizations (id, name, type, admin_user_id) VALUES (?, ?, ?, ?)').run(id, name, type || 'company', adminUserId)
     // Auto-add admin as member
     const mid = 'om_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
@@ -201,7 +201,7 @@ orgRouter.post('/:id/certificates', (req, res) => {
     if (!userId || !type || !issueDate || !expiryDate) {
       return res.json(error('userId, type, issueDate, expiryDate 不能为空'))
     }
-    const cid = 'cert_' + Date.now()
+    const cid = 'cert_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare(
       'INSERT INTO certificates (id, user_id, type, issuer, issue_date, expiry_date, file_url) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).run(cid, userId, type, issuer || '', issueDate, expiryDate, fileUrl || '')

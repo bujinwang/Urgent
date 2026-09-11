@@ -40,7 +40,7 @@ wildlifeRouter.post('/rescue', (req, res) => {
       "SELECT 1 FROM organization_members om JOIN organizations o ON o.id=om.org_id WHERE om.user_id=? AND o.type='conservation'"
     ).get(leaderId)
     if (!isConservation) return res.json(error('仅保护机构成员可发起野生动物救援。请报告给当地林业部门'))
-    const tid = 'wl_' + Date.now()
+    const tid = 'wl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO wildlife_rescue_tasks (id,report_id,title,species,description,address,lat,lng,volunteers_needed,leader_id,leader_name) VALUES (?,?,?,?,?,?,?,?,?,?,?)').run(tid, reportId||'', title, species||'', description||'', address||'', lat||0, lng||0, volunteersNeeded||3, leaderId, leaderName||'')
     if (reportId) db.prepare("UPDATE wildlife_reports SET status='assigned', assigned_to=? WHERE id=?").run(leaderId, reportId)
     res.json(success({ id: tid }, '救援已发起'))

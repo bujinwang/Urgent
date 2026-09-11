@@ -45,7 +45,7 @@ trailRouter.post('/events', (req, res) => {
   try {
     const { title, description, route, distance, elevation, difficulty, date, meetingPoint, lat, lng, maxParticipants, organizerId, organizerName } = req.body
     if (!title || !organizerId) return res.json(error('参数不完整'))
-    const eid = 'te_' + Date.now()
+    const eid = 'te_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO trail_events (id,title,description,route,distance,elevation,difficulty,date,meeting_point,lat,lng,max_participants,organizer_id,organizer_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(eid, title, description || '', route || '', distance || 0, elevation || 0, difficulty || 'moderate', date, meetingPoint || '', lat || 0, lng || 0, maxParticipants || 20, organizerId, organizerName || '')
     res.json(success({ id: eid }, '已创建'))
   } catch (e: any) { res.status(500).json(error(e.message)) }

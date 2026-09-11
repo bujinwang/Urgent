@@ -10,7 +10,7 @@ drillRouter.post('/events', (req, res) => {
     const { title, description, scenario, date, location, lat, lng, maxParticipants, organizerId, organizerName } = req.body
     if (!title || !organizerId) return res.json(error('参数不完整'))
     db.prepare("UPDATE users SET is_organizer = 1 WHERE id = ? AND is_organizer = 0").run(organizerId)
-    const eid = 'dr_' + Date.now()
+    const eid = 'dr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO drill_events (id,title,description,scenario,date,location,lat,lng,max_participants,organizer_id,organizer_name,points_reward) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').run(eid, title, description || '', scenario || 'cpr', date, location || '', lat || 0, lng || 0, maxParticipants || 15, organizerId, organizerName || '', 50)
     res.json(success({ id: eid }, '演习已创建'))
   } catch (e: any) { res.status(500).json(error(e.message)) }

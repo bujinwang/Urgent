@@ -35,7 +35,7 @@ rescueRouter.post('/mobilize', (req, res) => {
     if (!title || !leaderId) return res.json(error('参数不完整'))
     const leader = get<UserLeaderRow>('SELECT is_leader FROM users WHERE id=?', leaderId)
     if (!leader || !leader.is_leader) return res.json(error('只有认证救援领导者才能发起动员'))
-    const mid = 'mob_' + Date.now()
+    const mid = 'mob_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO emergency_mobilizations (id, title, description, type, address, lat, lng, volunteers_needed, leader_id, leader_name) VALUES (?,?,?,?,?,?,?,?,?,?)').run(mid, title, description || '', type || 'rescue', address || '', lat || 0, lng || 0, volunteersNeeded || 5, leaderId, leaderName || '')
     res.json(success({ id: mid }, '动员已发起，等待平台审批'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
@@ -116,7 +116,7 @@ rescueRouter.post('/live/:taskId/start', (req, res) => {
   try {
     const { userId, userName, userAvatar, deviceInfo } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
-    const lid = 'live_' + Date.now()
+    const lid = 'live_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO live_sessions (id,task_id,user_id,user_name,user_avatar,device_info) VALUES (?,?,?,?,?,?)').run(lid, req.params.taskId, userId, userName||'', userAvatar||'', deviceInfo||'')
     db.prepare('INSERT INTO task_media (id,task_id,user_id,user_name,user_avatar,type,content) VALUES (?,?,?,?,?,?,?)').run('tm_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), req.params.taskId, userId, userName||'', userAvatar||'', 'status', '🔴 '+(userName||'志愿者')+' 正在现场直播')
     res.json(success({ id: lid }, '直播已开始'))

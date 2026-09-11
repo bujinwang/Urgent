@@ -120,7 +120,7 @@ aedRouter.get('/:id', (req, res) => {
 aedRouter.post('/', (req, res) => {
   try {
     const input = req.body as Record<string, any>
-    const id = 'aed_' + Date.now()
+    const id = 'aed_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare(`
       INSERT INTO aed_devices (id, name, address, lat, lng, status, last_check,
         model, serial_number, battery_expiry, electrode_expiry, last_maintenance,
@@ -228,7 +228,7 @@ aedRouter.post('/:id/checkins', (req, res) => {
   try {
     const { userId, userName, photo, status, comment, findingTip } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
-    const cid = 'ci_' + Date.now()
+    const cid = 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare(
       'INSERT INTO aed_checkins (id, aed_id, user_id, user_name, photo, date, status, comment, finding_tip) VALUES (?, ?, ?, ?, ?, datetime(\'now\'), ?, ?, ?)'
     ).run(cid, req.params.id, userId, userName || '', photo || '', status || 'ok', comment || '', findingTip || '')
@@ -264,7 +264,7 @@ aedRouter.post('/:id/managers', (req, res) => {
   try {
     const { userId, userName, role } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
-    const mid = 'am_' + Date.now()
+    const mid = 'am_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT OR IGNORE INTO aed_managers (id, aed_id, user_id, user_name, role) VALUES (?, ?, ?, ?, ?)').run(mid, req.params.id, userId, userName || '', role || 'primary')
     logAudit(req.params.id, 'manager_assigned', `指派管理者: ${userName || userId} (${role || 'primary'})`, userId, userName || '')
     res.json(success({ id: mid }, '管理者添加成功'))
@@ -310,7 +310,7 @@ aedRouter.post('/:id/maintenance', (req, res) => {
   try {
     const { type, date, performedBy, notes, nextDue } = req.body
     if (!type || !date) return res.json(error('type 和 date 不能为空'))
-    const mid = 'mt_' + Date.now()
+    const mid = 'mt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare(
       'INSERT INTO aed_maintenance (id, aed_id, type, date, performed_by, notes, next_due) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).run(mid, req.params.id, type, date, performedBy || '', notes || '', nextDue || '')
@@ -351,7 +351,7 @@ aedRouter.post('/:id/pickups', (req, res) => {
   try {
     const { userId, userName, missionId, notes } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
-    const pid = 'pu_' + Date.now()
+    const pid = 'pu_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare(
       'INSERT INTO aed_pickups (id, aed_id, user_id, user_name, mission_id, notes) VALUES (?, ?, ?, ?, ?, ?)'
     ).run(pid, req.params.id, userId, userName || '', missionId || '', notes || '')
@@ -431,7 +431,7 @@ aedRouter.post('/:id/certifications', (req, res) => {
   try {
     const { type, name, issuer, issueDate, expiryDate, fileUrl, userId, userName } = req.body
     if (!name || !issueDate || !expiryDate) return res.json(error('name, issueDate, expiryDate 不能为空'))
-    const cid = 'ac_' + Date.now()
+    const cid = 'ac_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare(
       'INSERT INTO aed_certifications (id, aed_id, type, name, issuer, issue_date, expiry_date, file_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(cid, req.params.id, type || 'manufacturer', name, issuer || '', issueDate, expiryDate, fileUrl || '')

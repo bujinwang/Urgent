@@ -64,7 +64,7 @@ mediaAlertRouter.post('/upload', (req, res) => {
       // 实际上传数量与落盘 URL 通过新增字段 uploadedCount / url / urls 表达。
       const imageCount = Number(body.imageCount) || 0
       const videoDuration = Number(body.videoDuration) || 0
-      const uploadId = 'upload_' + Date.now()
+      const uploadId = 'upload_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
 
       res.json(success({
         uploadId,

@@ -26,7 +26,7 @@ animalRouter.post('/', (req, res) => {
   try {
     const { name, species, color, size, features, photos, location, lat, lng, createdBy } = req.body
     if (!species) return res.json(error('物种不能为空'))
-    const aid = 'sa_' + Date.now()
+    const aid = 'sa_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO stray_animals (id,name,species,color,size,features,photos,location,lat,lng,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)').run(aid, name||'', species, color||'', size||'', features||'', photos||'', location||'', lat||0, lng||0, createdBy||'')
     res.json(success({ id: aid }, '已创建档案'))
   } catch (e: any) { res.status(500).json(error(e.message)) }

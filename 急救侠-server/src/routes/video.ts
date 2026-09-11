@@ -69,7 +69,7 @@ videoRouter.post('/', (req, res) => {
   try {
     const { userId, userName, userAvatar, title, description, videoUrl, thumbnail, duration, category } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
-    const vid = 'vp_' + Date.now()
+    const vid = 'vp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO video_posts (id,user_id,user_name,user_avatar,title,description,video_url,thumbnail,duration,category) VALUES (?,?,?,?,?,?,?,?,?,?)').run(vid, userId, userName||'', userAvatar||'', title||'', description||'', videoUrl||'', thumbnail||'', duration||'', category||'rescue')
     res.json(success({ id: vid }, '已发布'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
