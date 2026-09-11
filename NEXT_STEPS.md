@@ -473,7 +473,16 @@ node scripts/smoke.mjs --base https://<域名>     # 生产（不跳过 TLS 校�
 **验证方式备注**：本轮 QA 中途因额度（429）中断，角色拆分复验由主理人接手完成——亲跑 `role-split.test.ts`（220 全绿）+ 三组只读探针（双重身份并集行为 / 回填语义边界 / QA 遗留探针 A1 定性）。其中 **QA 探针 A1 失败已定性为"场景构造不成立"而非源码缺陷**：测试 `:memory:` 新库中 `024_add_user_is_leader` 因 canonical 已含列而永不记录，DROP 列后 initDb 会自愈重跑补列；D3 探针证明在真实升级库条件下（024 已记录、列真缺失）`ccd4736` 的"after 失败报真实错误"**确实生效**（`no such column: is_leader` 被完整报出）。
 
 **遗留（待派）**：
-- **收窄工单**：把不该有管理权的"回填固化"账号降级（需业务/运营确认名单；回填 warn 日志是定位依据）。⚠️ 语义边界：**收窄落地后不得再调用 `backfillPlatformAdmins()`**（其 WHERE `is_leader=1 AND is_platform_admin=0` 会把已降级队长重新提权；生产迁移只跑一次，正常不会触发，但需知悉）。
-- 迁移机制固有特性（非缺陷，知悉即可）：canonical 已含列的迁移（001/023-028/036）在全新库中永不记录、每次 initDb 重跑并 skipped。
+- ✅ **收窄工单（机制 + 工具已交付，名单待定）**：本工单把「收窄」从**注释里的规则**变成**机制**——
+  新增通用元数据表 `app_meta`（迁移 `037_add_app_meta`，同时入 canonical schema 管全新库）+ `getMeta/setMeta`；
+  `backfillPlatformAdmins()` **首行**据标记 `platform_admin_narrowing_done` 早退（未置位时行为不变）；
+  新增运维 CLI `npm run admin:narrow -- --list | --downgrade <ids> [--force]`（`src/scripts/narrow-platform-admins.ts`，
+  决策逻辑抽为纯函数 `planDowngrade`，含「未知 id 整体中止」「会清零时的自锁保护」）。
+  收窄一旦执行即置位标记 → 回填**永久停用**，被降级账号**不会被静默重新提权**。
+  **具体降级名单仍待业务/运营确认**（属产品决策，不在本次范围）。
+  ⚠️ 历史语义边界（**现已由 `app_meta` 标记机制强制**，不再依赖人记住规则）：
+  收窄落地后不得再调用 `backfillPlatformAdmins()`（其 WHERE `is_leader=1 AND is_platform_admin=0`
+  会把已降级队长重新提权；生产迁移只跑一次，正常不会触发，但机制已兜底）。详见 `docs/DEPLOY.md §10`。
+- 迁移机制固有特性（非缺陷，知悉即可）：canonical 已含列的迁移（001/023-028/036/037）在全新库中永不记录、每次 initDb 重跑并 skipped。
 
-- 门禁：CI ✅（后端 **220** / 前端 **134**）；工作树干净。
+- 门禁：CI ✅（后端 **229** / 前端 **134**）；工作树干净。

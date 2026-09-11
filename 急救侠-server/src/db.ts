@@ -19,6 +19,15 @@ if (DB_PATH === ':memory:') {
 db.pragma('foreign_keys = ON')
 
 /**
+ * `app_meta` 标记键：平台管理员「收窄」是否已发生。
+ *
+ * 语义：一旦运营通过运维脚本显式降级过任何账号（`is_platform_admin: 1 → 0`），
+ * 该键即被置为 `'1'`；此后 {@link backfillPlatformAdmins} **永久停用**。
+ * 详见 `src/scripts/narrow-platform-admins.ts` 与 `docs/DEPLOY.md §10`。
+ */
+export const PLATFORM_ADMIN_NARROWING_DONE_KEY = 'platform_admin_narrowing_done'
+
+/**
  * 迁移 036 的一次性回填：把既有的「队长」（`is_leader = 1`）同时置为平台管理员，
  * 保证拆分**不产生静默失权**（静默失权比静默越权更难排查）。
  *
@@ -26,11 +35,20 @@ db.pragma('foreign_keys = ON')
  * 当时确实拥有管理权限。副作用：历史上因队伍角色拿到管理面权限的账号会被固化
  * 为平台管理员；「收窄」需业务/运营侧确认名单后另开工单，本函数日志是定位依据。
  *
+ * ⚠️ **一旦发生「收窄」，本函数不得再运行** —— 其 WHERE 条件
+ * `is_leader = 1 AND is_platform_admin = 0` 会把刚被运营降级的账号**静默重新提权**，
+ * 使收窄被自己抵消。这条约束**已从「注释里的规则」升级为机制**：收窄脚本在完成后
+ * 置位 {@link PLATFORM_ADMIN_NARROWING_DONE_KEY} 标记，本函数首行即据此早退。
+ *
  * 幂等：只处理 `is_platform_admin = 0` 的行，重复调用不会重复授予。
  *
- * @returns 本次被授予平台管理员权限的账号数量
+ * @returns 本次被授予平台管理员权限的账号数量；标记已置位时恒为 `0`
  */
 export function backfillPlatformAdmins(): number {
+  // 机制（非规则）：收窄一旦发生，回填立即停用，绝不把被降级的账号静默提权。
+  // 首行早退 —— 不查库、不打日志（保持「幂等且静默」的既有可观测语义）。
+  if (getMeta(PLATFORM_ADMIN_NARROWING_DONE_KEY) === '1') return 0
+
   const rows = all<{ id: string }>(
     'SELECT id FROM users WHERE is_leader = 1 AND is_platform_admin = 0'
   )
@@ -741,6 +759,17 @@ export function initDb(options: { silent?: boolean } = {}) {
     applied_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`)
 
+  // ---- 通用键值元数据（迁移 037）----
+  // 用途：存储跨启动、跨进程需要**持久记忆**的运维事实（首个使用者是
+  // `platform_admin_narrowing_done`：记录「平台管理员收窄是否已发生」）。
+  // 之所以同时写入 canonical schema 与迁移 037：前者管全新库、后者管既有库
+  // （CREATE TABLE IF NOT EXISTS 幂等，两者都跑不会冲突）。
+  db.exec(`CREATE TABLE IF NOT EXISTS app_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT '',
+    updated_at INTEGER NOT NULL
+  )`)
+
   const migrations: Array<{ id: string; description: string; sql: string; after?: () => void }> = [
     { id: '001_add_password', description: 'add password column to users', sql: "ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT ''" },
     { id: '002_add_coach_role', description: 'add role column to volunteers', sql: "ALTER TABLE volunteers ADD COLUMN role TEXT NOT NULL DEFAULT 'volunteer'" },
@@ -852,6 +881,17 @@ export function initDb(options: { silent?: boolean } = {}) {
       // 全新库因列已在 canonical schema（ALTER 被跳过）而不会触发回填 —— 无历史数据，本就无需回填。
       after: backfillPlatformAdmins,
     },
+    {
+      id: '037_add_app_meta',
+      description: 'create app_meta kv table (platform admin narrowing marker)',
+      // 幂等建表：既有库补建 `app_meta`。canonical schema 已建同一张表，故全新库
+      // 此迁移为 no-op，但仍会被记录进 `_migrations`（供「迁移是否已应用」观测）。
+      sql: `CREATE TABLE IF NOT EXISTS app_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL DEFAULT '',
+        updated_at INTEGER NOT NULL
+      )`,
+    },
   ]
 
   const applied = new Set(
@@ -896,11 +936,39 @@ export function all<T = Row>(sql: string, ...params: BindParam[]): T[] {
   return db.prepare(sql).all(...params) as T[]
 }
 
+// ---- 通用键值元数据读写（`app_meta`，迁移 037）----
+
+/**
+ * 读取元数据键；键不存在时返回 `null`（区别于「键存在但值为空串」）。
+ *
+ * @param key 键名（如 `platform_admin_narrowing_done`）
+ */
+export function getMeta(key: string): string | null {
+  const row = get<{ value: string }>('SELECT value FROM app_meta WHERE key = ?', key)
+  return row ? row.value : null
+}
+
+/**
+ * 写入元数据键（存在则覆盖），并刷新 `updated_at`。
+ *
+ * 采用 `INSERT ... ON CONFLICT(key) DO UPDATE` 实现 upsert：既处理首次写入，
+ * 也在重复写入时原子更新，避免「先 SELECT 再分支」的竞态。
+ *
+ * @param key   键名
+ * @param value 键值（字符串；布尔语义用 `'0'` / `'1'`）
+ */
+export function setMeta(key: string, value: string): void {
+  db.prepare(
+    `INSERT INTO app_meta (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+  ).run(key, value, Date.now())
+}
+
 /** Clear all data (for testing) */
 export function clearAll() {
   // Disable FK constraints so DELETE order doesn't matter
   db.pragma('foreign_keys = OFF')
-  db.exec("DELETE FROM _migrations; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_custodian_alerts; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards; DELETE FROM gov_viewers;")
+  db.exec("DELETE FROM _migrations; DELETE FROM app_meta; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_custodian_alerts; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards; DELETE FROM gov_viewers;")
   db.pragma('foreign_keys = ON')
 }
 

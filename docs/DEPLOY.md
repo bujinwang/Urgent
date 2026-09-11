@@ -337,3 +337,83 @@ colima stop           # 停掉虚拟机
 | `web` 容器一直 `health: starting`，`caddy` 卡在 `Waiting`，整个 `up` 挂住 | `nginx.conf` 自定义 `server{}` 覆盖了基础镜像的 `default.conf`，导致镜像自带的 IPv6 监听脚本失效 → 容器内 `localhost` 解析为 `::1` 却无监听。**已修**：`nginx.conf` 增加 `listen [::]:80;`，健康检查改用 `http://127.0.0.1/`（生产 `docker-compose.prod.yml` 同一处也修） |
 | `colima start` 报 `limactl: executable file not found` | brew 前缀未进 PATH；用 `export PATH="/opt/homebrew/bin:$PATH"` 前缀重跑 |
 
+---
+
+## 10. 运维：平台管理员收窄
+
+### 10.1 背景：为什么需要「收窄」
+
+迁移 036 做了角色拆分——`is_leader`（队伍队长）与 `is_platform_admin`（平台管理员）
+自此**正交**。为避免拆分造成**静默失权**，036 挂了一次性回填
+`backfillPlatformAdmins()`：把既有 `is_leader = 1` 的账号**同时**保权为平台管理员。
+
+这是**保权而非授权**，副作用是：历史上因队伍角色拿到管理面权限的账号被**固化**为平台管理员。
+把不该有管理权的账号降级（`is_platform_admin: 1 → 0`）就是「**收窄**」。
+
+### 10.2 ⚠️ 为什么收窄必须走本工具（而不是随手改库）
+
+回填的 WHERE 条件是 `is_leader = 1 AND is_platform_admin = 0`。
+若你**只是手动把某账号降级**、而没有留下任何痕迹，那么**下一次**有人再触发回填
+（或误调 `backfillPlatformAdmins()`）时，该账号会因 `is_leader` 仍为 1 而被**静默重新提权**——
+收窄被自己抵消。
+
+因此本工具在完成收窄后，会写入一个**持久标记** `app_meta.platform_admin_narrowing_done = '1'`，
+`backfillPlatformAdmins()` 的**首行**即据此早退（返回 0、不查库、不打日志）。
+**一旦收窄发生，回填永久停用** —— 这是「降级不被静默撤销」的机制保证，
+从此**不再需要靠人记住「收窄后别调 backfill」**（规则变成了机制）。
+
+> 若从未收窄，标记为空，回填行为与既往完全一致（首次保权不受影响）。
+
+### 10.3 `--list`：先看清候选名单
+
+```bash
+cd 急救侠-server
+npm run admin:narrow -- --list          # 无参数时默认也是 --list
+```
+
+范围：`is_leader = 1 OR is_platform_admin = 1`。输出列：
+`id | name | affiliation | is_leader | is_platform_admin`，并：
+
+- **显式标注「回填固化候选」**（`is_leader = 1 且 is_platform_admin = 1`）——
+  这些是最可能需要收窄的账号（保权遗留）。
+- 打印标记状态：「未置位（尚未收窄）」/「已置位（收窄已发生 → 回填已停用）」。
+
+`--list` 只读，不做任何修改、不改标记。
+
+### 10.4 `--downgrade`：执行收窄
+
+```bash
+# 把 id 逗号分隔列出；仅且仅这些 id 被降级
+npm run admin:narrow -- --downgrade u_leader_a,u_leader_b
+
+# 仅当操作会把平台管理员清零、且你确需清零时，才追加 --force
+npm run admin:narrow -- --downgrade <id> --force
+```
+
+行为与护栏：
+
+| 行为 | 说明 |
+|---|---|
+| 只降级列出的 id | `is_platform_admin` 置 0；**不做任何其它改动** |
+| 逐条打印 before→after | 便于审计留痕 |
+| 完成后置位标记 | `setMeta('platform_admin_narrowing_done','1')` —— 使收窄 **durable**（回填永久停用） |
+| `--downgrade` 后无 id | 打印用法并 **exit 2** |
+| 任一 id 不存在 | **整体中止、不做任何修改、exit 2**（避免半途生效） |
+| 会清零（自锁保护） | 默认**拒绝**并提示「会导致无平台管理员，如确需请加 --force」，**exit 2**；加 `--force` 才执行 |
+| `--help` / `-h` | 打印全部用法 |
+
+**退出码**：`0` 成功；`2` 用法错误 / 被拒；`1` 意外错误。
+
+### 10.5 典型流程
+
+```bash
+cd 急救侠-server
+npm run admin:narrow -- --list                       # 1) 与业务/运营核对名单
+npm run admin:narrow -- --downgrade <确认的 id 列表>    # 2) 执行收窄（自动置位标记）
+npm run admin:narrow -- --list                       # 3) 复核：标记应为「已置位」、目标账号已为 0
+```
+
+> **安全边界**：收窄是**运维侧脚本**，**不暴露任何 HTTP 接口** —— 攻击面保持不变。
+> 具体降级**名单**属产品/业务决策，须由业务/运营确认（本工具只提供机制与手段）。
+
+
