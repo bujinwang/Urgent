@@ -277,6 +277,25 @@ docker compose -f docker-compose.local.yml --env-file .env.local ps   # 三个�
 
 ### 9.3 端到端验证
 
+**一键冒烟（推荐）** —— 一条命令跑完全部 **13 项断言**（SPA 及 4 个静态资源、健康检查、
+注册/登录/受保护端点、无令牌与错口令负例、令牌隔离、角色授权、CORS 白名单、请求体上限、安全响应头）：
+
+```bash
+node scripts/smoke.mjs                          # 本机默认 https://localhost:8443
+node scripts/smoke.mjs --base https://<域名>    # 生产（走真实证书，无需额外参数）
+```
+
+- 仅用 Node 内置模块（`fetch`/`process`/`assert`），**零安装**即可运行；
+  本机自签证书在 `--base` 主机为 `localhost`/`127.0.0.1` 时**自动跳过 TLS 校验**。
+- 期望结尾输出 `13 passed, 0 failed`，**退出码 0**；任一失败退出码 **1** 并逐条打印 `FAIL` 与原因。
+- 幂等：固定测试号 `19900000000`（可用 `--phone` 覆盖），重复运行不会新增用户。
+
+> ⚠️ `/api/auth/*` 有**限流：同一来源 15 分钟 20 次**（见 server `app.ts`）。
+> 一次冒烟消耗 **8 次**，故同一来源约每 15 分钟可跑 2 次；命中限流时脚本会打印明确诊断
+> （这是限流，不是代码回归）。部署间隔通常远大于 15 分钟，正常复跑不受影响。
+
+**分步排查（手工 curl 备选）**：
+
 ```bash
 curl -k https://localhost:8443/                 # SPA（自签证书，-k 跳过校验）
 curl -k https://localhost:8443/api/health       # {"code":0,"message":"急救侠 API 运行中"}

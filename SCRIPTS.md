@@ -1,5 +1,32 @@
 # 急救侠 · 项目工具脚本
 
+## 端到端冒烟脚本 `scripts/smoke.mjs`
+
+上线前 / 每次部署后的一键冒烟，把手工端到端验证固化成可重复的一条命令。
+
+| 项 | 说明 |
+|------|------|
+| 脚本 | `scripts/smoke.mjs`（Node ESM，**仅用 Node 内置模块**，零安装即可运行） |
+| 断言 | 13 项：SPA 首页 + 4 个 `/assets` 静态资源、`/api/health`、注册/登录/`/api/auth/me`、无令牌 401 与错口令负例、令牌隔离（`/api/gov/dashboard` 401）、角色授权（`/api/gov/viewers` 403）、CORS 白名单、请求体上限 413、helmet 安全响应头 |
+| 输出 | 每条断言一行 `PASS`/`FAIL`，结尾 `N passed, M failed` 与耗时；**全绿 exit 0，任一失败 exit 1** |
+
+用法：
+
+```bash
+node scripts/smoke.mjs                          # 默认打本机 https://localhost:8443
+node scripts/smoke.mjs --base https://<域名>    # 生产
+node scripts/smoke.mjs --phone 13900000001 --password test1234   # 换测试号
+node scripts/smoke.mjs --verbose                # 打印每个请求的 method/url/status
+node scripts/smoke.mjs --help                   # 查看全部选项
+```
+
+说明：
+
+- `--insecure`：跳过 TLS 校验；当 `--base` 主机为 `localhost`/`127.0.0.1` 时**自动开启**（自签证书）。
+- **幂等**：固定测试号 + 固定口令；注册返回「该手机号已注册」视为通过并继续登录，不会反复新增用户。
+- 依赖被测栈已启动（本机见 `docs/DEPLOY.md` §9）；连不上服务会逐条 `FAIL` 且退出码 1。
+- `/api/auth/*` 有限流（15 分钟 20 次），一次冒烟消耗 8 次；命中限流会打印明确诊断。
+
 ## HTML / CSS 校验脚本
 
 下列 Python/JS 脚本用于校验静态 HTML 演示文件 `急救侠_H5_Demo_v17.html`：
