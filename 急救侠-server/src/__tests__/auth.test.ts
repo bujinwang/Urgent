@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { server, seedTestData } from './setup'
+import { server, seedTestData, db } from './setup'
 
 describe('Auth Routes', () => {
   beforeEach(() => { seedTestData() })
@@ -68,6 +68,12 @@ describe('Auth Routes', () => {
       const login = await request(server).post('/api/auth/login').send({ phone: PHONE, password: PWD })
       return login.body.data.token as string
     }
+
+    it('注册时写入 users.phone（不因 id=u_<phone> 而被掩盖）', async () => {
+      await request(server).post('/api/auth/register').send({ phone: PHONE, password: PWD })
+      const row = db.prepare('SELECT phone FROM users WHERE id = ?').get('u_' + PHONE) as { phone: string } | undefined
+      expect(row?.phone).toBe(PHONE)
+    })
 
     it('注册返回的 token 可过 authMiddleware（/api/auth/me = 200）', async () => {
       const reg = await request(server).post('/api/auth/register').send({ phone: '13900139000', password: PWD })

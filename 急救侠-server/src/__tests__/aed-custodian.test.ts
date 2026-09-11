@@ -436,4 +436,54 @@ describe('AED 责任人联动 — 短信即时降级', () => {
     expect(sendSpy).toHaveBeenCalledTimes(1)
     expect(sendSpy.mock.calls[0][0]).toBe('')
   })
+
+  it('M11：users.phone 与设备 custodian_phone 同时存在且不同 ⇒ 优先 users.phone', async () => {
+    const req = await login('requester')
+    const cp = await login('primary')
+    addCustodian(AED_ID, cp.id, '陈敏', 'primary') // 无订阅
+    db.prepare('UPDATE users SET phone=? WHERE id=?').run('13800138000', cp.id)
+    db.prepare('UPDATE aed_devices SET custodian_phone=? WHERE id=?').run('13900139000', AED_ID)
+    vi.spyOn(smsService, 'isSmsConfigured').mockReturnValue(true)
+    const sendSpy = vi.spyOn(smsService, 'sendSms').mockResolvedValue({ ok: true, code: 'OK' })
+
+    const res = await notify(req.token)
+    expect(res.body.data.deliveryState).toBe('sms_fallback')
+    expect(sendSpy).toHaveBeenCalledTimes(1)
+    expect(sendSpy.mock.calls[0][0]).toBe('13800138000') // 优先用户号，而非设备号
+  })
+
+  it('M13：降级后 custodian_phone_snapshot 仍为空串（现取现用、不落快照）', async () => {
+    const req = await login('requester')
+    const cp = await login('primary')
+    addCustodian(AED_ID, cp.id, '陈敏', 'primary')
+    db.prepare('UPDATE users SET phone=? WHERE id=?').run('13800138000', cp.id)
+    vi.spyOn(smsService, 'isSmsConfigured').mockReturnValue(true)
+    vi.spyOn(smsService, 'sendSms').mockResolvedValue({ ok: true, code: 'OK' })
+
+    const res = await notify(req.token)
+    expect(res.body.data.deliveryState).toBe('sms_fallback')
+    const row = db
+      .prepare('SELECT custodian_phone_snapshot FROM aed_custodian_alerts WHERE id=?')
+      .get(res.body.data.alertId) as { custodian_phone_snapshot: string }
+    expect(row.custodian_phone_snapshot).toBe('')
+  })
+
+  it('M10：混合场景 primary 推送成功 + backup 推送失败 ⇒ 只给 backup 发短信，delivery_state=sms_fallback', async () => {
+    const req = await login('requester')
+    const cp = await login('primary')
+    const cb = await login('backup')
+    addCustodian(AED_ID, cp.id, '陈敏', 'primary')
+    addCustodian(AED_ID, cb.id, '王磊', 'backup')
+    addPushSubscription(cp.id, TPL, true) // primary 可达（dev 模式送达）
+    // backup 无订阅 ⇒ 推送失败
+    db.prepare('UPDATE users SET phone=? WHERE id=?').run('13911112222', cb.id)
+    vi.spyOn(smsService, 'isSmsConfigured').mockReturnValue(true)
+    const sendSpy = vi.spyOn(smsService, 'sendSms').mockResolvedValue({ ok: true, code: 'OK' })
+
+    const res = await notify(req.token)
+    expect(res.body.data.status).toBe('sent')
+    expect(res.body.data.deliveryState).toBe('sms_fallback') // 混合场景如实标出「降级曾发生」
+    expect(sendSpy).toHaveBeenCalledTimes(1) // 恰好一次
+    expect(sendSpy.mock.calls[0][0]).toBe('13911112222') // 只给失败的 backup；成功者不重复发
+  })
 })

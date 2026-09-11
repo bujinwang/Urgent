@@ -137,6 +137,21 @@ describe('smsService — buildSmsRequest（纯函数，确定性签名）', () =
     expect(body).toContain('SignName=%E6%80%A5%E6%95%91%E4%BE%A0')
   })
 
+  it('M1 规范化对**乱序入参**按字典序排序（钉住 .sort()）', async () => {
+    const { canonicalizeQuery } = await loadModule()
+    // 故意以非字典序插入 key（Version 在最前）
+    const out = canonicalizeQuery({
+      Version: '2017-05-25',
+      PhoneNumbers: '138',
+      Action: 'SendSms',
+      AccessKeyId: 'AK',
+      Format: 'JSON',
+    })
+    expect(out).toBe('AccessKeyId=AK&Action=SendSms&Format=JSON&PhoneNumbers=138&Version=2017-05-25')
+    const keys = out.split('&').map((p) => p.slice(0, p.indexOf('=')))
+    expect(keys).toEqual([...keys].sort()) // 输出必为升序 ⇒ 去掉 sort 会红
+  })
+
   it('Signature 为合法 base64 且非空', async () => {
     const { buildSmsRequest } = await loadModule()
     const { body } = buildSmsRequest(PARAMS, OPTS)

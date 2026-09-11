@@ -638,10 +638,12 @@ aedRouter.post('/:id/notify-custodian', authMiddleware, validate(CustodianNotify
       if (r.reason !== 'no_subscription') anyHasSubscription = true
     }
 
-    // P1 短信即时降级：**仅当推送未送达**时，对推送失败的责任人逐个短信（inline，无定时器、无新端点）。
+    // P1 短信即时降级：**逐人粒度** —— 对**每一位推送失败**的责任人单独短信（inline，无定时器、无新端点）。
+    // 与是否另有推送成功者**无关**：即便 primary 已送达，仍会为失败的 backup 单独降级（谁先确认谁生效，
+    // 但"失败者"不应被漏掉）。
     // 号码现取现用（users.phone → 空则设备 custodian_phone），**不写** custodian_phone_snapshot（不在库中留存 PII）。
     let smsAccepted = 0
-    if (!delivered && failedManagers.length > 0 && isSmsConfigured()) {
+    if (failedManagers.length > 0 && isSmsConfigured()) {
       for (const m of failedManagers) {
         const phone = resolveCustodianPhone(m.user_id, device)
         const r = await sendSms(phone, {
@@ -652,12 +654,18 @@ aedRouter.post('/:id/notify-custodian', authMiddleware, validate(CustodianNotify
       }
     }
 
-    const sent = delivered || smsAccepted > 0
+    // `delivered` 为**聚合**判定：任一责任人推送送达即为 true。
+    // ⚠️ 因降级改为**逐人**粒度，`delivery_state === 'delivered'` 的语义已**收窄**为
+    //    「**全部**责任人推送均送达（无任何短信降级）」；混合场景（有成功亦有人被降级）标为 `sms_fallback`。
+    const smsSent = smsAccepted > 0
+    const sent = delivered || smsSent
     const status: AedCustodianAlertRow['status'] = sent ? 'sent' : 'unreachable'
-    const deliveryState: AedCustodianAlertRow['delivery_state'] = delivered
-      ? 'delivered'
-      : smsAccepted > 0
-        ? 'sms_fallback'
+    // delivery_state 优先级（精确）：sms_fallback > delivered > failed > no_subscription。
+    // sms_fallback 置顶 ⇒ 只要发生过短信降级就如实标出（便于运维/成本监控），哪怕同时有推送成功者。
+    const deliveryState: AedCustodianAlertRow['delivery_state'] = smsSent
+      ? 'sms_fallback'
+      : delivered
+        ? 'delivered'
         : anyHasSubscription ? 'failed' : 'no_subscription'
 
     db.prepare(
@@ -667,10 +675,10 @@ aedRouter.post('/:id/notify-custodian', authMiddleware, validate(CustodianNotify
     logAudit(
       aedId,
       'custodian_notified',
-      delivered
-        ? `已通知责任人（${managers.length} 名，投递：${deliveryState}）`
-        : smsAccepted > 0
-          ? `推送未送达，已短信降级 ${smsAccepted} 名（投递：${deliveryState}）`
+      smsSent
+        ? `通知责任人（${managers.length} 名；推送未送达者已短信降级 ${smsAccepted} 名，投递：${deliveryState}）`
+        : delivered
+          ? `已通知责任人（${managers.length} 名，投递：${deliveryState}）`
           : `通知责任人未送达（${deliveryState}）`,
       callerId,
       requester?.name || ''
