@@ -55,6 +55,13 @@
       }
     },
     {
+      "path": "pages/aed/custodian-alert",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": ""
+      }
+    },
+    {
       "path": "pages/atlas/index",
       "style": {
         "navigationBarTitleText": "急救图谱"

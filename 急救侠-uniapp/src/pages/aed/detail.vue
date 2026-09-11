@@ -18,12 +18,6 @@
 
   <!-- 正常内容 -->
   <view v-else class="page-aed-detail">
-    <!-- 演习横幅 -->
-    <view class="drill-banner">
-      <text class="drill-banner-icon">⚠️</text>
-      <text class="drill-banner-text">演习模式 · 确认 AED 随时可用</text>
-    </view>
-
     <!-- 顶部照片区 -->
     <view class="detail-hero">
       <image :src="aed.photo" mode="aspectFill" class="detail-hero-img" />
@@ -141,19 +135,45 @@
       </view>
     </view>
 
-    <!-- 责任人卡片 -->
-    <view v-if="aed.custodian" class="detail-card">
+    <!-- 责任人卡片（责任人身份以 aed_managers 为准，快照仅作展示；无快照时仍可发起通知） -->
+    <view v-if="aed" class="detail-card">
       <text class="detail-card-title">👤 设备责任人</text>
       <view class="detail-custodian">
-        <view class="detail-custodian-avatar">{{ aed.custodian.avatar }}</view>
+        <view class="detail-custodian-avatar">{{ aed.custodian?.avatar || '侠' }}</view>
         <view class="detail-custodian-info">
-          <text class="detail-custodian-name">{{ aed.custodian.name }}</text>
-          <text class="detail-custodian-role">{{ aed.custodian.role }}</text>
+          <text class="detail-custodian-name">{{ aed.custodian?.name || '平台登记责任人' }}</text>
+          <text class="detail-custodian-role">{{ aed.custodian?.role || '联系方式经确认授权后可见' }}</text>
         </view>
         <view class="detail-custodian-contact" @click="notifyOwner">
-          <text>📞 通知</text>
+          <text>📞 通知责任人</text>
         </view>
       </view>
+    </view>
+
+    <!-- 责任人联动状态（通知 / 确认授权） -->
+    <view v-if="caStore.activeAlertId || caState.showFallback" class="detail-card detail-custodian-link">
+      <text class="detail-card-title">📣 责任人联动</text>
+
+      <view v-if="caState.showFallback" class="ca-fallback">
+        <text class="ca-fallback-text">{{ caState.fallbackText }}</text>
+        <view class="ca-fallback-btn" @click="doPickup">登记取用（先取用后留痕）</view>
+      </view>
+
+      <template v-else>
+        <view class="ca-line">
+          <text class="ca-line-label">状态</text>
+          <text class="ca-line-value">{{ caStatusText }}</text>
+        </view>
+        <view v-if="caPending" class="ca-line">
+          <text class="ca-line-label">倒计时</text>
+          <text class="ca-line-value ca-count">{{ caCountdown }}</text>
+        </view>
+        <view class="ca-actions">
+          <view v-if="caAcknowledged" class="ca-btn ca-btn-ok" @click="doPickup">确认取用</view>
+          <view v-if="caStore.consentGranted" class="ca-btn ca-btn-ghost" @click="withdrawConsent">撤回信息共享</view>
+        </view>
+        <text class="ca-note">「确认授权」仅表示责任人已知晓并同意取用，不会远程改变设备状态。</text>
+      </template>
     </view>
 
     <!-- 打卡时间线 -->
@@ -193,12 +213,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useAedStore } from '@/stores/aed'
-import { getAedById } from '@/api/aed'
+import { getAedById, fetchAedById, mapApiDeviceToView, createAedPickup } from '@/api/aed'
 import type { AedDevice } from '@/api/aed'
+import { AlertCode } from '@/api/aed-custodian'
+import { useCustodianAlertStore } from '@/stores/custodian-alert'
+import { useUserStore } from '@/stores/user'
 
 const aedStore = useAedStore()
+const caStore = useCustodianAlertStore()
+const userStore = useUserStore()
 
 const aed = ref<AedDevice | null>(null)
 const loading = ref(true)
@@ -208,33 +233,74 @@ const checkinPhoto = ref('')
 const checkinStatus = ref<'ok' | 'issue'>('ok')
 const checkinTip = ref('')
 
+// 责任人联动本地 UI 态
+const caState = ref<{ showFallback: boolean; fallbackText: string }>({ showFallback: false, fallbackText: '' })
+const caNow = ref(Date.now())
+let caTicker: ReturnType<typeof setInterval> | null = null
+
 const statusLabel = computed(() => {
   if (!aed.value) return ''
   if (aed.value.status === 'maintenance') return '🔧 维护中'
   return aed.value.verified ? '✅ 已验证' : aed.value.discovered ? '📍 已发现' : '⚡ 可用'
 })
 
-onMounted(() => {
+const caPending = computed(() =>
+  caStore.status === 'pending' || caStore.status === 'sent' || caStore.status === 'unreachable'
+)
+const caAcknowledged = computed(() => caStore.status === 'acknowledged')
+const caStatusText = computed(() => {
+  switch (caStore.status) {
+    case 'sent': return '已通知责任人，等待确认授权'
+    case 'pending': return '正在通知责任人…'
+    case 'unreachable': return '未能触达责任人（待其主动确认）'
+    case 'acknowledged': return '责任人已确认授权，请取用 AED'
+    case 'rejected': return '责任人已拒绝，可直接取用并留痕'
+    case 'expired': return '责任人未在时限内响应，可直接取用并留痕'
+    default: return ''
+  }
+})
+const caCountdown = computed(() => {
+  const left = Math.max(0, caStore.slaDeadlineMs - caNow.value)
+  const sec = Math.ceil(left / 1000)
+  return sec > 0 ? sec + 's' : '已超时'
+})
+
+/** 真实接口取设备；失败回退 Mock（离线兜底）。 */
+async function loadAed(id: string): Promise<void> {
+  const known = getAedById(id)
+  try {
+    const raw = await fetchAedById(id)
+    aed.value = mapApiDeviceToView(raw, {
+      discovered: known?.discovered ?? true,
+      verified: known?.verified ?? false,
+    })
+  } catch {
+    if (known) aed.value = known
+    else notFound.value = true
+  }
+  if (aed.value) aedStore.discoverAed(id)
+}
+
+onMounted(async () => {
   const pages = getCurrentPages()
-  const page = pages[pages.length - 1] as any
+  const page = pages[pages.length - 1] as { options?: Record<string, string> }
   const id = page?.options?.id
   const action = page?.options?.action
-  if (id) {
-    const found = getAedById(id)
-    if (found) {
-      aed.value = found
-      aedStore.discoverAed(id)
-    } else {
-      notFound.value = true
-    }
-  } else {
-    notFound.value = true
-  }
+  if (id) await loadAed(id)
+  else notFound.value = true
   loading.value = false
+
+  caNow.value = Date.now()
+  caTicker = setInterval(() => { caNow.value = Date.now() }, 1000)
 
   if (action === 'checkin' && id && aed.value) {
     setTimeout(() => startCheckIn(), 500)
   }
+})
+
+onUnmounted(() => {
+  if (caTicker) { clearInterval(caTicker); caTicker = null }
+  caStore.stopPolling()
 })
 
 function goBack() { uni.navigateBack() }
@@ -265,7 +331,7 @@ function startCheckIn() {
     },
     fail: () => {
       checkinState.value = 'idle'
-      uni.showToast({ title: '演习模式 · 相机权限未开启', icon: 'none' })
+      uni.showToast({ title: '相机权限未开启', icon: 'none' })
     },
   })
 }
@@ -290,9 +356,63 @@ function submitCheckIn() {
   resetCheckIn()
 }
 
-function notifyOwner() {
-  if (!aed.value?.custodian) return
-  aedStore.notifyCustodian(aed.value.id)
+/** 弹出 PIPL 信息共享同意框。 */
+function requestConsent(): Promise<boolean> {
+  return new Promise((resolve) => {
+    uni.showModal({
+      title: '信息共享同意',
+      content: '为帮助现场急救联络，将把你的姓名与位置共享给该 AED 责任人。你可随时在求助详情中撤回。是否同意？',
+      confirmText: '同意',
+      cancelText: '取消',
+      success: (r) => resolve(!!r.confirm),
+      fail: () => resolve(false),
+    })
+  })
+}
+
+/** 通知责任人：同意 → 调接口 → 按业务码分支 → 轮询等待「确认授权」。 */
+async function notifyOwner() {
+  if (!aed.value) return
+  caState.value.showFallback = false
+  const agreed = await requestConsent()
+  if (!agreed) {
+    uni.showToast({ title: '已取消，可直接取用 AED', icon: 'none' })
+    return
+  }
+  const res = await caStore.notify(aed.value.id)
+  if (res.code === 0) {
+    caStore.startPolling()
+    uni.showToast({ title: '已通知责任人', icon: 'none' })
+  } else if (res.code === AlertCode.NO_CUSTODIAN) {
+    caState.value.showFallback = true
+    caState.value.fallbackText = '该设备暂无责任人，可直接取用并留痕。'
+  } else if (res.code === AlertCode.CONSENT_REQUIRED) {
+    uni.showToast({ title: '需先同意信息共享', icon: 'none' })
+  } else {
+    uni.showToast({ title: res.message || '通知失败', icon: 'none' })
+  }
+}
+
+/** 取用登记（先取用后留痕，兜底路径不阻断急救）。 */
+async function doPickup() {
+  if (!aed.value) return
+  try {
+    await createAedPickup(aed.value.id, {
+      userId: userStore.profile.id,
+      userName: userStore.profile.name,
+      notes: '现场取用（责任人联动兜底）',
+    })
+    uni.showToast({ title: '已登记取用，请尽快取用设备', icon: 'none' })
+  } catch {
+    uni.showToast({ title: '取用登记失败，请直接取用设备', icon: 'none' })
+  }
+}
+
+/** 撤回信息共享同意（PIPL）。 */
+async function withdrawConsent() {
+  if (!aed.value || !caStore.activeAlertId) return
+  const ok = await caStore.revoke(aed.value.id, caStore.activeAlertId, 'user-initiated')
+  uni.showToast({ title: ok ? '已撤回信息共享' : '撤回失败', icon: 'none' })
 }
 </script>
 
@@ -522,5 +642,28 @@ function notifyOwner() {
   &:active {
     background: rgba(59, 130, 246, 0.4);
   }
+}
+
+/* ============ 责任人联动 ============ */
+.detail-custodian-link { border-color: rgba(52, 210, 119, 0.18); }
+.ca-line { display: flex; justify-content: space-between; padding: 12rpx 0; }
+.ca-line-label { font-size: 24rpx; color: rgba(255, 255, 255, 0.45); }
+.ca-line-value { font-size: 26rpx; font-weight: 600; }
+.ca-count { color: #F59E0B; font-family: var(--mono); }
+.ca-actions { display: flex; gap: 16rpx; margin-top: 24rpx; }
+.ca-btn {
+  text-align: center; padding: 22rpx 32rpx; border-radius: 20rpx; font-size: 26rpx; font-weight: 700;
+}
+.ca-btn-ok { flex: 1; background: linear-gradient(135deg, #34D277, #1F9D57); color: #fff; }
+.ca-btn-ghost {
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.6);
+}
+.ca-note { display: block; margin-top: 20rpx; font-size: 20rpx; line-height: 1.6; color: rgba(255, 255, 255, 0.3); }
+.ca-fallback-text { display: block; font-size: 26rpx; line-height: 1.7; color: rgba(255, 255, 255, 0.65); }
+.ca-fallback-btn {
+  margin-top: 24rpx; text-align: center; padding: 24rpx; border-radius: 20rpx;
+  background: rgba(245, 158, 11, 0.15); border: 1.5px solid rgba(245, 158, 11, 0.35);
+  color: #F59E0B; font-size: 26rpx; font-weight: 700;
 }
 </style>

@@ -68,4 +68,5 @@ export const PUSH_TEMPLATES = {
   taskUpdate: 'tpl_task_update',       // 任务状态变更
   drillReminder: 'tpl_drill_reminder', // 演习提醒
   aedMaintenance: 'tpl_aed_maint',     // AED 维护提醒
+  aedCustodianRequest: 'tpl_aed_custodian_request', // AED 责任人求助（需小程序后台申请）
 } as const

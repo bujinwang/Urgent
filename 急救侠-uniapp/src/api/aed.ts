@@ -279,8 +279,107 @@ export async function fetchAedList(lat?: number, lng?: number): Promise<AedDevic
   const params = lat !== undefined ? `?lat=${lat}&lng=${lng}` : ''
   return request({ url: `/aed/nearby${params}` })
 }
-export async function fetchAedById(id: string): Promise<AedDevice> {
+export async function fetchAedById(id: string): Promise<ApiAedDevice> {
   return request({ url: `/aed/${id}` })
+}
+
+/**
+ * 后端 `/api/aed/:id` 返回的原始设备结构（camelCase，与后端 `AedDevice` 对齐）。
+ * 与本地视图模型 `AedDevice` 不同：后端**不含** `photo / discovered / verified / custodian.avatar`。
+ */
+export interface ApiAedDevice {
+  id: string
+  name: string
+  address: string
+  lat: number
+  lng: number
+  distance: number
+  status: 'available' | 'in_use' | 'maintenance'
+  lastCheck: string
+  batteryLevel: number
+  model?: string
+  serialNumber?: string
+  batteryExpiry?: string
+  electrodeExpiry?: string
+  lastMaintenance?: string
+  indoor?: boolean
+  floor?: string
+  openHours?: string
+  findingInstructions?: string
+  custodian?: { name: string; phone: string; role: string }
+  checkIns?: Array<{
+    id: string
+    aedId?: string
+    userId: string
+    userName: string
+    photo: string
+    date: string
+    status: 'ok' | 'issue'
+    comment: string
+    findingTip?: string
+  }>
+  reportedBy?: string
+  reportedAt?: string
+  isMobile?: boolean
+  linkedUserId?: string
+}
+
+/**
+ * 后端原始设备 → 本地视图模型。
+ * 后端缺失的字段用占位补齐；`discovered/verified` 由本地状态（store）注入。
+ */
+export function mapApiDeviceToView(
+  raw: ApiAedDevice,
+  opts: { discovered?: boolean; verified?: boolean } = {}
+): AedDevice {
+  return {
+    id: raw.id,
+    name: raw.name,
+    address: raw.address,
+    distance: raw.distance,
+    lat: raw.lat,
+    lng: raw.lng,
+    status: raw.status,
+    photo: `/static/aed/${raw.id}.png`,
+    model: raw.model || '',
+    serialNumber: raw.serialNumber || '',
+    batteryExpiry: raw.batteryExpiry || '',
+    electrodeExpiry: raw.electrodeExpiry || '',
+    lastMaintenance: raw.lastMaintenance || '',
+    lastCheck: raw.lastCheck || '',
+    indoor: !!raw.indoor,
+    floor: raw.floor || '',
+    openHours: raw.openHours || '',
+    findingInstructions: raw.findingInstructions || '',
+    custodian: raw.custodian
+      ? {
+          name: raw.custodian.name,
+          phone: raw.custodian.phone,
+          role: raw.custodian.role,
+          avatar: (raw.custodian.name || '?').charAt(0),
+        }
+      : undefined,
+    checkIns: (raw.checkIns || []).map(ci => ({
+      id: ci.id,
+      userId: ci.userId,
+      userName: ci.userName,
+      photo: ci.photo,
+      date: ci.date,
+      status: ci.status,
+      comment: ci.comment,
+      findingTip: ci.findingTip,
+    })),
+    discovered: opts.discovered ?? false,
+    verified: opts.verified ?? false,
+  }
+}
+
+/** 取用登记（先取用后留痕，兜底路径不阻断急救）。 */
+export async function createAedPickup(
+  aedId: string,
+  data: { userId: string; userName?: string; missionId?: string; notes?: string }
+): Promise<{ id: string }> {
+  return request({ url: `/aed/${aedId}/pickups`, method: 'POST', data: { ...data } })
 }
 
 export default function (params?: Record<string, unknown>) {

@@ -57,6 +57,36 @@ export async function request<T>(options: RequestOptions): Promise<T> {
   }
 }
 
+export interface FullResponse<T> {
+  code: number
+  data?: T
+  message: string
+}
+
+/**
+ * 与 `request` 相同，但**返回完整响应体**（含业务 `code`），且不因业务码非 0 抛错。
+ * 供页面按业务码分支使用（如 AED 联动的 4001 无责任人 / 4006 未同意 PIPL）。
+ */
+export async function requestFull<T>(options: RequestOptions): Promise<FullResponse<T>> {
+  const { url, method = 'GET', data, header = {} } = options
+  try {
+    const res = await uni.request({
+      url: BASE_URL + url,
+      method,
+      data,
+      header: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+        ...header,
+      },
+    })
+    return res.data as FullResponse<T>
+  } catch (e: any) {
+    console.warn('[API] 请求失败:', e.errMsg || e.message)
+    return { code: -1, message: (e && (e.errMsg || e.message)) || '网络错误' }
+  }
+}
+
 export async function put<T>(url: string, data?: Record<string, unknown>): Promise<T> {
   return request({ url, method: 'PUT', data })
 }
