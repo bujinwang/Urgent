@@ -350,3 +350,19 @@ docker compose up -d
 - 定性：后端单测用 `signToken` 造 JWT，故全绿；**前端携带的却是明文 token** → 典型"单测过、端到端未必通"。
 - **✅ 已修（2026-09-11）**：`7a02e45` + `c1ce051` —— ① 登录/注册改发**真 JWT**（`signToken`，payload 含 `userId`）；② `/auth/change-password` 加 `authMiddleware`、从 `req.auth.userId` 定位用户、**不再信任客户端 `phone`**（越权改他人密码 → 403）；③ `change-pwd.vue` 去掉 token 截取、改用已登录身份；④ `/user/profile` 去明文解析；⑤ `checkLogin` 清理无效令牌、demo 令牌仅 UI 演示。
 - 验证：CI ✅（后端 **174** / 前端 **134**）；QA 独立回归（**自建**"注册→真 JWT→`/api/auth/me`=200"、P2-7 端点不再 401、越权改密被拒、demo 令牌仍 401、无残留截取）**0 缺陷**。
+
+---
+
+## ✅ 技术债收敛（2026-09-11）
+
+| # | 原技术债（§7） | 处置 |
+|---|----------------|------|
+| 1 | `setup.ts` `export { server as app }` 命名误导 | `a9ad204`：测试夹具 `app→server` 正名（`http.Server` 不再误称 `app`）+ 修正 stale 注释 |
+| 2 | `global.d.ts` 全局 Event 增强过宽 | `6d851d4`：**移除全局 DOM 增强**，改用项目内 `UniInputEvent`/`uniInputValue`（`src/types/uni-events.ts`）；移除后 `vue-tsc` 仍 **0 错**（类型安全真被替代而非掩盖）|
+| 3 | `awardPoints(amount, _reason?)` 第二参数被静默丢弃 | `2650f7e`：`reason` 记入 `pointLog`（不再丢弃）+ 测试断言 |
+| 4 | `express ^4.21.1` 与 `@types/express ^5.0.0` 主版本不一致 | `64bfcbb`：`@types/express` 对齐到 `^4.17`（与运行时同主版本）|
+| 5 | `'xx_' + Date.now()` 单时间戳主键碰撞 | `a9ad204` + `4f395df` + **`d58d4bc`**：分批共补齐 28+ 处，**宽模式 grep 确认"`Date.now()` 后无后缀的主键点位已归零"**（覆盖 `tm_/om_/msg_/gm_/grp_/gmsg_/vc_/dp_/tp_/acr_/ahr_/rc_/wr_/ec_/mv_/inq_/aed_/ci_/am_/mt_/pu_/ac_/org_/cert_/wl_/te_/mob_/live_/vp_/upload_/dr_/sa_` 等）|
+| 6 | `.npmrc` 的 `legacy-peer-deps=true`（P0 绕过） | `560982e`：**本轮保留**并注明理由与两条后续路径（uni-app 对 vue 版本有约束，强行对齐有破坏风险）|
+
+- 门禁：CI ✅（后端 **174** / 前端 **134**）。
+- 过程备注：第 5 项曾出现一次批量脚本**误吞行尾换行**（造成行合并），已 `git checkout` 回退并用带 lookahead 的脚本重做，**逐文件行数与 HEAD 一致**、diff 为 16 行一对一替换。
