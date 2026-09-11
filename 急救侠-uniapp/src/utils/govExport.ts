@@ -20,6 +20,43 @@ function districtLabel(name: string): string {
   return name === UNASSIGNED ? '未分区' : name
 }
 
+/** 公式注入「可疑首字符」：= + - @ TAB CR（CSV/Excel 会把它们当公式起点）。 */
+const FORMULA_LEAD = /^[=+\-@\t\r]/
+/** 合法数字（含负数/小数）——必须放行，否则会毁掉数值列。 */
+const PLAIN_NUMBER = /^[+-]?\d+(\.\d+)?$/
+
+/**
+ * 单元格防公式注入（CSV Injection）：
+ * - 仅当以 `= + - @ TAB CR` 开头**且不是合法数字**时，前置单引号 `'` 使其在 Excel/WPS 中按文本处理；
+ * - 纯数字（如 `-1.5`、`+2`）原样放行，避免「过度清洗」破坏数值列；
+ * - 其它一律原样返回。
+ *
+ * 必须在 `csvEscape` **之前**调用，保证 `'` 前缀落在引号内。
+ */
+export function sanitizeCell(v: string): string {
+  if (!v) return v
+  if (!FORMULA_LEAD.test(v)) return v
+  if (PLAIN_NUMBER.test(v)) return v
+  return "'" + v
+}
+
+/** 两位补零。 */
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+/**
+ * 生成时间确定性格式：`YYYY-MM-DD HH:mm:ss`（**本地时间**，手写补零，不依赖 locale）。
+ * 不用 `toLocaleString()`，避免随运行环境 locale 变化导致导出结果不可复现。
+ */
+function formatDateTime(ms: number): string {
+  const dt = new Date(ms)
+  return (
+    `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())} ` +
+    `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}:${pad2(dt.getSeconds())}`
+  )
+}
+
 /**
  * RFC 4180 单元格转义：字段含 `,` / `"` / CR / LF 时用 `"` 包裹并把内部 `"` 双写；
  * 否则原样返回。
@@ -44,9 +81,9 @@ export function secsOrEmpty(ms: number | null, digits = 1): string {
   return ms === null ? '' : (ms / 1000).toFixed(digits)
 }
 
-/** 单元格数组 → 一行 CSV（每一格都过 `csvEscape`）。 */
+/** 单元格数组 → 一行 CSV（每格先 `sanitizeCell` 防注入，再 `csvEscape`）。 */
 function toLine(cells: string[]): string {
-  return cells.map(csvEscape).join(',')
+  return cells.map((c) => csvEscape(sanitizeCell(c))).join(',')
 }
 
 /**
@@ -57,7 +94,7 @@ function toLine(cells: string[]): string {
  */
 export function dashboardToCsv(d: GovDashboard): string {
   const region = d.meta.district ? districtLabel(d.meta.district) : '全部区域'
-  const generated = new Date(d.meta.generatedAt).toLocaleString()
+  const generated = formatDateTime(d.meta.generatedAt)
   const gaps = (d.meta.dataGaps || []).join('; ')
 
   const lines: string[] = [

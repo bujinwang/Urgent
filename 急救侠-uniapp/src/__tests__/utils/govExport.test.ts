@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   csvEscape,
+  sanitizeCell,
   pctOrEmpty,
   numOrEmpty,
   secsOrEmpty,
@@ -10,6 +11,25 @@ import {
   printGovDashboard,
 } from '@/utils/govExport'
 import type { GovDashboard, GovDistrictRow } from '@/api/gov'
+
+/** 极简 RFC 4180 单行解析（仅用于断言列数/首列）。 */
+function parseCsvLine(line: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let inQ = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQ) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++ } else { inQ = false }
+      } else cur += ch
+    } else if (ch === '"') inQ = true
+    else if (ch === ',') { out.push(cur); cur = '' }
+    else cur += ch
+  }
+  out.push(cur)
+  return out
+}
 
 /** 构造看板夹具；默认含 null 指标 + 一行区域明细。 */
 function makeDashboard(overrides: Partial<GovDashboard> = {}): GovDashboard {
@@ -66,6 +86,28 @@ describe('govExport — 纯函数', () => {
     it('含 CR / LF ⇒ 双引号包裹', () => {
       expect(csvEscape('a\r\nb')).toBe('"a\r\nb"')
       expect(csvEscape('a\nb')).toBe('"a\nb"')
+    })
+  })
+
+  describe('sanitizeCell（防 CSV 公式注入）', () => {
+    it('公式前缀 = + - @ ⇒ 前置单引号', () => {
+      expect(sanitizeCell('=1+1')).toBe("'=1+1")
+      expect(sanitizeCell('@SUM(1)')).toBe("'@SUM(1)")
+      expect(sanitizeCell('+1+1')).toBe("'+1+1")
+      expect(sanitizeCell('-1+1')).toBe("'-1+1")
+      expect(sanitizeCell("=cmd|'/c calc'!A1")).toBe("'=cmd|'/c calc'!A1")
+    })
+
+    it('合法数字（含负数/小数）原样放行 —— 防「过度清洗」', () => {
+      expect(sanitizeCell('-1.5')).toBe('-1.5')
+      expect(sanitizeCell('+2')).toBe('+2')
+      expect(sanitizeCell('-3')).toBe('-3')
+      expect(sanitizeCell('80.0')).toBe('80.0')
+    })
+
+    it('普通文本 / 空串原样返回', () => {
+      expect(sanitizeCell('天河区')).toBe('天河区')
+      expect(sanitizeCell('')).toBe('')
     })
   })
 
@@ -152,6 +194,51 @@ describe('govExport — 纯函数', () => {
       expect(csv).toContain('指标,数值')
       expect(csv).toContain('区域,AED数,可用率(%)')
       expect(csv.startsWith('\uFEFF')).toBe(true)
+    })
+
+    it('生成时间 为确定性格式 YYYY-MM-DD HH:mm:ss 且取自 meta.generatedAt（本地时间）', () => {
+      const ts = 1700000000000
+      const csv = dashboardToCsv(makeDashboard({ meta: { ...makeDashboard().meta, generatedAt: ts } }))
+      // 1) 格式锁定（不依赖 locale / toLocaleString）
+      expect(csv).toMatch(/生成时间,\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\r\n/)
+      // 2) 取值来源锁定：由 ts 按本地时间推导 —— 实现若改用 Date.now() 会红
+      const dt = new Date(ts)
+      const p = (n: number) => String(n).padStart(2, '0')
+      const exp = `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())} ` +
+        `${p(dt.getHours())}:${p(dt.getMinutes())}:${p(dt.getSeconds())}`
+      expect(csv).toContain(`生成时间,${exp}`)
+    })
+
+    it('总览指标段逐行完整（删任意一行都会红）', () => {
+      const csv = dashboardToCsv(makeDashboard())
+      const segments = csv.split('\r\n\r\n')
+      const overviewLabels = segments[1].split('\r\n').map((l) => l.split(',')[0])
+      expect(overviewLabels).toEqual([
+        '指标',
+        '响应 P95(秒)', 'SLA 达标率(%)', '责任人无响应率(%)',
+        '在线志愿者(人)', '持证志愿者(人)',
+        'AED 总数(台)', 'AED 可用(台)', 'AED 可用率(%)', 'AED 取用次数', 'AED 未归还',
+        '任务总数', '任务已完成', '任务完成率(%)',
+        '救援记录', '救援案例', '机构数', '机构成员',
+      ])
+    })
+
+    it('公式注入串：区域明细行加前缀；含逗号时被 csvEscape 包裹且仍只占 1 列', () => {
+      const csv = dashboardToCsv(makeDashboard({ districts: [row({ district: '=1,2' })] }))
+      // sanitizeCell → "'=1,2"；csvEscape（含逗号）→ "\"'=1,2\""
+      expect(csv).toContain(`"'=1,2"`)
+      const line = csv.split('\r\n').find((l) => l.startsWith(`"'=1,2"`))!
+      const cols = parseCsvLine(line)
+      expect(cols).toHaveLength(9)
+      expect(cols[0]).toBe("'=1,2")
+    })
+
+    it('元信息段（区域 / 数据缺口）同样过 sanitizeCell', () => {
+      const csv = dashboardToCsv(
+        makeDashboard({ meta: { ...makeDashboard().meta, district: '=1+1', dataGaps: ['@x'] } })
+      )
+      expect(csv).toContain("区域,'=1+1")
+      expect(csv).toContain("数据缺口,'@x")
     })
   })
 

@@ -3,6 +3,7 @@ import { shallowMount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { requestFull } from '@/api/index'
 import { downloadText } from '@/utils/govExport'
+import { useGovStore } from '@/stores/gov'
 import type { GovViewer, GovDashboard } from '@/api/gov'
 
 // 仅 mock downloadText（副作用），保留其余真实实现 —— 以便断言 CSV 参数且不触碰真实 DOM 下载。
@@ -117,6 +118,31 @@ describe('政府看板页面', () => {
       expect(call[1].startsWith('\uFEFF')).toBe(true)
       expect(call[1]).toContain('区域,AED数')
       expect(call[2]).toBe('text/csv;charset=utf-8')
+    })
+
+    it('无看板数据（dashboard=null）时：导出 CSV / PDF 均提示「暂无数据可导出」且不触发导出', async () => {
+      const wrapper = await mountLoaded()
+      const store = useGovStore()
+      store.dashboard = null
+      await flushPromises()
+      vi.mocked(uni.showToast).mockClear()
+
+      await wrapper.find('.gov-csv-btn').trigger('click')
+      expect(vi.mocked(uni.showToast)).toHaveBeenCalledWith(
+        expect.objectContaining({ title: '暂无数据可导出' })
+      )
+      expect(vi.mocked(downloadText)).not.toHaveBeenCalled()
+
+      vi.mocked(uni.showToast).mockClear()
+      const printSpy = vi.fn()
+      const orig = (window as unknown as { print?: () => void }).print
+      ;(window as unknown as { print: () => void }).print = printSpy
+      await wrapper.find('.gov-pdf-btn').trigger('click')
+      expect(vi.mocked(uni.showToast)).toHaveBeenCalledWith(
+        expect.objectContaining({ title: '暂无数据可导出' })
+      )
+      expect(printSpy).not.toHaveBeenCalled()
+      ;(window as unknown as { print?: () => void }).print = orig
     })
   })
 
