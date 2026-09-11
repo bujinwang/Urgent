@@ -293,6 +293,20 @@ docker compose up -d
 
 **P2-7 遗留（非阻塞，属 P1 范围）**：短信/电话多通道降级；IoT 开柜指令（已预留 `unlock_token` + `command_status`）；政府监管看板指标。
 
+### ✅ P2-6 前端去 Mock / 接真实后端（已完成，2026-09-11）
+
+把 `aed / atlas / cases / learn / media-alert / news / records / task / user / volunteer` 共 **10 个 API 模块**的 mock 兜底全部切到真实后端接口。
+
+- commit：`43baab3`(去 mock 基座) → `af274ba/39a7e71/d35f0ff`(各模块) → `3894ab3`(页面/日志/脚手架) → `1163782/3ee1de9/d50dda6/2a17541`(测试重写) → `42aa9a6`(**空值防护修复**) → `2470820`(补真实行为测试 + 映射表入库)。
+- **`MOCK_` 在 `uniapp/src` 归零**；失败路径**显式记 error 并抛出**（不静默兜底）；`api/index.ts` 的误导日志 `[API] 请求失败，使用 mock 数据` 已清理。
+- **签名变化**：本质取数的同步 getter → async 或移除；stores 改为 `ref` + `refresh()/loading/error`；调用方（stores/页面）已同步更新。
+- **空值防护**：8 个 `mapXxx` 加 `if (!raw) throw new Error(...)`，消除"后端空响应 → TypeError"（曾致 CI 红）。
+- 门禁：CI ✅（后端 141 / 前端 **131**）；CD ✅。
+- QA 对抗式验证：功能可接受（映射诚实、无静默 mock）。QA 揪出并已修复：① `fetchCaseByIdApi` 空值崩溃（曾使 CI 红）；② 重写时误删的 6 组真实行为单测（news 筛选 / task 相位机 / aed 排序·发现 / records roleStats / cases selectCase-null / learn tab）—— 已补回。
+- 映射表：`急救侠-uniapp/docs/p2-6-api-mapping.md`。
+
+**已知后端缺口（前端已诚实降级、未臆造）**：`learn /trainings` 无端点（用前端本地 UI 配置）；`records` 无 `/:id`（列表 + 客户端筛选）；`volunteer/rankings` 不支持 `type` 维度（两榜同数据）；`media-alert` 后端只记元数据、不落盘二进制；`cases↔news` 互链字段缺失。建议作为后续小项补后端。
+
 ### ⏳ P2 其余项（未开始）
-- **P2-6 前端 mock→真实接口**：AED 相关已随本次去 Mock；其余 `news / atlas / cases / learn / records / task / user / media-alert` 仍待接通。
 - **P2-8 政府数据监管看板**；**P2-9 薄页面复核**（change-pwd / cert/interests / cert/upload / atlas/index）。
+- P2-6 遗留的上列后端缺口（如需补齐）。
