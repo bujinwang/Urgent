@@ -328,7 +328,7 @@ docker compose up -d
 - **区域维度**：`aed_devices`/`tasks`/`rescue_records` 加**可空 `district`**（迁移 **032–035**）；未分区归一化 `__UNASSIGNED__`（不排除、数量守恒）。
 - **脱敏**：仅区级聚合，响应**零 PII**。
 - 接口：`POST /api/gov/login`、`GET /api/gov/me`、`GET /api/gov/dashboard`、`/api/gov/viewers`（管理员 CRUD，`is_leader`）。
-- 门禁：CI ✅（后端 **171** / 前端 **134**）；QA 对抗式验证：**发现 1 个真实安全缺陷**（gov 令牌曾可穿透业务鉴权，因密钥回落）→ 已修并独立复验；其余 9 项 PASS。
+- 门禁：CI ✅（后端 **167** / 前端 **134**）；QA 对抗式验证：**发现 1 个真实安全缺陷**（gov 令牌曾可穿透业务鉴权，因密钥回落）→ 已修并独立复验；其余 9 项 PASS。
 - 文档：`deliverables/software-company/gov-dashboard-{prd,design}.md`（+ `gov-dashboard-{sequence,class}.mermaid`）。
 - **遗留（P1 / 后续）**：`district` 存量回填；覆盖率需外部人口/面积基线；SSO / IP 白名单；gov 前端单测；CSV/PDF 导出；省级卫健委平台对接。
 
