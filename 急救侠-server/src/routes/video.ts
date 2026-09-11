@@ -98,7 +98,7 @@ videoRouter.post('/:id/comment', (req, res) => {
   try {
     const { userId, userName, userAvatar, content } = req.body
     if (!userId || !content) return res.json(error('参数不完整'))
-    db.prepare('INSERT INTO video_comments (id,video_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)').run('vc_'+Date.now(), req.params.id, userId, userName||'', userAvatar||'', content)
+    db.prepare('INSERT INTO video_comments (id,video_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)').run('vc_'+Date.now() + '_' + Math.random().toString(36).slice(2, 6), req.params.id, userId, userName||'', userAvatar||'', content)
     db.prepare('UPDATE video_posts SET comment_count=comment_count+1 WHERE id=?').run(req.params.id)
     res.json(success(null, '评论成功'))
   } catch (e: any) { res.status(500).json(error(e.message)) }

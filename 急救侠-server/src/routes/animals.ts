@@ -36,7 +36,7 @@ animalRouter.post('/:id/care', (req, res) => {
   try {
     const { userId, userName, careType, description, photos, lat, lng } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
-    db.prepare('INSERT INTO animal_care_records (id,animal_id,user_id,user_name,care_type,description,photos,lat,lng) VALUES (?,?,?,?,?,?,?,?,?)').run('acr_'+Date.now(), req.params.id, userId, userName||'', careType||'feeding', description||'', photos||'', lat||0, lng||0)
+    db.prepare('INSERT INTO animal_care_records (id,animal_id,user_id,user_name,care_type,description,photos,lat,lng) VALUES (?,?,?,?,?,?,?,?,?)').run('acr_'+Date.now() + '_' + Math.random().toString(36).slice(2, 6), req.params.id, userId, userName||'', careType||'feeding', description||'', photos||'', lat||0, lng||0)
     res.json(success(null, '已记录'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -45,7 +45,7 @@ animalRouter.post('/:id/health', (req, res) => {
   try {
     const { userId, userName, checkType, findings, vetName, photos } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
-    db.prepare('INSERT INTO animal_health_records (id,animal_id,user_id,user_name,check_type,findings,vet_name,photos) VALUES (?,?,?,?,?,?,?,?)').run('ahr_'+Date.now(), req.params.id, userId, userName||'', checkType||'general', findings||'', vetName||'', photos||'')
+    db.prepare('INSERT INTO animal_health_records (id,animal_id,user_id,user_name,check_type,findings,vet_name,photos) VALUES (?,?,?,?,?,?,?,?)').run('ahr_'+Date.now() + '_' + Math.random().toString(36).slice(2, 6), req.params.id, userId, userName||'', checkType||'general', findings||'', vetName||'', photos||'')
     res.json(success(null, '已记录'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })

@@ -71,7 +71,7 @@ communityRouter.post('/groups', (req, res) => {
   try {
     const { name, description, createdBy, createdByName } = req.body
     if (!name || !createdBy) return res.json(error('name 和 createdBy 不能为空'))
-    const gid = 'grp_' + Date.now()
+    const gid = 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO volunteer_groups (id, name, description, created_by) VALUES (?, ?, ?, ?)').run(gid, name, description || '', createdBy)
     db.prepare('INSERT OR IGNORE INTO group_members (id, group_id, user_id, user_name) VALUES (?, ?, ?, ?)').run('gm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), gid, createdBy, createdByName || '')
     res.json(success({ id: gid }, '群组已创建'))
@@ -98,7 +98,7 @@ communityRouter.post('/groups/:id/messages', (req, res) => {
   try {
     const { userId, userName, content } = req.body
     if (!userId || !content) return res.json(error('参数不完整'))
-    db.prepare('INSERT INTO group_messages (id, group_id, user_id, user_name, content) VALUES (?, ?, ?, ?, ?)').run('gmsg_' + Date.now(), req.params.id, userId, userName || '', content)
+    db.prepare('INSERT INTO group_messages (id, group_id, user_id, user_name, content) VALUES (?, ?, ?, ?, ?)').run('gmsg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), req.params.id, userId, userName || '', content)
     res.json(success(null, '已发送'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })

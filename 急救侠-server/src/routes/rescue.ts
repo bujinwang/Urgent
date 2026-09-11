@@ -13,7 +13,7 @@ rescueRouter.post('/certification', (req, res) => {
   try {
     const { userId, type, issuer, certNumber, issueDate, expiryDate, fileUrl } = req.body
     if (!userId || !type) return res.json(error('参数不完整'))
-    db.prepare('INSERT INTO external_certifications (id, user_id, type, issuer, cert_number, issue_date, expiry_date, file_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('ec_' + Date.now(), userId, type, issuer || '', certNumber || '', issueDate || '', expiryDate || '', fileUrl || '')
+    db.prepare('INSERT INTO external_certifications (id, user_id, type, issuer, cert_number, issue_date, expiry_date, file_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('ec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), userId, type, issuer || '', certNumber || '', issueDate || '', expiryDate || '', fileUrl || '')
     res.json(success(null, '认证已提交'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
@@ -66,7 +66,7 @@ rescueRouter.post('/mobilizations/:id/respond', (req, res) => {
   try {
     const { userId, userName } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
-    db.prepare('INSERT OR IGNORE INTO mobilization_volunteers (id, mobilization_id, user_id, user_name) VALUES (?,?,?,?)').run('mv_' + Date.now(), req.params.id, userId, userName || '')
+    db.prepare('INSERT OR IGNORE INTO mobilization_volunteers (id, mobilization_id, user_id, user_name) VALUES (?,?,?,?)').run('mv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), req.params.id, userId, userName || '')
     db.prepare('UPDATE emergency_mobilizations SET volunteers_responded = volunteers_responded + 1 WHERE id=?').run(req.params.id)
     res.json(success(null, '已响应'))
   } catch (e: any) { res.status(500).json(error(e.message)) }

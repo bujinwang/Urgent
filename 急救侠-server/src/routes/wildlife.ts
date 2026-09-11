@@ -14,7 +14,7 @@ wildlifeRouter.post('/report', (req, res) => {
       const user = get<{ volunteer_type: string }>("SELECT volunteer_type FROM users WHERE id=? AND volunteer_type LIKE '%wildlife%'", userId)
       if (!user) return res.json(error('仅选择野生动物救援的用户可上报'))
     }
-    db.prepare('INSERT INTO wildlife_reports (id,user_id,user_name,category,species,description,lat,lng,location,photos) VALUES (?,?,?,?,?,?,?,?,?,?)').run('wr_'+Date.now(), userId, userName||'', cat, species, description||'', lat||0, lng||0, location||'', photos||'')
+    db.prepare('INSERT INTO wildlife_reports (id,user_id,user_name,category,species,description,lat,lng,location,photos) VALUES (?,?,?,?,?,?,?,?,?,?)').run('wr_'+Date.now() + '_' + Math.random().toString(36).slice(2, 6), userId, userName||'', cat, species, description||'', lat||0, lng||0, location||'', photos||'')
     res.json(success(null, '已上报'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })

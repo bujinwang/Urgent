@@ -55,7 +55,7 @@ trailRouter.post('/events/:id/join', (req, res) => {
   try {
     const { userId, userName } = req.body
     if (!userId) return res.json(error('userId 不能为空'))
-    db.prepare('INSERT OR IGNORE INTO trail_event_participants (id,event_id,user_id,user_name) VALUES (?,?,?,?)').run('tp_' + Date.now(), req.params.id, userId, userName || '')
+    db.prepare('INSERT OR IGNORE INTO trail_event_participants (id,event_id,user_id,user_name) VALUES (?,?,?,?)').run('tp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), req.params.id, userId, userName || '')
     db.prepare('UPDATE trail_events SET current_participants=current_participants+1 WHERE id=?').run(req.params.id)
     res.json(success(null, '已报名'))
   } catch (e: any) { res.status(500).json(error(e.message)) }

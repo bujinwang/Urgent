@@ -38,7 +38,7 @@ publicRouter.post('/inquire', (req, res) => {
   try {
     const { name, phone, message, targetPublicId } = req.body
     if (!message) return res.json(error('请填写咨询内容'))
-    db.prepare('INSERT INTO public_inquiries (id, name, phone, message, target_public_id) VALUES (?, ?, ?, ?, ?)').run('inq_' + Date.now(), name || '', phone || '', message, targetPublicId || '')
+    db.prepare('INSERT INTO public_inquiries (id, name, phone, message, target_public_id) VALUES (?, ?, ?, ?, ?)').run('inq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), name || '', phone || '', message, targetPublicId || '')
     res.json(success(null, '咨询已提交'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })

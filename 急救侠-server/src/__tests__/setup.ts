@@ -23,7 +23,7 @@ import { hashPassword, signGovToken } from '../middleware/govAuth'
 // 逐请求 listen/close 的端口抖动。
 //
 // 注：这里导出的是 server 而非 express app，两者 supertest 都接受；
-// 全仓库测试仅以 `request(app)` 形式使用它，没有 express 专有用法。
+// 全仓库测试仅以 `request(server)` 形式使用它，没有 express 专有用法。
 const server = app.listen(0, '127.0.0.1')
 
 afterAll(() => { server.close() })
