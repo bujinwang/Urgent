@@ -1,5 +1,17 @@
 # 急救侠 · 项目工具脚本
 
+## 依赖树守卫 `急救侠-uniapp/scripts/check-vue-singleton.mjs`
+
+断言「安装后的依赖树中**恰好一份 Vue**」。CI 在 `npm ci` 之后运行（`npm run check:vue-singleton`）。
+
+| 项 | 说明 |
+|------|------|
+| 为什么需要 | uni-app 精确锁 `vue@3.4.21`，pinia（2.2+ / 3.x / 4.x）的 peer 要求 `vue@^3.5.11` —— **同一份 Vue 不可兼得**。`.npmrc` 的 `legacy-peer-deps=true` 把 Vue 压平成唯一一份 3.4.21 |
+| 拦下的失败 | 一旦移除该标志并**重新生成 lock**，`npm ci` 会**绿着**装出「根 `vue@3.5.42` + 嵌套 `vue@3.4.21`」的分裂树 → 应用与 uni-app 运行时各一套 Vue，响应式 / provide-inject / `app.use(pinia)` 静默错配 |
+| 输出 | 通过：`✓ 依赖树中恰好一份 Vue：<版本>`（exit 0）；分裂/缺失：列出全部副本 + 修复指引（exit 1） |
+
+用法：`cd 急救侠-uniapp && npm run check:vue-singleton`（需先安装依赖）
+
 ## 端到端冒烟脚本 `scripts/smoke.mjs`
 
 上线前 / 每次部署后的一键冒烟，把手工端到端验证固化成可重复的一条命令。

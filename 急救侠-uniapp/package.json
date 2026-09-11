@@ -19,6 +19,7 @@
     "build:mp-baidu": "uni build -p mp-baidu",
     "build:mp-toutiao": "uni build -p mp-toutiao",
     "type-check": "vue-tsc --noEmit",
+    "check:vue-singleton": "node scripts/check-vue-singleton.mjs",
     "test": "vitest run"
   },
   "dependencies": {

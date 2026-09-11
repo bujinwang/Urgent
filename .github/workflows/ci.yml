@@ -65,6 +65,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 拦下「Vue 分裂」这一静默失败：uni-app 精确锁 vue@3.4.21，而 pinia 的 peer 要求
+      # vue@^3.5.11（二者不可兼得）。一旦有人移除 .npmrc 的 legacy-peer-deps 并重新生成
+      # lock，`npm ci` 会「绿着」装出多份 Vue（应用与 uni-app 运行时各一套，运行时错配）。
+      # 详见 急救侠-uniapp/.npmrc 与 scripts/check-vue-singleton.mjs。
+      - name: Assert single Vue copy
+        run: npm run check:vue-singleton
+
       - name: Type check
         run: npm run type-check
 

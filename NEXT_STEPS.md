@@ -448,7 +448,7 @@ node scripts/smoke.mjs --base https://<域名>     # 生产（不跳过 TLS 校�
 | 3 | `awardPoints(amount, _reason?)` 第二参数被静默丢弃 | `2650f7e`：`reason` 记入 `pointLog`（不再丢弃）+ 测试断言 |
 | 4 | `express ^4.21.1` 与 `@types/express ^5.0.0` 主版本不一致 | `64bfcbb`：`@types/express` 对齐到 `^4.17`（与运行时同主版本）|
 | 5 | `'xx_' + Date.now()` 单时间戳主键碰撞 | `a9ad204` + `4f395df` + **`d58d4bc`**：分批共补齐 28+ 处，**宽模式 grep 确认"`Date.now()` 后无后缀的主键点位已归零"**（覆盖 `tm_/om_/msg_/gm_/grp_/gmsg_/vc_/dp_/tp_/acr_/ahr_/rc_/wr_/ec_/mv_/inq_/aed_/ci_/am_/mt_/pu_/ac_/org_/cert_/wl_/te_/mob_/live_/vp_/upload_/dr_/sa_` 等）|
-| 6 | `.npmrc` 的 `legacy-peer-deps=true`（P0 绕过） | `560982e`：**本轮保留**并注明理由与两条后续路径（uni-app 对 vue 版本有约束，强行对齐有破坏风险）|
+| 6 | `.npmrc` 的 `legacy-peer-deps=true`（P0 绕过） | `560982e` 保留 + `NEXT_STEPS` 2026-09-12 深查结论：**不可安全移除，判定为「机制」而非「绕过」**。实测：uni-app 精确锁 `vue@3.4.21`，pinia 的 peer 要 `vue@^3.5.11`，**且不止 pinia 3**（2.2.8/2.3.x 同样要求 `^3.5.11`；**仅 pinia ≤2.1.7** 允许 3.4）⇒ 同一份 Vue 不可兼得。删标志的两种后果：① 保留旧 lock → `npm ci` ERESOLVE **响亮失败**；② 重新生成 lock（开发者最易如此）→ `npm ci` **绿着**装出「根 3.5.42 + 嵌套 3.4.21」**分裂树**，运行时两套 Vue 静默错配。故：保留标志 + 新增 `npm run check:vue-singleton` 守卫（CI 在 `npm ci` 后断言「恰好一份 Vue」），并把 `.npmrc` 的错误指引（原写「pinia 降回 2.x 即兼容 vue 3.4」，**实为只有 ≤2.1.7 成立**）更正为实测版本表 |
 
 - 门禁：CI ✅（后端 **174** / 前端 **134**）。
 - 过程备注：第 5 项曾出现一次批量脚本**误吞行尾换行**（造成行合并），已 `git checkout` 回退并用带 lookahead 的脚本重做，**逐文件行数与 HEAD 一致**、diff 为 16 行一对一替换。
