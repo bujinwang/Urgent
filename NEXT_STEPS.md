@@ -256,3 +256,43 @@ docker compose up -d
 - **CD 仅发布镜像，无服务器部署**：尚未 SSH 部署到 VPS（决策"推 GHCR"）。需时补 deploy 步骤 + 主机密钥。
 - **`legacy-peer-deps` 仍是"绕过"**：应择机对齐 `vue`/`pinia`/`@vitejs/plugin-vue` 版本后移除。
 - 本机 arm64/x64 原生依赖问题（见"环境备注"），根治仍是换机 `npm ci`。
+
+---
+
+## 🚧 P2 产品能力补全 · 进行中
+
+### ✅ P2-7 AED 责任人实时联动 + 远程解锁（已完成，2026-09-11）
+
+**MVP 语义 = 责任人远程「确认授权」**（不做物理开锁）：记录授权 + 通知急救者取用；接口保留 `unlock` 名以兼容未来 IoT，但契约用 `commandStatus` 表达指令生命周期。设计/PRD 见 `deliverables/software-company/aed-linkage-{prd,design}.md`（**当前未纳入 git**）。
+
+| commit | 说明 |
+|--------|------|
+| `ecba302` | feat(aed): 后端（schema/迁移/类型/审计 + 定向推送 + 5 接口 + 测试） |
+| `367d5ae` | feat(aed): 前端（API/状态层 + 急救者通知与确认授权 UI + 责任人确认页） |
+| `973cfba` | test(aed): 主线通知用例补显式扇出断言 |
+
+**新增接口（挂 `/api/aed`，均 `authMiddleware`）**
+- `POST /:id/notify-custodian` —— 急救者通知责任人；PIPL 同意前置；设备无责任人 → `4001` 且 **HTTP 200（不阻断急救）**
+- `POST /:id/unlock` —— 责任人「确认授权 / 拒绝」；**幂等**：同人重试同动作 → 200 `idempotent`，**他人 → 409 / 4004「已被他人确认」**
+- `GET /custodian-alerts/pending` —— 责任人收件箱（JOIN `aed_managers`，backup 可见）
+- `GET /:id/custodian-alerts/:alertId` —— 状态回读
+- `POST /:id/custodian-alerts/:alertId/revoke-consent` —— PIPL 撤回首肯
+
+**关键设计**
+- 新表 `aed_custodian_alerts`（30 列 + 4 索引，迁移 `030_add_custodian_alerts`）；时间戳 **UTC epoch ms**；SLA 固定 **120s**；KPI `response_latency_ms` / `sla_met`；**读时惰性过期**（无后台调度器）。
+- 推送新增**定向能力** `services/pushService.ts#sendPushToUser`（原 `push.ts` 只能广播）；模板 `aedCustodianRequest`（**需在小程序后台申请**，非代码前置）。
+- **主 + 备责任人并行推送**，谁先确认谁生效（收件箱对 backup 亦可见）。
+- 超时后**迟到**的确认仍受理，记 `sla_met=0`（急救安全优先）。
+- PIPL：通知前强制同意 + 撤回接口 + 前端同意弹窗；只传姓名 + 位置（`users` 无 phone 列，`requester_user_phone` 留空）。
+
+**顺带修掉的技术债**：`logAudit` 的 `al_+Date.now()` 同毫秒主键碰撞（会丢第二条审计，如 authorize 连写 `custodian_acknowledged`+`unlock_issued`）已加随机后缀 —— 即"七、技术债 #5"的一部分。
+
+**门禁与验证**
+- CI ✅（后端 **141** = 117 + 24 / 前端 **151**）；CD ✅（部署链未被破坏）。
+- QA 对抗式验证：**0 源码缺陷**；9 项边界（backup 确认 / 双 manager 竞态恰为 `[200,409]` / 无责任人 200 且不落库 / 路由未被 `/:id` 遮蔽 / 迟到确认 `sla_met=0` / PIPL 4006 / 撤回 / 4 索引 / 文案纪律 0 违规）全部通过。
+
+**P2-7 遗留（非阻塞，属 P1 范围）**：短信/电话多通道降级；IoT 开柜指令（已预留 `unlock_token` + `command_status`）；政府监管看板指标。
+
+### ⏳ P2 其余项（未开始）
+- **P2-6 前端 mock→真实接口**：AED 相关已随本次去 Mock；其余 `news / atlas / cases / learn / records / task / user / media-alert` 仍待接通。
+- **P2-8 政府数据监管看板**；**P2-9 薄页面复核**（change-pwd / cert/interests / cert/upload / atlas/index）。
