@@ -37,4 +37,27 @@ describe('AED Store（真实接口）', () => {
     expect(store.error).toBe('boom')
     expect(store.aeds).toHaveLength(0)
   })
+
+  it('nearbyAeds 按距离升序 + discoverAed/discoveryProgress', async () => {
+    vi.mocked(request).mockResolvedValue([
+      { id: 'aed_002', name: 'B', address: '', lat: 1, lng: 1, distance: 500, status: 'available', lastCheck: '', batteryLevel: 90 },
+      { id: 'aed_001', name: 'A', address: '', lat: 1, lng: 1, distance: 100, status: 'available', lastCheck: '', batteryLevel: 90 },
+    ])
+    const store = useAedStore()
+    await store.refresh()
+    expect(store.nearbyAeds[0].id).toBe('aed_001')
+    expect(store.nearbyAeds[1].id).toBe('aed_002')
+    expect(store.discoveryProgress).toBe(0)
+    expect(store.discoverAed('aed_001')).toBe(true)
+    expect(store.discoverAed('aed_001')).toBe(false) // 已发现，不重复
+    expect(store.discoveryProgress).toBe(50)
+  })
+
+  it('selectAed 未知 id 不改变选中（保持 null）', async () => {
+    vi.mocked(request).mockResolvedValue(raw)
+    const store = useAedStore()
+    await store.refresh()
+    store.selectAed('nope')
+    expect(store.selectedAed).toBeNull()
+  })
 })

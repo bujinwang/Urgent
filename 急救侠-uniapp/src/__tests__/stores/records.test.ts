@@ -26,4 +26,15 @@ describe('Records Store（真实接口）', () => {
     expect(store.totalRescues).toBe(1)
     expect(store.successCount).toBe(1)
   })
+
+  it('roleStats 按角色统计', async () => {
+    vi.mocked(request).mockResolvedValue([
+      { id: 'r1', type: 'cpr', date: '2026-05-01', location: 'A', role: '按压员', squad: [], result: '成功' },
+      { id: 'r2', type: 'aed', date: '2026-05-02', location: 'B', role: '按压员', squad: [], result: '成功' },
+      { id: 'r3', type: 'assist', date: '2026-05-03', location: 'C', role: '引导', squad: [], result: '移交' },
+    ])
+    const store = useRecordsStore()
+    await store.refresh()
+    expect(store.roleStats).toEqual({ '按压员': 2, '引导': 1 })
+  })
 })

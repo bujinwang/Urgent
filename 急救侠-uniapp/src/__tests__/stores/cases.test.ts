@@ -29,4 +29,12 @@ describe('Cases Store（真实接口）', () => {
     store.selectCase('case_001')
     expect(store.selected?.title).toBe('心脏骤停救援')
   })
+
+  it('selectCase 未知 id 不改变选中（保持 null）', async () => {
+    vi.mocked(request).mockResolvedValue(raw)
+    const store = useCaseStore()
+    await store.refresh()
+    store.selectCase('nope')
+    expect(store.selected).toBeNull()
+  })
 })

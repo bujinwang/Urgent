@@ -32,4 +32,19 @@ describe('News Store（真实接口）', () => {
     store.selectNews('n001')
     expect(store.selected?.title).toBe('测试新闻')
   })
+
+  it('setCategory + filteredItems 按分类筛选', async () => {
+    vi.mocked(request).mockResolvedValue([
+      ...raw,
+      { ...raw[0], id: 'n002', title: '志愿者故事', category: 'volunteer' },
+    ])
+    const store = useNewsStore()
+    await store.refresh()
+    // recommend 类别返回全量
+    expect(store.filteredItems).toHaveLength(2)
+    store.setCategory('volunteer')
+    expect(store.activeCategory).toBe('volunteer')
+    expect(store.filteredItems).toHaveLength(1)
+    expect(store.filteredItems[0].id).toBe('n002')
+  })
 })

@@ -33,4 +33,22 @@ describe('Task Store（真实接口）', () => {
     const store = await mountStore()
     expect(store.hasMission).toBe(true)
   })
+
+  it('任务相位机：acceptMission → running、arrive → arrived、finishMission → 复位', async () => {
+    const store = await mountStore()
+    store.acceptMission()
+    expect(store.missionAccepted).toBe(true)
+    expect(store.missionPhase).toBe('running')
+    expect(store.runningDistance).toBe(100)
+    expect(store.hasMission).toBe(false)
+
+    store.arrive()
+    expect(store.missionPhase).toBe('arrived')
+
+    store.finishMission()
+    expect(store.missionAccepted).toBe(false)
+    expect(store.missionPhase).toBe('idle')
+    expect(store.activeTask).toBeNull()
+    expect(store.runningDistance).toBe(240)
+  })
 })
