@@ -1,0 +1,30 @@
+# ============================================================
+# 急救侠 — Caddyfile（生产：自动 HTTPS + 反代到 web 容器）
+# ============================================================
+# 变量来自 docker-compose.prod.yml 注入的环境变量（其值取自根级 .env）：
+#   DOMAIN    站点域名（如 jiujiaxia.example.com）—— **必填**
+#   TLS_EMAIL ACME 账号邮箱（用于证书到期提醒）
+#
+# ⚠️ TLS_EMAIL 不能为空（已用 `caddy validate` 实测，Caddy v2.8.4）：
+#    空值会让 `tls` 行退化为「裸 tls」→ `wrong argument count ... after 'tls'` 解析失败。
+#    若确实不想提供邮箱，请**删除下面这行 `tls ...`**：Caddy 对域名默认仍会自动签发/续期
+#    证书（实测「不写 tls」为 Valid configuration），只是收不到到期提醒邮件。
+#
+# Caddy 对配置的域名**默认自动申请并续期** Let's Encrypt 证书，无需手工 certbot；
+# 前提是域名 A/AAAA 记录已指向本机且 80/443 已放行（HTTP-01 质询走 80）。
+#
+# 反代目标是 compose 服务名 `web:80`：SPA 静态托管与 /api/、/uploads/ 两条代理
+# 由 web 容器内的 nginx 负责（该链路已验证），Caddy 只做 TLS 终止与透传。
+# Caddy 默认会设置 X-Forwarded-For / X-Forwarded-Proto / X-Forwarded-Host，
+# nginx 侧已有 proxy_set_header X-Forwarded-Proto $scheme，转发链完整。
+# ============================================================
+
+{$DOMAIN} {
+	tls {$TLS_EMAIL}
+	encode gzip
+	reverse_proxy web:80
+	log {
+		output stdout
+		format console
+	}
+}

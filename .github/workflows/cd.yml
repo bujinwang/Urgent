@@ -1,8 +1,16 @@
 # ============================================================
 # 急救侠 — CD Pipeline
 # ============================================================
-# push main 时，将后端(server)与前端(web)镜像构建并推送到 GHCR。
-# 注意：本文件为新增工作流，不改动 ci.yml 中已有的 server/uniapp job。
+# push main 时，将后端(server)与前端(web)镜像构建并推送到 GHCR，随后部署到生产主机。
+#
+# 部署作业（deploy）所需 GitHub Secrets（仓库 Settings → Secrets and variables → Actions）：
+#   SSH_HOST  部署主机地址（IP 或域名）—— **未配置时 deploy 作业优雅跳过，CI 不会变红**
+#   SSH_USER  登录用户（需有 docker 权限，例如 ubuntu / deploy）
+#   SSH_PORT  SSH 端口（可选，默认 22）
+#   SSH_KEY   部署用私钥（建议专用密钥对，见 docs/DEPLOY.md）
+#
+# 注意：本文件为新增工作流，不改动 ci.yml 中已有的 server/uniapp job；
+#      本地开发仍使用 docker-compose.yml，与生产形态 docker-compose.prod.yml 互不影响。
 
 name: CD
 
@@ -44,3 +52,76 @@ jobs:
           context: ./急救侠-uniapp
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/jiujiaxia-web:latest
+
+  # ------------------------------------------------------------
+  # 部署到生产主机
+  #
+  # ⚠️ 未配置 Secrets 时**必须优雅跳过**而非报错：job 级 if 无法引用 secrets，
+  #    故通过 job 级 env 间接判断，并在每个 step 上写 `env.SSH_HOST != ''` 守卫。
+  # ------------------------------------------------------------
+  deploy:
+    name: Deploy to server
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_KEY: ${{ secrets.SSH_KEY }}
+      DEPLOY_DIR: /opt/jiujiaxia
+    steps:
+      - name: Checkout
+        if: env.SSH_HOST != '' && env.SSH_USER != '' && env.SSH_KEY != ''
+        uses: actions/checkout@v4
+
+      - name: Notice — 未配置部署 Secrets，跳过部署
+        if: env.SSH_HOST == '' || env.SSH_USER == '' || env.SSH_KEY == ''
+        run: |
+          echo "::notice title=部署已跳过::未配置 SSH_HOST / SSH_USER / SSH_KEY，跳过部署（配置 Secrets 后自动生效）"
+          echo "镜像已推送到 GHCR；拿到主机后按 docs/DEPLOY.md 第 3 节配置 4 个 Secrets 即可启用自动部署。"
+
+      # 确保部署目录存在（也顺带在最前面暴露 SSH 连通性问题）
+      - name: Ensure deploy directory
+        if: env.SSH_HOST != '' && env.SSH_USER != '' && env.SSH_KEY != ''
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          key: ${{ secrets.SSH_KEY }}
+          script: mkdir -p ${{ env.DEPLOY_DIR }}
+
+      # 上传 compose 文件与 Caddyfile（.env 只存在于主机，不入库、不上传）
+      - name: Upload compose + Caddyfile
+        if: env.SSH_HOST != '' && env.SSH_USER != '' && env.SSH_KEY != ''
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker-compose.prod.yml,Caddyfile"
+          target: ${{ env.DEPLOY_DIR }}
+          overwrite: true
+
+      # 拉取新镜像并滚动更新
+      - name: Pull images & up -d
+        if: env.SSH_HOST != '' && env.SSH_USER != '' && env.SSH_KEY != ''
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ env.DEPLOY_DIR }}
+            if [ ! -f .env ]; then
+              echo "ERROR: 主机 ${{ env.DEPLOY_DIR }}/.env 不存在，请先按 docs/DEPLOY.md 第 2 节创建" >&2
+              exit 1
+            fi
+            docker compose -f docker-compose.prod.yml --env-file .env pull
+            docker compose -f docker-compose.prod.yml --env-file .env up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml --env-file .env ps
