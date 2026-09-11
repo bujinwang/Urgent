@@ -2,14 +2,15 @@
   <view class="pg">
     <view class="hd"><text class="t">修改密码</text></view>
     <view class="form">
-      <input class="in" :value="oldPwd" @input="oldPwd=$event.detail?.value??$event.target?.value??''" placeholder="旧密码" type="password" />
-      <input class="in" :value="newPwd" @input="newPwd=$event.detail?.value??$event.target?.value??''" placeholder="新密码" type="password" />
-      <input class="in" :value="newPwd2" @input="newPwd2=$event.detail?.value??$event.target?.value??''" placeholder="确认新密码" type="password" />
+      <input class="in" :value="oldPwd" @input="oldPwd=uniInputValue($event)" placeholder="旧密码" type="password" />
+      <input class="in" :value="newPwd" @input="newPwd=uniInputValue($event)" placeholder="新密码" type="password" />
+      <input class="in" :value="newPwd2" @input="newPwd2=uniInputValue($event)" placeholder="确认新密码" type="password" />
       <view class="btn" @click="submit">保存</view>
     </view>
   </view>
 </template>
 <script setup lang="ts">
+import { uniInputValue } from '@/types/uni-events'
 import { ref } from 'vue';import { requestFull } from '@/api/index'
 import { useUserStore } from '@/stores/user'
 const oldPwd=ref(''),newPwd=ref(''),newPwd2=ref('')

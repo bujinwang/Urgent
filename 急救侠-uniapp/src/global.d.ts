@@ -31,16 +31,9 @@ declare namespace WechatMiniprogram {
 declare const plus: any
 
 // --- uni-app 跨端表单事件类型 -------------------------------------------------
-// 微信小程序等平台把输入值放在 `event.detail.value`，
-// H5 平台把输入值放在 `event.target.value`。
-// 在环境的 DOM 事件类型上补充这两种形态，使 <input>/<textarea> 的
-// @input / @change 内联处理函数在任意平台都能通过类型检查（无需逐页 as any）。
-interface EventTarget {
-  value?: string
-}
-interface Event {
-  detail?: { value?: string }
-}
+// 注意：**不在此处对 lib.dom 的 EventTarget / Event 做全局增强**（那会让全仓所有事件的
+// `.value` / `.detail` 都“看起来合法”，写错也不报错）。
+// 表单事件请使用 `@/types/uni-events` 的 `UniInputEvent` 与 `uniInputValue($event)`。
 
 // Ensure tsx files can import Vue SFCs
 declare module '*.vue' {

@@ -20,7 +20,7 @@
     </view>
 
     <view class="pub">
-      <input class="pi" :value="msg" @input="msg=$event.detail?.value??$event.target?.value??''" placeholder="输入现场更新..."/>
+      <input class="pi" :value="msg" @input="msg=uniInputValue($event)" placeholder="输入现场更新..."/>
       <text class="pb" @click="send">发送</text>
       <text class="pc" @click="takePhoto">📸</text>
       <text :class="isLive?'pl live-on':'pl'" @click="toggleLive">{{isLive?'⏹ 结束':'🔴 直播'}}</text>
@@ -28,6 +28,7 @@
   </view>
 </template>
 <script setup lang="ts">
+import { uniInputValue } from '@/types/uni-events'
 import { ref,onMounted,computed } from 'vue';import { useUserStore } from '@/stores/user';import { useTaskStore } from '@/stores/task';import { request } from '@/api/index'
 const s=useUserStore(),ts=useTaskStore()
 const taskId=ref(''),task=ref<any>(null),mediaList=ref<any[]>([]),msg=ref(''),isLive=ref(false),liveCount=ref(0),liveId=ref('')

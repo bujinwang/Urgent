@@ -2,11 +2,11 @@
   <view class="pg">
     <view class="hd"><text class="t">登记已有认证</text><text class="s">上传你在其他机构获得的急救证书</text></view>
     <view class="form">
-      <view class="row"><text class="lb">认证类型 *</text><input class="in" :value="type" @input="type=$event.target.value" placeholder="CPR / AED、AHA BLS、红十字急救员" /></view>
-      <view class="row"><text class="lb">颁发机构 *</text><input class="in" :value="issuer" @input="issuer=$event.target.value" placeholder="美国心脏协会、中国红十字总会" /></view>
-      <view class="row"><text class="lb">证书编号</text><input class="in" :value="certNumber" @input="certNumber=$event.target.value" placeholder="选填" /></view>
-      <view class="row"><text class="lb">签发日期</text><input class="in" type="date" :value="issueDate" @input="issueDate=$event.target.value" /></view>
-      <view class="row"><text class="lb">到期日期</text><input class="in" type="date" :value="expiryDate" @input="expiryDate=$event.target.value" /></view>
+      <view class="row"><text class="lb">认证类型 *</text><input class="in" :value="type" @input="type=uniInputValue($event)" placeholder="CPR / AED、AHA BLS、红十字急救员" /></view>
+      <view class="row"><text class="lb">颁发机构 *</text><input class="in" :value="issuer" @input="issuer=uniInputValue($event)" placeholder="美国心脏协会、中国红十字总会" /></view>
+      <view class="row"><text class="lb">证书编号</text><input class="in" :value="certNumber" @input="certNumber=uniInputValue($event)" placeholder="选填" /></view>
+      <view class="row"><text class="lb">签发日期</text><input class="in" type="date" :value="issueDate" @input="issueDate=uniInputValue($event)" /></view>
+      <view class="row"><text class="lb">到期日期</text><input class="in" type="date" :value="expiryDate" @input="expiryDate=uniInputValue($event)" /></view>
       <view class="btn" @click="submit">提交认证</view>
     </view>
     <view v-if="list.length" class="sec"><text class="st">我的记录</text>
@@ -15,6 +15,7 @@
   </view>
 </template>
 <script setup lang="ts">
+import { uniInputValue } from '@/types/uni-events'
 import { ref,onMounted } from 'vue';import { useUserStore } from '@/stores/user';import { request } from '@/api/index'
 const s=useUserStore()
 const type=ref(''),issuer=ref(''),certNumber=ref(''),issueDate=ref(''),expiryDate=ref(''),list=ref<any[]>([])

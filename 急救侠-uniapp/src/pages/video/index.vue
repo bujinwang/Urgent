@@ -59,8 +59,8 @@
       <text v-else-if="uploadState==='done'" class="upload-done">✅ 视频上传完成</text>
       <text v-else-if="uploadState==='fail'" class="upload-fail">❌ 上传失败，点击"发布"重试</text>
 
-      <input class="mi" :value="pubTitle" @input="pubTitle=$event.detail?.value??$event.target?.value??''" placeholder="输入视频标题" />
-      <input class="mi" :value="pubDesc" @input="pubDesc=$event.detail?.value??$event.target?.value??''" placeholder="描述（可选）" />
+      <input class="mi" :value="pubTitle" @input="pubTitle=uniInputValue($event)" placeholder="输入视频标题" />
+      <input class="mi" :value="pubDesc" @input="pubDesc=uniInputValue($event)" placeholder="描述（可选）" />
       <view class="mcats">
         <text v-for="c in cats" :key="c" :class="pubCat===c?'cat-sel':'cat-opt'" @click="pubCat=c">{{c}}</text>
       </view>
@@ -154,7 +154,7 @@
           </scroll-view>
 
           <view class="fs_cmts_input_row">
-            <input class="fs_cmts_input" :value="cmtText" @input="cmtText=$event.detail?.value??$event.target?.value??''" placeholder="说点什么..." :disabled="cmtSubmitting" />
+            <input class="fs_cmts_input" :value="cmtText" @input="cmtText=uniInputValue($event)" placeholder="说点什么..." :disabled="cmtSubmitting" />
             <view class="fs_cmts_send" :class="{cmt_disabled:!cmtText.trim()||cmtSubmitting}" @click="submitComment">发送</view>
           </view>
         </view>
@@ -164,6 +164,7 @@
 </template>
 
 <script setup lang="ts">
+import { uniInputValue } from '@/types/uni-events'
 import { ref,onMounted } from 'vue';import { useUserStore } from '@/stores/user';import { request, BASE_URL } from '@/api/index'
 const s=useUserStore()
 const tabs=[{key:'recommend',label:'推荐'},{key:'rescue',label:'救援'},{key:'training',label:'教学'},{key:'animal',label:'动物'},{key:'daily',label:'日常'}]

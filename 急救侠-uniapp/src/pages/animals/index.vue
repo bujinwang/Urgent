@@ -17,12 +17,12 @@
 
     <view v-if="showForm" class="modalmask" @click="showForm=false"><view class="modal" @click.stop>
       <text class="mt">登记动物</text>
-      <input class="mi" :value="form.species" @input="form.species=$event.target.value" placeholder="物种 * (猫/狗/其他)" />
-      <input class="mi" :value="form.name" @input="form.name=$event.target.value" placeholder="名字 (选填)" />
-      <input class="mi" :value="form.color" @input="form.color=$event.target.value" placeholder="颜色" />
-      <input class="mi" :value="form.size" @input="form.size=$event.target.value" placeholder="体型 (小/中/大)" />
-      <input class="mi" :value="form.features" @input="form.features=$event.target.value" placeholder="特征 (花纹/项圈/伤情)" />
-      <input class="mi" :value="form.location" @input="form.location=$event.target.value" placeholder="发现地点" />
+      <input class="mi" :value="form.species" @input="form.species=uniInputValue($event)" placeholder="物种 * (猫/狗/其他)" />
+      <input class="mi" :value="form.name" @input="form.name=uniInputValue($event)" placeholder="名字 (选填)" />
+      <input class="mi" :value="form.color" @input="form.color=uniInputValue($event)" placeholder="颜色" />
+      <input class="mi" :value="form.size" @input="form.size=uniInputValue($event)" placeholder="体型 (小/中/大)" />
+      <input class="mi" :value="form.features" @input="form.features=uniInputValue($event)" placeholder="特征 (花纹/项圈/伤情)" />
+      <input class="mi" :value="form.location" @input="form.location=uniInputValue($event)" placeholder="发现地点" />
       <view class="mb"><view class="btn" @click="create">提交</view></view>
     </view></view>
 
@@ -54,16 +54,17 @@
 
     <view v-if="logMode" class="modalmask" @click="logMode=''"><view class="modal" @click.stop>
       <text class="mt">{{ logMode==='care'?'记录照料':'健康检查' }}</text>
-      <input v-if="logMode==='care'" class="mi" :value="logForm.careType" @input="logForm.careType=$event.target.value" placeholder="类型 (feeding/check/other)" />
-      <input v-if="logMode==='health'" class="mi" :value="logForm.checkType" @input="logForm.checkType=$event.target.value" placeholder="检查类型" />
-      <input class="mi" :value="logForm.description" @input="logForm.description=$event.target.value" placeholder="描述" />
-      <input v-if="logMode==='health'" class="mi" :value="logForm.vetName" @input="logForm.vetName=$event.target.value" placeholder="兽医姓名 (选填)" />
+      <input v-if="logMode==='care'" class="mi" :value="logForm.careType" @input="logForm.careType=uniInputValue($event)" placeholder="类型 (feeding/check/other)" />
+      <input v-if="logMode==='health'" class="mi" :value="logForm.checkType" @input="logForm.checkType=uniInputValue($event)" placeholder="检查类型" />
+      <input class="mi" :value="logForm.description" @input="logForm.description=uniInputValue($event)" placeholder="描述" />
+      <input v-if="logMode==='health'" class="mi" :value="logForm.vetName" @input="logForm.vetName=uniInputValue($event)" placeholder="兽医姓名 (选填)" />
       <view class="mb"><view class="btn" @click="submitLog">提交</view></view>
     </view></view>
   </view>
 </template>
 
 <script setup lang="ts">
+import { uniInputValue } from '@/types/uni-events'
 import { ref,onMounted } from 'vue';import { useUserStore } from '@/stores/user';import { request } from '@/api/index'
 const s=useUserStore()
 const animals=ref<any[]>([]),form=ref({species:'',name:'',color:'',size:'',features:'',location:''})
