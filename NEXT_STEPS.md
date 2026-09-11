@@ -307,6 +307,18 @@ docker compose up -d
 
 **已知后端缺口（前端已诚实降级、未臆造）**：`learn /trainings` 无端点（用前端本地 UI 配置）；`records` 无 `/:id`（列表 + 客户端筛选）；`volunteer/rankings` 不支持 `type` 维度（两榜同数据）；`media-alert` 后端只记元数据、不落盘二进制；`cases↔news` 互链字段缺失。建议作为后续小项补后端。
 
-### ⏳ P2 其余项（未开始）
-- **P2-8 政府数据监管看板**；**P2-9 薄页面复核**（change-pwd / cert/interests / cert/upload / atlas/index）。
-- P2-6 遗留的上列后端缺口（如需补齐）。
+### ✅ P2-6 后端缺口补齐（已完成，2026-09-11）
+
+把 P2-6 暴露的 5 处后端缺口补齐，前端不再降级：
+
+- commit：`72af14d`(后端) + `ec419b2`(前端接线) + `d914e35`(gitignore) + `50c14ac`(严格只增不改 + 测试清理)。
+- **`records /:id`**：新增 `GET /api/records/:id`（未找到 404 + `救援记录不存在`），前端直连，去掉"列表+客户端筛选"。
+- **`volunteer/rankings?type=`**：`points`(默认) / `rescue` 真实不同排序；`rank` 语义不变，新增 `position`（所选维度 1-based 位次）。
+- **`media-alert`**：`multer.diskStorage` 落盘 `public/uploads/media` + 扩展名白名单 + 200MB 上限；响应新增 `url`/`urls[]`。**严格只增不改**：`imageCount`/`message` 保持原语义，真实上传数用新增 `uploadedCount` 表达。
+- **`cases↔news`**：迁移 `031_add_case_news_link` 给 `rescue_cases` 加**可空** `news_id`；list / `:id` 暴露 `newsId`；**无可靠来源保持 NULL**（不伪造）。
+- **`learn /trainings`**：判定为**导航路由配置**，**有意保留前端本地**（映射表已标注）。
+- 门禁：CI ✅（后端 **150** / 前端 **134**）；QA 对抗式验证 **0 源码缺陷**（media-alert 逐字节落盘 + 白名单拒 `.exe` + 201MB 拒收均实锤）。
+- 映射表：`急救侠-uniapp/docs/p2-6-api-mapping.md`（5 项均已标注 ✅ / 有意保留）。
+
+### ⏳ P2 其余项
+- **P2-8 政府数据监管看板**（进行中）；**P2-9 薄页面复核**（change-pwd / cert/interests / cert/upload / atlas/index）。
