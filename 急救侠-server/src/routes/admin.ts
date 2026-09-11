@@ -8,13 +8,18 @@ import type {
   AdminCertificateRow, VolunteerRow,
 } from '../types/rows'
 
-/** Require authenticated user with is_leader = 1 */
+/**
+ * 管理面鉴权：依赖**平台管理员**（`is_platform_admin`，迁移 036 引入）。
+ *
+ * 拆分前此处判 `is_leader`（队伍队长），导致任何队长都能进管理面。
+ * 队伍队长属**队伍角色**，不得据此进入平台管理面 —— 见 `types/rows.ts` 的字段说明。
+ */
 function adminMiddleware(req: Parameters<typeof authMiddleware>[0], res: Parameters<typeof authMiddleware>[1], next: Parameters<typeof authMiddleware>[2]) {
   const auth = (req as any).auth as AuthPayload | undefined
   if (!auth) return res.status(401).json(error('未登录'))
   const userId = auth.userId || auth.openid
-  const user = db.prepare('SELECT is_leader FROM users WHERE id = ?').get(userId) as { is_leader: number } | undefined
-  if (!user || !user.is_leader) return res.status(403).json(error('仅管理员可执行此操作'))
+  const user = db.prepare('SELECT is_platform_admin FROM users WHERE id = ?').get(userId) as { is_platform_admin: number } | undefined
+  if (!user || !user.is_platform_admin) return res.status(403).json(error('仅管理员可执行此操作'))
   next()
 }
 

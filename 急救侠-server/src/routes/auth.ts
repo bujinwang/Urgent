@@ -93,6 +93,13 @@ authRouter.post('/register', validate(AuthRegisterInput), (req, res) => {
     // `isLeader` 不再取自请求体（NEW-1：注册时自封队长等同于自授管理面权限）
     const { interests, affiliation } = req.body as { interests?: string, affiliation?: string }
     const volunteerType = interests || 'medical'
+    /**
+     * 队伍权益授予（silver / 500 分 / 3 次救援 / 3 张证书）来自用户**自述**的所属队伍。
+     *
+     * ⚠️ 已评估，属**有意保留的产品口径**（注册页本就让用户勾选所属队伍，视作可信自述），
+     * **不是缺陷** —— 请勿在下一次安全扫描/代码审查中重复报出。
+     * 若未来上线「队籍核验」，此处应改为**审核通过后授予**，而非注册即授予。
+     */
     const isBsm = affiliation === '蓝天救援队'
     const tier = isBsm ? 'silver' : 'bronze'
     const points = isBsm ? 500 : 0

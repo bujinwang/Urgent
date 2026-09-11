@@ -42,9 +42,10 @@ pushRouter.post('/send', authMiddleware, async (req, res) => {
     const auth = (req as any).auth as AuthPayload
     const userId = auth.userId || auth.openid
 
-    // 验证管理员权限（is_leader = 1）
-    const user = db.prepare('SELECT is_leader FROM users WHERE id = ?').get(userId) as { is_leader: number } | undefined
-    if (!user || !user.is_leader) {
+    // 验证管理员权限：依赖**平台管理员**（`is_platform_admin`，迁移 036 引入）。
+    // 全量推送是平台级操作，队伍队长（队伍角色）无权发起 —— 拆分前此处判 `is_leader`。
+    const user = db.prepare('SELECT is_platform_admin FROM users WHERE id = ?').get(userId) as { is_platform_admin: number } | undefined
+    if (!user || !user.is_platform_admin) {
       return res.status(403).json(error('仅管理员可执行此操作'))
     }
 

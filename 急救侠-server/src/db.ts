@@ -18,6 +18,32 @@ if (DB_PATH === ':memory:') {
 
 db.pragma('foreign_keys = ON')
 
+/**
+ * 迁移 036 的一次性回填：把既有的「队长」（`is_leader = 1`）同时置为平台管理员，
+ * 保证拆分**不产生静默失权**（静默失权比静默越权更难排查）。
+ *
+ * ⚠️ 这是**保权而非授权** —— 迁移前 `is_leader` 同时承担管理面判定，这些账号
+ * 当时确实拥有管理权限。副作用：历史上因队伍角色拿到管理面权限的账号会被固化
+ * 为平台管理员；「收窄」需业务/运营侧确认名单后另开工单，本函数日志是定位依据。
+ *
+ * 幂等：只处理 `is_platform_admin = 0` 的行，重复调用不会重复授予。
+ *
+ * @returns 本次被授予平台管理员权限的账号数量
+ */
+export function backfillPlatformAdmins(): number {
+  const rows = all<{ id: string }>(
+    'SELECT id FROM users WHERE is_leader = 1 AND is_platform_admin = 0'
+  )
+  if (rows.length === 0) return 0
+  db.prepare('UPDATE users SET is_platform_admin = 1 WHERE is_leader = 1 AND is_platform_admin = 0').run()
+  const ids = rows.map((r) => r.id)
+  console.warn(
+    `[DB] 迁移 036 回填 is_platform_admin（保权，非授权）：${ids.length} 个账号 → ${ids.join(', ')}` +
+    `；这些账号历史上凭 is_leader 拥有管理面权限，「收窄」需另开工单确认。`
+  )
+  return ids.length
+}
+
 export function initDb(options: { silent?: boolean } = {}) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -35,7 +61,10 @@ export function initDb(options: { silent?: boolean } = {}) {
       affiliation TEXT NOT NULL DEFAULT '',
       volunteer_type TEXT NOT NULL DEFAULT 'medical',
       is_organizer INTEGER NOT NULL DEFAULT 0,
-      is_public INTEGER NOT NULL DEFAULT 0
+      is_public INTEGER NOT NULL DEFAULT 0,
+      -- 平台管理员（与"队伍队长" is_leader 正交）：仅用于管理面判定，
+      -- 见迁移 036。公开接口绝不可输出此字段。
+      is_platform_admin INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS tasks (
@@ -712,7 +741,7 @@ export function initDb(options: { silent?: boolean } = {}) {
     applied_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`)
 
-  const migrations: Array<{ id: string; description: string; sql: string }> = [
+  const migrations: Array<{ id: string; description: string; sql: string; after?: () => void }> = [
     { id: '001_add_password', description: 'add password column to users', sql: "ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT ''" },
     { id: '002_add_coach_role', description: 'add role column to volunteers', sql: "ALTER TABLE volunteers ADD COLUMN role TEXT NOT NULL DEFAULT 'volunteer'" },
     { id: '003_add_coach_specialties', description: 'add coach_specialties to volunteers', sql: "ALTER TABLE volunteers ADD COLUMN coach_specialties TEXT NOT NULL DEFAULT '[]'" },
@@ -810,6 +839,15 @@ export function initDb(options: { silent?: boolean } = {}) {
     { id: '033_add_district_aed', description: 'add nullable district to aed_devices', sql: "ALTER TABLE aed_devices ADD COLUMN district TEXT" },
     { id: '034_add_district_tasks', description: 'add nullable district to tasks', sql: "ALTER TABLE tasks ADD COLUMN district TEXT" },
     { id: '035_add_district_rescue', description: 'add nullable district to rescue_records', sql: "ALTER TABLE rescue_records ADD COLUMN district TEXT" },
+    {
+      id: '036_add_user_is_platform_admin',
+      description: 'add is_platform_admin to users (platform admin separated from team leader role)',
+      sql: 'ALTER TABLE users ADD COLUMN is_platform_admin INTEGER NOT NULL DEFAULT 0',
+      // 一次性回填：把既有「队长」同时保权为平台管理员，避免迁移造成静默失权。
+      // 这是**保权而非授权**；「收窄」（把不该有管理权的队长降级）另开工单，
+      // 需业务/运营侧确认名单后再做。
+      after: backfillPlatformAdmins,
+    },
   ]
 
   const applied = new Set(
@@ -821,6 +859,8 @@ export function initDb(options: { silent?: boolean } = {}) {
     try {
       db.exec(m.sql)
       db.prepare('INSERT INTO _migrations (id, description) VALUES (?, ?)').run(m.id, m.description || m.id)
+      // 可选的迁移后处理（如数据回填）；仅在首次应用该迁移时执行一次
+      if (m.after) m.after()
       if (!options.silent) console.log(`[DB] Migration applied: ${m.id}`)
     } catch (err) {
       if (!options.silent) console.warn(`[DB] Migration skipped (likely already applied): ${m.id}`)

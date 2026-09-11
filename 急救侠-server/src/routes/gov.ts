@@ -395,8 +395,12 @@ govRouter.get('/dashboard', govMiddleware, (req, res) => {
   }
 })
 
-// ---------- 管理：政府账号（业务 authMiddleware + is_leader） ----------
+// ---------- 管理：政府账号（业务 authMiddleware + 平台管理员） ----------
 
+/**
+ * 依赖**平台管理员**（`is_platform_admin`）：政府账号属平台级管理对象，
+ * 队伍队长（队伍角色）无权管理 —— 拆分前此处判 `is_leader`。
+ */
 function leaderOnly(
   req: Parameters<typeof authMiddleware>[0],
   res: Parameters<typeof authMiddleware>[1],
@@ -406,8 +410,8 @@ function leaderOnly(
   if (!auth) return res.status(401).json(error('未登录'))
   const userId = auth.userId || auth.openid
   if (!userId) return res.status(401).json(error('未登录'))
-  const user = get<{ is_leader: number }>('SELECT is_leader FROM users WHERE id = ?', userId)
-  if (!user || !user.is_leader) return res.status(403).json(error('仅管理员可执行此操作'))
+  const user = get<{ is_platform_admin: number }>('SELECT is_platform_admin FROM users WHERE id = ?', userId)
+  if (!user || !user.is_platform_admin) return res.status(403).json(error('仅管理员可执行此操作'))
   next()
 }
 

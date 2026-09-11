@@ -29,6 +29,8 @@ publicRouter.get('/verify/:publicId', (req, res) => {
       volunteerType: row.volunteer_type,
       affiliation: row.affiliation || undefined,
       isOrganizer: row.is_organizer === 1,
+      // 仅暴露**队伍角色**（`is_leader`）。`is_platform_admin`（平台管理员）是公开接口
+      // 的绝对禁区 —— 输出即等于公开管理员名单（迁移 036）。
       isLeader: row.is_leader === 1,
     }))
   } catch (e: any) { res.status(500).json(error(e.message)) }

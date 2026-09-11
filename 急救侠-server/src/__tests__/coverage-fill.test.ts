@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { server, seedTestData, clearAll, db, userToken } from './setup'
+import { server, seedTestData, clearAll, db, userToken, makeAdmin } from './setup'
 import { resetSchema } from '../db'  // 从零重建完整 schema，兜底恢复被破坏的表结构
 
 describe('Coverage: middleware/auth.ts', () => {
@@ -170,7 +170,7 @@ describe('Coverage: routes/push.ts', () => {
     const token = login.body.data.token
 
     // Grant admin to this test user
-    db.prepare('UPDATE users SET is_leader = 1 WHERE id = ?').run(login.body.data.openid)
+    makeAdmin(login.body.data.openid)
 
     const res = await request(server)
       .post('/api/push/send')

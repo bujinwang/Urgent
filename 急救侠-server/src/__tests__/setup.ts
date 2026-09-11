@@ -111,6 +111,25 @@ export function userToken(userId = 'user_001'): string {
   return signToken({ userId })
 }
 
+/**
+ * 授予**平台管理员**（管理面权限，迁移 036 起与队伍角色正交）。
+ *
+ * 仅供需要 `/api/admin/*`、`/api/gov/viewers*`、`/api/push/send` 的用例使用。
+ */
+export function makeAdmin(userId: string): void {
+  db.prepare('UPDATE users SET is_platform_admin = 1 WHERE id = ?').run(userId)
+}
+
+/**
+ * 授予**队伍队长**（队伍角色，可发起动员 / 重置同队队员口令），**不含**管理面权限。
+ *
+ * @param affiliation 队伍名；队长只能管理同一非空 affiliation 的队员。
+ */
+export function makeTeamLeader(userId: string, affiliation?: string): void {
+  db.prepare('UPDATE users SET is_leader = 1' + (affiliation ? ', affiliation = ?' : '') + ' WHERE id = ?')
+    .run(...(affiliation ? [affiliation, userId] : [userId]))
+}
+
 /** 政府看板账号夹具（P2-8）：返回可用于登录/直连的凭据与令牌。 */
 export function seedGovViewer(opts: {
   username?: string; password?: string; name?: string; orgName?: string

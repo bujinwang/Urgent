@@ -63,6 +63,8 @@ export interface UserRow {
   volunteer_type: string
   is_organizer: number
   is_public: number
+  /** 平台管理员（迁移 036 引入，与「队伍队长」`is_leader` 正交）。公开接口不得输出。 */
+  is_platform_admin: number
   password: string
 }
 

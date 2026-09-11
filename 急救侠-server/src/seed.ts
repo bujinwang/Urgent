@@ -9,10 +9,12 @@ db.pragma('foreign_keys = OFF')
 db.exec('DELETE FROM push_subscriptions; DELETE FROM users; DELETE FROM tasks; DELETE FROM aed_devices; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM atlas_cards; DELETE FROM stats;')
 
 // ---- User ----
-db.prepare(`INSERT INTO users (id, name, avatar, tier, points, city, volunteer_id, certifications, rescue_count, public_id, is_leader, affiliation, is_public)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+db.prepare(`INSERT INTO users (id, name, avatar, tier, points, city, volunteer_id, certifications, rescue_count, public_id, is_leader, affiliation, is_public, is_platform_admin)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
   'user_001', '陆远', '陆', 'gold', 2340, '深圳', 'SZ-012',
-  JSON.stringify(['CPR-AHA', 'AED-Operator']), 12, 'J9X2K7', 1, '蓝天救援队', 1
+  JSON.stringify(['CPR-AHA', 'AED-Operator']), 12, 'J9X2K7', 1, '蓝天救援队', 1,
+  // 种子管理员：既是队长（队伍角色）也是平台管理员（管理面），两者自 036 起正交
+  1
 )
 
 // ---- Stats ----

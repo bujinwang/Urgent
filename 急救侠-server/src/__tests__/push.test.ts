@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { server, seedTestData, db } from './setup'
+import { server, seedTestData, db, makeAdmin } from './setup'
 import { sendPushToUser, PUSH_TEMPLATES } from '../services/pushService'
 
 describe('Push Routes', () => {
@@ -80,7 +80,7 @@ describe('Push Routes', () => {
       const openid = login.body.data.openid
 
       // Grant admin
-      db.prepare('UPDATE users SET is_leader = 1 WHERE id = ?').run(openid)
+      makeAdmin(openid)
 
       const res = await request(server)
         .post('/api/push/send')

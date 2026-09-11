@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { server, seedTestData, db, userToken } from './setup'
+import { server, seedTestData, db, userToken, makeTeamLeader } from './setup'
 
 const PHONE_A = '13911139111'
 const PHONE_B = '13922239222'
@@ -90,7 +90,7 @@ describe('F1 — reset-password 必须鉴权', () => {
     const tokenA = await registerAndLogin(PHONE_A, PWD_A, { affiliation: TEAM })
     await registerAndLogin(PHONE_B, 'orig-pw-bbb', { affiliation: TEAM })
     // 队长身份由管理操作授予（非注册自封）
-    db.prepare('UPDATE users SET is_leader = 1 WHERE id = ?').run('u_' + PHONE_A)
+    makeTeamLeader('u_' + PHONE_A, TEAM)
 
     const res = await request(server)
       .post('/api/auth/reset-password')
@@ -106,7 +106,7 @@ describe('F1 — reset-password 必须鉴权', () => {
     const tokenA = await registerAndLogin(PHONE_A, PWD_A, { affiliation: TEAM })
     await registerAndLogin(PHONE_B, 'orig-pw-bbb', { affiliation: '其他救援队' })
     await registerAndLogin(PHONE_C, 'orig-pw-ccc') // 无 affiliation
-    db.prepare('UPDATE users SET is_leader = 1 WHERE id = ?').run('u_' + PHONE_A)
+    makeTeamLeader('u_' + PHONE_A, TEAM)
 
     const other = await request(server)
       .post('/api/auth/reset-password')

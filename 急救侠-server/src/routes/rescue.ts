@@ -33,6 +33,8 @@ rescueRouter.post('/mobilize', (req, res) => {
   try {
     const { title, description, type, address, lat, lng, volunteersNeeded, leaderId, leaderName } = req.body
     if (!title || !leaderId) return res.json(error('参数不完整'))
+    // 依赖**队伍角色**（`is_leader`）：发起救援动员是队长职责，与平台管理面无关，
+    // 故拆分后仍判 `is_leader`；仅具平台管理员身份者不得据此发起动员。
     const leader = get<UserLeaderRow>('SELECT is_leader FROM users WHERE id=?', leaderId)
     if (!leader || !leader.is_leader) return res.json(error('只有认证救援领导者才能发起动员'))
     const mid = 'mob_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
@@ -81,6 +83,8 @@ rescueRouter.get('/mobilizations/:id/volunteers', (req, res) => {
 
 rescueRouter.get('/team', (req, res) => {
   try {
+    // 依赖**队伍角色**（`is_leader`）：队伍成员花名册按队长所属队伍（affiliation）返回，
+    // 与平台管理面无关，故拆分后仍判 `is_leader`。
     const leader = get<UserAffiliationRow>('SELECT affiliation FROM users WHERE id=? AND is_leader=1', req.query.leaderId as string)
     if (!leader) return res.json(error('非认证领导者'))
     const rows = all<VolunteerTeamRow>("SELECT u.id, u.name, u.avatar, u.tier, u.rescue_count, u.city FROM users u WHERE u.affiliation=? ORDER BY u.rescue_count DESC", leader.affiliation)
