@@ -240,10 +240,15 @@ describe('公开接口不得泄漏管理员标志', () => {
     const res = await request(server).get(`/api/public/verify/${publicId}`)
     expect(res.status).toBe(200)
     expect(res.body.code).toBe(0)
+    // 确认扫的是**真实档案负载**，而不是「未开启公开档案」之类的错误响应体
+    // （该接口刻意不返回姓名等 PII，故用 tierLabel / affiliation 作为正向标记）
+    expect(res.body.data.tierLabel).toBeTruthy()
+    expect(res.body.data.affiliation).toBe(TEAM)
     const body = JSON.stringify(res.body)
     expect(body).not.toContain('is_platform_admin')
     expect(body).not.toContain('isPlatformAdmin')
     expect(body).not.toContain('platformAdmin')
+    expect(body).not.toContain('platform_admin')
     // 队伍角色仍可公开（非敏感）
     expect(res.body.data.isLeader).toBe(false)
   })

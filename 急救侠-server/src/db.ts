@@ -846,6 +846,10 @@ export function initDb(options: { silent?: boolean } = {}) {
       // 一次性回填：把既有「队长」同时保权为平台管理员，避免迁移造成静默失权。
       // 这是**保权而非授权**；「收窄」（把不该有管理权的队长降级）另开工单，
       // 需业务/运营侧确认名单后再做。
+      //
+      // 挂在 `after` 上 ⇒ **仅在首次应用本迁移时回填**：若每次启动都回填，
+      // 拆分后新晋的队长会在下次重启被静默提升为管理员，拆分将被自己抵消。
+      // 全新库因列已在 canonical schema（ALTER 被跳过）而不会触发回填 —— 无历史数据，本就无需回填。
       after: backfillPlatformAdmins,
     },
   ]
@@ -859,8 +863,17 @@ export function initDb(options: { silent?: boolean } = {}) {
     try {
       db.exec(m.sql)
       db.prepare('INSERT INTO _migrations (id, description) VALUES (?, ?)').run(m.id, m.description || m.id)
-      // 可选的迁移后处理（如数据回填）；仅在首次应用该迁移时执行一次
-      if (m.after) m.after()
+      // 可选的迁移后处理（如数据回填）；仅在首次应用该迁移时执行一次。
+      // 单独 try/catch：失败时必须报出**真实错误**，不能被外层的
+      // "skipped (likely already applied)" 掩盖（那会让人误以为回填已跑过）。
+      if (m.after) {
+        try {
+          m.after()
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          console.error(`[DB] 迁移 ${m.id} 已应用，但迁移后处理失败（需人工处理，重启不会重试）: ${msg}`)
+        }
+      }
       if (!options.silent) console.log(`[DB] Migration applied: ${m.id}`)
     } catch (err) {
       if (!options.silent) console.warn(`[DB] Migration skipped (likely already applied): ${m.id}`)
