@@ -347,4 +347,6 @@ docker compose up -d
 - 后端**手机号登录**返回**明文** `token_<phone>_<ts>`（`routes/auth.ts:96`），**不是 JWT**（`signToken` 只用在同文件的微信登录路径 `routes/auth.ts:40`）；
 - `authMiddleware` 用 `verifyToken`（`jwt.verify`，**严格 JWT**，`middleware/auth.ts:19-21`）→ 明文 token **被 401**；
 - 前端 `api/index.ts` 将该 token 作为 `Bearer` 附到**所有请求**；而 **P2-7 的 AED 联动端点（`notify-custodian`/`unlock`/`custodian-alerts/*`）都挂了 `authMiddleware`** → **手机号登录用户在真实使用中会 401**。
-- 定性：后端单测用 `signToken` 造 JWT，故全绿；**前端携带的却是明文 token** → 典型"单测过、端到端未必通"。**待修**（建议手机号登录也改发 `signToken` 的 JWT；随之 `change-pwd.vue` 不能再从 token 截取 phone，应改用已登录身份）。
+- 定性：后端单测用 `signToken` 造 JWT，故全绿；**前端携带的却是明文 token** → 典型"单测过、端到端未必通"。
+- **✅ 已修（2026-09-11）**：`7a02e45` + `c1ce051` —— ① 登录/注册改发**真 JWT**（`signToken`，payload 含 `userId`）；② `/auth/change-password` 加 `authMiddleware`、从 `req.auth.userId` 定位用户、**不再信任客户端 `phone`**（越权改他人密码 → 403）；③ `change-pwd.vue` 去掉 token 截取、改用已登录身份；④ `/user/profile` 去明文解析；⑤ `checkLogin` 清理无效令牌、demo 令牌仅 UI 演示。
+- 验证：CI ✅（后端 **174** / 前端 **134**）；QA 独立回归（**自建**"注册→真 JWT→`/api/auth/me`=200"、P2-7 端点不再 401、越权改密被拒、demo 令牌仍 401、无残留截取）**0 缺陷**。
