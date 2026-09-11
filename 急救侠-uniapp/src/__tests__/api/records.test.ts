@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { request } from '@/api/index'
-import { fetchRecords, mapRescueRecord } from '@/api/records'
+import { fetchRecords, fetchRecordById, mapRescueRecord } from '@/api/records'
 import type { ApiRescueRecord } from '@/api/records'
 
 const raw: ApiRescueRecord = {
@@ -20,5 +20,11 @@ describe('Records API（真实接口 /api/records/list）', () => {
       id: 'rec_001', type: 'cpr', outcome: 'success', squadCount: 2, aedUsed: false,
     })
     expect(r.squad[0]).toMatchObject({ name: '陆远', avatar: '陆' })
+  })
+
+  it('fetchRecordById 直接调用 /records/:id（不存在时抛干净错误）', async () => {
+    vi.mocked(request).mockResolvedValueOnce(null)
+    await expect(fetchRecordById('rec_001')).rejects.toThrow('救援记录不存在')
+    expect(vi.mocked(request)).toHaveBeenCalledWith({ url: '/records/rec_001' })
   })
 })

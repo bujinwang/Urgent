@@ -47,6 +47,8 @@ export interface ApiRescueCase {
   result: string
   volunteers: string[]
   body?: string
+  /** 关联新闻 ID（后端可空；无值时不互链） */
+  newsId?: string
 }
 
 const HERO_COLORS = [
@@ -74,6 +76,7 @@ export function mapRescueCase(raw: ApiRescueCase | null | undefined): RescueCase
     resultIcon: '💚',
     resultTitle: raw.result || '救援记录',
     resultText: raw.summary,
+    newsId: raw.newsId || undefined,
     timeline: [],
     heroes: volunteers.map((name, i) => ({
       id: i + 1,

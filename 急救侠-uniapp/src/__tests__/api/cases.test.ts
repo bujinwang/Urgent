@@ -29,4 +29,9 @@ describe('Cases API（真实接口）', () => {
     expect(c.heroes).toHaveLength(2)
     expect(c.heroes[0]).toMatchObject({ name: '陆远', avatar: '陆' })
   })
+
+  it('mapRescueCase 透传 newsId（无值则 undefined，前端据此降级）', () => {
+    expect(mapRescueCase({ ...raw, newsId: 'n001' }).newsId).toBe('n001')
+    expect(mapRescueCase(raw).newsId).toBeUndefined()
+  })
 })

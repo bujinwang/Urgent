@@ -30,6 +30,8 @@ export interface ApiVolunteerRank {
   rescueCount: number
   city: string
   rank: number
+  /** 所选榜单维度（points|rescue）下的位次（后端新增，1-based） */
+  position?: number
 }
 
 /**
@@ -39,7 +41,7 @@ export interface ApiVolunteerRank {
 export function mapVolunteerRank(raw: ApiVolunteerRank | null | undefined): VolunteerRankEntry {
   if (!raw) throw new Error('排行榜数据不存在')
   return {
-    id: raw.rank || 0,
+    id: raw.position ?? raw.rank ?? 0,
     avatar: raw.avatar || (raw.name || '?').charAt(0),
     name: raw.name,
     volunteerId: raw.id,

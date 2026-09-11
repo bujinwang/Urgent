@@ -25,12 +25,14 @@ export interface UploadResult {
   uploadedCount: number
   failedCount: number
   reportId?: string
+  /** 后端落盘后可访问的媒体 URL 列表（成功时返回） */
+  urls?: string[]
   message: string
 }
 
 interface UploadResponseBody {
   code?: number
-  data?: { uploadId?: string; message?: string }
+  data?: { uploadId?: string; message?: string; url?: string }
   message?: string
 }
 
@@ -57,6 +59,7 @@ export function uploadMedia(
     let ok = 0
     let reportId: string | undefined
     let lastMessage = ''
+    let uploadUrls: string[] = []
 
     const finish = (uploadId?: string) => {
       if (uploadId) reportId = uploadId
@@ -68,6 +71,7 @@ export function uploadMedia(
           uploadedCount: ok,
           failedCount: total - ok,
           reportId: success ? reportId : undefined,
+          urls: success ? uploadUrls : undefined,
           message: success
             ? (lastMessage || `已成功将 ${ok} 个文件发送至 120 急救中心`)
             : `${ok}/${total} 个文件上传成功，${total - ok} 个失败`,
@@ -90,6 +94,7 @@ export function uploadMedia(
           }
           const isOk = body.code === 0
           if (isOk) ok++
+          if (body.data?.url) uploadUrls.push(body.data.url)
           lastMessage = body.data?.message || body.message || lastMessage
           onFileDone?.(i, isOk)
           finish(body.data?.uploadId)

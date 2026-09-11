@@ -24,4 +24,8 @@ describe('Volunteer API（真实接口 /api/volunteer/rankings）', () => {
       id: 1, name: '陆远', volunteerId: 'v001', points: 2340, rescueCount: 12, isMe: false,
     })
   })
+
+  it('mapVolunteerRank 优先使用 position 作为位次', () => {
+    expect(mapVolunteerRank({ ...raw, rank: 9, position: 3 }).id).toBe(3)
+  })
 })

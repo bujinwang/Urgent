@@ -1,9 +1,8 @@
 /**
- * 救援记录 API — 真实接口（GET /api/records/list）
+ * 救援记录 API — 真实接口（GET /api/records/list、GET /api/records/:id）
  *
- * 说明：后端**没有** `/api/records/:id` 端点，`fetchRecordById` 通过列表接口
- * 拉取后在客户端筛选（见交付映射表）；后端结构缺少 duration/timeline 等字段，
- * 由显式映射函数用安全默认补齐。
+ * 说明：后端结构缺少 duration/timeline 等字段，由显式映射函数用安全默认补齐；
+ * 单条取数直接调用后端已补齐的 `GET /api/records/:id`。
  */
 
 import { request } from './index'
@@ -97,10 +96,8 @@ export async function fetchRecords(): Promise<RescueRecord[]> {
   return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 }
 
-/** 获取单条记录（后端无 /:id → 列表接口 + 客户端筛选）。 */
+/** 获取单条记录（后端 GET /api/records/:id）。 */
 export async function fetchRecordById(id: string): Promise<RescueRecord> {
-  const list = await fetchRecords()
-  const found = list.find((r) => r.id === id)
-  if (!found) throw new Error('救援记录不存在')
-  return found
+  const raw = await request<ApiRescueRecord | null>({ url: `/records/${id}` })
+  return mapRescueRecord(raw)
 }

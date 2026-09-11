@@ -46,7 +46,7 @@ const uniMock = {
   makePhoneCall: vi.fn(),
   vibrateShort: vi.fn(),
   uploadFile: vi.fn((opts: { success?: (r: { data: string }) => void }) => {
-    opts?.success?.({ data: JSON.stringify({ code: 0, data: { uploadId: 'upload_test', message: 'ok' } }) })
+    opts?.success?.({ data: JSON.stringify({ code: 0, data: { uploadId: 'upload_test', url: '/uploads/media/test.jpg', message: 'ok' } }) })
     return { onProgressUpdate: vi.fn() }
   }),
 }
