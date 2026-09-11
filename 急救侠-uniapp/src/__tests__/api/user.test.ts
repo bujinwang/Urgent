@@ -1,29 +1,22 @@
-import { describe, it, expect } from 'vitest'
-import { getProfile, getStats, fetchProfile, fetchStats, awardPointsApi } from '@/api/user'
+import { describe, it, expect, vi } from 'vitest'
+import { request } from '@/api/index'
+import { fetchProfile, fetchStats, awardPointsApi } from '@/api/user'
 
-describe('User API', () => {
-  it('getProfile returns mock user', () => {
-    const user = getProfile()
-    expect(user.id).toBe('user_001')
-    expect(user.name).toBe('陆远')
-    expect(user.tier).toBe('gold')
+describe('User API（真实接口）', () => {
+  it('fetchProfile 调用 /user/profile', () => {
+    void fetchProfile()
+    expect(vi.mocked(request)).toHaveBeenCalledWith({ url: '/user/profile' })
   })
 
-  it('getStats returns platform stats', () => {
-    const stats = getStats()
-    expect(stats.certifiedRescuers).toBeGreaterThan(0)
-    expect(stats.networkedAeds).toBeGreaterThan(0)
+  it('fetchStats 调用 /user/stats', () => {
+    void fetchStats()
+    expect(vi.mocked(request)).toHaveBeenCalledWith({ url: '/user/stats' })
   })
 
-  it('fetchProfile returns a promise', () => {
-    expect(fetchProfile()).toBeInstanceOf(Promise)
-  })
-
-  it('fetchStats returns a promise', () => {
-    expect(fetchStats()).toBeInstanceOf(Promise)
-  })
-
-  it('awardPointsApi returns a promise', () => {
-    expect(awardPointsApi(10, 'test')).toBeInstanceOf(Promise)
+  it('awardPointsApi 调用 POST /user/points', () => {
+    void awardPointsApi(10, 'test')
+    expect(vi.mocked(request)).toHaveBeenCalledWith({
+      url: '/user/points', method: 'POST', data: { amount: 10, reason: 'test' },
+    })
   })
 })

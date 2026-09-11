@@ -1,29 +1,42 @@
-import { describe, it, expect } from 'vitest'
-import { getNearbyAeds, getAedById, fetchAedList, fetchAedById } from '@/api/aed'
+import { describe, it, expect, vi } from 'vitest'
+import { request } from '@/api/index'
+import { fetchAedList, fetchAedById, mapApiDeviceToView } from '@/api/aed'
+import type { ApiAedDevice } from '@/api/aed'
 
-describe('AED API', () => {
-  it('getNearbyAeds returns devices', () => {
-    const list = getNearbyAeds()
-    expect(list.length).toBeGreaterThanOrEqual(1)
-    expect(list[0].id).toBeTruthy()
+const rawDevice: ApiAedDevice = {
+  id: 'aed_001',
+  name: '深圳湾 AED',
+  address: '深圳湾公园南门',
+  lat: 22.517,
+  lng: 113.947,
+  distance: 120,
+  status: 'available',
+  lastCheck: '2025-05-01',
+  batteryLevel: 98,
+}
+
+describe('AED API（真实接口）', () => {
+  it('fetchAedList 调用 /aed/nearby', () => {
+    void fetchAedList()
+    expect(vi.mocked(request)).toHaveBeenCalledWith({ url: '/aed/nearby' })
   })
 
-  it('getAedById finds existing device', () => {
-    const aed = getAedById('aed_001')
-    expect(aed).toBeDefined()
-    expect(aed?.name).toBeTruthy()
+  it('fetchAedList 支持坐标参数', () => {
+    void fetchAedList(22.5, 113.9)
+    expect(vi.mocked(request)).toHaveBeenCalledWith({ url: '/aed/nearby?lat=22.5&lng=113.9' })
   })
 
-  it('getAedById returns undefined for unknown', () => {
-    const aed = getAedById('nonexistent')
-    expect(aed).toBeUndefined()
+  it('fetchAedById 调用 /aed/:id', () => {
+    void fetchAedById('aed_001')
+    expect(vi.mocked(request)).toHaveBeenCalledWith({ url: '/aed/aed_001' })
   })
 
-  it('fetchAedList returns a promise', () => {
-    expect(fetchAedList()).toBeInstanceOf(Promise)
-  })
-
-  it('fetchAedById returns a promise', () => {
-    expect(fetchAedById('aed_001')).toBeInstanceOf(Promise)
+  it('mapApiDeviceToView 补齐后端缺失字段（photo/discovered/verified）', () => {
+    const view = mapApiDeviceToView(rawDevice, { discovered: true, verified: false })
+    expect(view).toMatchObject({
+      id: 'aed_001', name: '深圳湾 AED',
+      photo: '/static/aed/aed_001.png', discovered: true, verified: false,
+    })
+    expect(view.checkIns).toEqual([])
   })
 })
