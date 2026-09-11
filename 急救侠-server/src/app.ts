@@ -13,6 +13,7 @@ import { recordsRouter } from './routes/records'
 import { casesRouter } from './routes/cases'
 import { atlasRouter } from './routes/atlas'
 import { mediaAlertRouter } from './routes/media-alert'
+import { govRouter } from './routes/gov'
 import { initDb } from './db'
 import { authRouter } from './routes/auth'
 import { pushRouter } from './routes/push'
@@ -60,6 +61,17 @@ const pushSendLimiter = isTestMode
       legacyHeaders: false,
     })
 
+/** 政府登录限流（沿用测试豁免模式） */
+const govLoginLimiter = isTestMode
+  ? (req: any, _res: any, next: any) => next()
+  : rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 10,
+      message: { code: -1, message: '请求过于频繁，请稍后再试' },
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+
 // Routes
 app.use('/api/auth', authLimiter, authRouter)
 app.use('/api/push/send', pushSendLimiter)
@@ -74,6 +86,8 @@ app.use('/api/records', recordsRouter)
 app.use('/api/cases', casesRouter)
 app.use('/api/atlas', atlasRouter)
 app.use('/api/media-alert', mediaAlertRouter)
+app.use('/api/gov/login', govLoginLimiter)
+app.use('/api/gov', govRouter)
 app.use('/api/org', orgRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/public', publicRouter)
