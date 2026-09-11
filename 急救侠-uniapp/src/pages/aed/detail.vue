@@ -215,7 +215,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useAedStore } from '@/stores/aed'
-import { getAedById, fetchAedById, mapApiDeviceToView, createAedPickup } from '@/api/aed'
+import { fetchAedById, mapApiDeviceToView, createAedPickup } from '@/api/aed'
 import type { AedDevice } from '@/api/aed'
 import { AlertCode } from '@/api/aed-custodian'
 import { useCustodianAlertStore } from '@/stores/custodian-alert'
@@ -265,9 +265,9 @@ const caCountdown = computed(() => {
   return sec > 0 ? sec + 's' : '已超时'
 })
 
-/** 真实接口取设备；失败回退 Mock（离线兜底）。 */
+/** 真实接口取设备；失败即视为未找到（不再回退 mock，避免把假数据当真实结果）。 */
 async function loadAed(id: string): Promise<void> {
-  const known = getAedById(id)
+  const known = aedStore.aeds.find((a) => a.id === id)
   try {
     const raw = await fetchAedById(id)
     aed.value = mapApiDeviceToView(raw, {
@@ -275,10 +275,10 @@ async function loadAed(id: string): Promise<void> {
       verified: known?.verified ?? false,
     })
   } catch {
-    if (known) aed.value = known
-    else notFound.value = true
+    notFound.value = true
+    return
   }
-  if (aed.value) aedStore.discoverAed(id)
+  aedStore.discoverAed(id)
 }
 
 onMounted(async () => {
@@ -345,14 +345,15 @@ function resetCheckIn() {
 function submitCheckIn() {
   if (!checkinPhoto.value || !aed.value) return
   const comment = checkinStatus.value === 'ok' ? '设备完好，功能正常' : '设备存在问题，需要维护'
-  aedStore.checkInAed(aed.value.id, checkinPhoto.value, checkinStatus.value, comment, checkinTip.value || undefined)
+  const id = aed.value.id
+  aedStore.checkInAed(id, checkinPhoto.value, checkinStatus.value, comment, checkinTip.value || undefined)
   uni.showToast({
     title: checkinStatus.value === 'ok' ? '✅ 打卡成功 +30⭐' : '⚠️ 已上报问题 +15⭐',
     icon: 'none',
     duration: 2000,
   })
-  const updated = getAedById(aed.value.id)
-  if (updated) aed.value = updated
+  // 重新取最新设备（含最新打卡记录）
+  void loadAed(id)
   resetCheckIn()
 }
 

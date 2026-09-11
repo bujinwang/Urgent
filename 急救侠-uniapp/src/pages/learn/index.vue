@@ -10,8 +10,8 @@
     <view v-if="learnStore.currentTab === 'knowledge'">
       <view class="learn-banner">
         <text class="learn-banner-tag">推荐课程</text>
-        <text class="learn-banner-title">{{ learnStore.featuredLesson.title }}</text>
-        <text class="learn-banner-meta">{{ learnStore.featuredLesson.duration }} · {{ learnStore.featuredLesson.students.toLocaleString() }} 人已学</text>
+        <text class="learn-banner-title">{{ learnStore.featuredLesson?.title || '暂无推荐课程' }}</text>
+        <text class="learn-banner-meta">{{ learnStore.featuredLesson ? learnStore.featuredLesson.duration + ' · ' + learnStore.featuredLesson.students.toLocaleString() + ' 人已学' : '数据加载中…' }}</text>
         <view class="learn-banner-btn" @click="learnStore.setTab('training')">开始训练 →</view>
       </view>
       <view class="lesson-list">

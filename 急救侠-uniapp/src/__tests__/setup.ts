@@ -45,6 +45,10 @@ const uniMock = {
   }),
   makePhoneCall: vi.fn(),
   vibrateShort: vi.fn(),
+  uploadFile: vi.fn((opts: { success?: (r: { data: string }) => void }) => {
+    opts?.success?.({ data: JSON.stringify({ code: 0, data: { uploadId: 'upload_test', message: 'ok' } }) })
+    return { onProgressUpdate: vi.fn() }
+  }),
 }
 
 ;(global as any).uni = uniMock
@@ -66,6 +70,8 @@ vi.mock('@dcloudio/uni-app', () => ({
 
 // Mock API index
 vi.mock('@/api/index', () => ({
+  BASE_URL: '/api',
   request: vi.fn(() => Promise.resolve(null)),
+  requestFull: vi.fn(() => Promise.resolve({ code: 0, message: 'ok' })),
   default: vi.fn(() => Promise.resolve(null)),
 }))

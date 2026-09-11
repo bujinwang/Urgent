@@ -52,7 +52,7 @@ export async function request<T>(options: RequestOptions): Promise<T> {
     }
     return body.data
   } catch (e: any) {
-    console.warn('[API] 请求失败，使用 mock 数据:', e.errMsg || e.message)
+    console.warn('[API] 请求失败:', e.errMsg || e.message)
     throw e
   }
 }

@@ -130,22 +130,21 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getNewsById } from '@/api/news'
+import { fetchNewsById } from '@/api/news'
 import type { NewsItem } from '@/api/news'
 
 const item = ref<NewsItem | null>(null)
 const loading = ref(true)
 const notFound = ref(false)
 
-onMounted(() => {
+onMounted(async () => {
   const pages = getCurrentPages()
-  const page = pages[pages.length - 1] as any
+  const page = pages[pages.length - 1] as { options?: Record<string, string> }
   const id = page?.options?.id
   if (id) {
-    const found = getNewsById(id)
-    if (found) {
-      item.value = found
-    } else {
+    try {
+      item.value = await fetchNewsById(id)
+    } catch {
       notFound.value = true
     }
   } else {
