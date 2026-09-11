@@ -180,3 +180,24 @@ npm rebuild better-sqlite3 --build-from-source             # better_sqlite3.node
 ```
 
 根治：换机后删除 `node_modules` 重新 `npm ci`。
+
+---
+
+## ✅ CI 已首次全绿（2026-09-10 19:54）
+
+推送后 CI **首次真正运行**（此前 15 个提交一直积压未推，CI 配置从未被执行验证过）。
+
+**第一次运行（`34552300374`）**：Server job 通过，Uniapp job 在 `Install dependencies` 阶段失败。
+**第二次运行（`34552420524`）**：两个 job 全部通过。
+
+| Job | 结果 | 耗时 |
+|-----|------|------|
+| Server — type-check + test | ✅ | 26s |
+| Uniapp — type-check + test | ✅ | 1m11s |
+
+### 首次运行暴露的第 3 个阻塞项：uniapp 依赖安装 ERESOLVE
+- **现象**：`npm ci` 失败，`ERESOLVE could not resolve`，`pinia@3.0.4` 要求 peer `vue@^3.5.11`，而 uni-app 侧锁定 `vue@^3.4.21`。
+- **为什么本地从不暴露**：本地 `node_modules` 是用 **pnpm** 装的（peer 校验宽松），且 `.npmrc` 里只有 pnpm 的 `shamefully-hoist=true`；CI 用的是严格的 `npm ci`。**这个问题只可能由 CI 首次运行暴露出来** —— 又一次印证"积压 15 个提交不推"的代价。
+- **修法**：`.npmrc` 增加 `legacy-peer-deps=true`（提交 `1406067`），使 npm 与 pnpm 解析行为一致。已验证 `npm ci --dry-run` 从失败转为通过。
+- **遗留技术债**：这是"绕过"而非"解决"。应择机把 `vue` / `pinia` / `@vitejs/plugin-vue` 版本对齐后删掉该行（uni-app 对 vue 版本有约束，需谨慎评估）。
+- **另注**：`@vitejs/plugin-vue` 在 `package.json` 中为 `^6.0.6`，而 vite 为 `5.2.8`，同样存在版本错配，建议一并评估。
