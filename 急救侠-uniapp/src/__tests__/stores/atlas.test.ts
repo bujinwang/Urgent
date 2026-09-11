@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { request } from '@/api/index'
 import { useAtlasStore } from '@/stores/atlas'
+import type { ApiAtlasCard } from '@/api/atlas'
 
-const raw = [
+const raw: ApiAtlasCard[] = [
   { id: 'cpr', title: '心脏骤停', category: '基础', description: 'CPR + AED 全流程', steps: [], icon: '❤️' },
 ]
 
