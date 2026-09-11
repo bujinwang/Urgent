@@ -14,6 +14,12 @@
  *   - 仅使用 Node 内置模块（fetch / process）与内置断言，不新增任何依赖。
  *   - 幂等：固定手机号 + 固定口令；重复运行不会反复新增用户。
  *   - 全部断言通过 exit 0，任一失败 exit 1（绝不吞异常）。
+ *
+ * ⚠️ 限流额度：`/api/auth/*` 有「20 次 / 15 分钟 / 来源」限流（见 server app.ts）。
+ *   为避免撞限流，CORS（#11）与超大请求体 413（#12）两条断言**改打无任何限流器的
+ *   `/api/health`**；本脚本每轮仅消耗 **5 次** `/api/auth` 额度
+ *   （register 1 + login 1 + /auth/me 2 + 错口令 login 1）→ 同一来源约可连跑 **4 轮**。
+ *   若仍命中 429，汇总行会显式标注，等待窗口重置后再跑即可。
  */
 
 import assert from 'node:assert/strict';
@@ -201,6 +207,9 @@ async function request(method, path, options = {}) {
   } catch {
     json = undefined;
   }
+  if (isRateLimited({ status: res.status, json })) {
+    rateLimitHits += 1;
+  }
   return { status: res.status, headers: res.headers, text, json, url };
 }
 
@@ -254,6 +263,8 @@ function truncate(text, max = 200) {
 let token = '';
 /** 是否至少收到过一个 HTTP 响应（用于区分「连不上服务」与「业务失败」）。 */
 let sawAnyResponse = false;
+/** 本轮命中限流（429）的响应数，用于在汇总行显式标注。 */
+let rateLimitHits = 0;
 
 async function run() {
   const start = Date.now();
@@ -270,11 +281,12 @@ async function run() {
     assert.ok(res.text.includes('<div id="app"'), 'body 应包含 <div id="app"');
   });
 
-  // ---- 2. 首页引用的静态资源可访问 ----
-  await check('2. /assets/* 静态资源（应为 4 个）逐个可访问（200）', async () => {
+  // ---- 2. 首页引用的静态资源可访问（数量解耦：不硬编码「恰好 4 个」） ----
+  await check('2. /assets/* 静态资源逐个可访问（200）', async () => {
     const res = await request('GET', '/');
     const assets = Array.from(new Set(res.text.match(/\/assets\/[A-Za-z0-9._-]+/g) || []));
-    assert.equal(assets.length, 4, `应提取到 4 个 /assets 引用，实际 ${assets.length}: ${assets.join(', ')}`);
+    process.stdout.write(`      （本轮发现 ${assets.length} 个 /assets 引用）\n`);
+    assert.ok(assets.length >= 1, `应从首页提取到至少 1 个 /assets 引用，实际 ${assets.length} 个`);
     for (const asset of assets) {
       const r = await request('GET', asset);
       assertStatus(r, 200, `GET ${asset}`);
@@ -361,35 +373,29 @@ async function run() {
     assertStatus(res, 403, 'GET /api/gov/viewers（业务令牌）');
   });
 
-  // ---- 11. CORS 白名单 ----
+  // ---- 11. CORS 白名单（改打无鉴权/无限流的 /api/health；CORS 为全局中间件） ----
   await check('11. CORS：白名单 Origin 有 allow-origin，evil Origin 无 allow-origin', async () => {
-    const allowed = await request('POST', '/api/auth/login', {
-      headers: { 'Content-Type': 'application/json', Origin: baseOrigin },
-      body: { phone: opts.phone, password: opts.password },
-    });
+    const allowed = await request('GET', '/api/health', { headers: { Origin: baseOrigin } });
     assert.ok(
       allowed.headers.get('access-control-allow-origin'),
       `白名单 Origin(${baseOrigin}) 应返回 access-control-allow-origin`,
     );
 
-    const blocked = await request('POST', '/api/auth/login', {
-      headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example' },
-      body: { phone: opts.phone, password: opts.password },
-    });
+    const blocked = await request('GET', '/api/health', { headers: { Origin: 'https://evil.example' } });
     assert.ok(
       !blocked.headers.get('access-control-allow-origin'),
       'evil Origin 不应返回 access-control-allow-origin',
     );
   });
 
-  // ---- 12. 请求体上限 ----
+  // ---- 12. 请求体上限（改打 /api/health；体解析在路由匹配前生效） ----
   await check('12. 超大请求体（约 1.6MB）返回 413', async () => {
     const payload = JSON.stringify({ phone: opts.phone, password: 'x'.repeat(1_600_000) });
-    const res = await request('POST', '/api/auth/login', {
+    const res = await request('POST', '/api/health', {
       headers: { 'Content-Type': 'application/json' },
       body: payload,
     });
-    assertStatus(res, 413, 'POST /api/auth/login（超大请求体）');
+    assertStatus(res, 413, 'POST /api/health（超大请求体）');
   });
 
   // ---- 13. 安全响应头（helmet） ----
@@ -412,6 +418,11 @@ async function run() {
 
   // ---- 汇总 ----
   const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+  if (rateLimitHits > 0) {
+    process.stdout.write(
+      `\n⚠ 本轮含 ${rateLimitHits} 处 429（请求限流），结果未必代表真实回归；请 15 分钟后重跑。\n`,
+    );
+  }
   process.stdout.write(`\n${passed} passed, ${failed} failed (${elapsed}s)\n`);
   if (failed > 0) {
     process.stdout.write('\n失败详情:\n');
