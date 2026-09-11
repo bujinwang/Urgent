@@ -7,9 +7,6 @@ data/
 .git/
 .gitignore
 *.md
-tsconfig.json
 vitest.config.ts
-src/
-node_modules/
 .pnpm-store/
 .node-gyp-cache/
