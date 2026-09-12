@@ -557,3 +557,18 @@ node scripts/smoke.mjs --base https://<域名>     # 生产（不跳过 TLS 校�
 - **验证（两轮突变）**：第 1 轮独立 QA **17 突变 + 9 对抗点** → 主干 PASS（含"我点名的 `timingSafeEqual` 长度陷阱**代码已有守卫**"），**判定需返工（低危）**：① 日上限 **TOCTOU 竞态**（`LIMIT=1` 并发 3 条**实呼 3 次**）——**由我的设计口径（呼叫后自增）诱发**；② 5 处覆盖缺口（500 分支零覆盖、真实 `sendSms→bizId` 未验、限流无覆盖、100 上限无覆盖、voice 无 golden）。修复后**第 2 轮由主理人定向重放 R-a~R-f 全 RED**：预留移回 `await` → 日上限+M9 **双红**；`500→200` → 红；`aliyunRpc` 去 `.sort()` → **sms 3 + voice 1 同时红**；不返 `bizId` → 端到端红；上限 `100→10000` → 红；限流 `force` 被忽略 → 红。
 - **遗留**：① **未真机联调**（无凭证）—— 签名/参数按官方文档实现 + 确定性单测覆盖，需真实凭证做端到端验证；② 短信模板变量与 **TTS 模板**报备对齐；③ 语音 `RegionId` 现**复用 `ALIYUN_SMS_REGION`**（真机若报地域错，改一行）。
 - ⚠️ **环境陷阱（已写入技能）**：跑本仓库测试**不要前置 `/opt/homebrew/bin`/`/usr/local/bin`** —— `/usr/local/bin/node` 是 **v23**，而 `better_sqlite3.node` 为 **Node 22** 编译 ⇒ ABI 不匹配 ⇒ 全部 suite 加载失败，输出 `Test Files N failed` + `Tests no tests`（exit 1）。用裸 `DB_PATH=':memory:' npm test`（默认即受管 v22.22.2，与 CI 的 node 22 一致）。
+
+## ✅ 上线前全栈演练（已完成 2026-09-12）
+
+**动机**：本轮后端改动很大（**迁移 037/038/039** + 新增公开回调端点 + 短信/语音链路），而**全部单测都跑在 `:memory:` 上** —— canonical 建表已含全部列 ⇒ **加列类迁移在测试里一律被 skipped，真实升级路径从未在实机跑过**。这正是"上线前充分测试"最该补的洞。
+
+**四层实机验证（全部通过）**
+| 层 | 方法 | 结果 |
+|---|---|---|
+| ① 持久库升级路径（直连） | 复制真实库到 `/tmp`（**不碰原库**）→ 剥离 037/038/039 的产物与记录构造"旧库" → **真实服务**对其启动 | 日志 `Migration applied: 037/038/039`（**applied，非 skipped**）；`/api/health` **200**；`users.phone` 经 **ALTER 补上**、`app_meta` 与 `aed_sms_dispatches`+`idx_sms_dispatches_biz` 建出、三条迁移入账 |
+| ② 公开回调端点 | 真实运行 app，逐场景打 `POST /api/public/aliyun-sms-report` | 未配置/不带/错密钥 → **404**；**长度不同的错密钥 → 404**（长度守卫实机生效、未 500）；正确密钥 → **200 `{"code":0,"msg":"接收成功"}`**（阿里云要求的契约）；**零呼叫** |
+| ③ 真实配置下限流 | 连打 **62** 次 | **60× 200 + 2× 429**，第 61 次 `请求过于频繁`（测试模式豁免过限流，此为**真实挂载首次确认**）|
+| ④ 整栈 + 冒烟 | `colima start` → `docker compose -f docker-compose.local.yml --env-file .env.local up -d --build`（**重建**镜像）→ `node scripts/smoke.mjs` | `server`/`web` 均 **Healthy**；**容器内 server 对 compose volume 持久库同样 applied 037/038/039**（真实部署产物上的第二次独立确认）；经 Caddy 8443 `/api/health` **200**、新端点 **404 且返回 JSON 非 SPA HTML**（路由未被前端 fallback 吞）；**冒烟 13 passed / 0 failed** |
+
+**结论**：后端本轮全部改动在实机侧**已无未验证项**。唯一仍缺的是**真实阿里云凭证下的联调**（照 `docs/DEPLOY.md §11` 七项清单）。
+本机栈保持运行（`https://localhost:8443`）；停止：`docker compose -f docker-compose.local.yml --env-file .env.local down`。
