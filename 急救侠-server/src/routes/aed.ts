@@ -15,6 +15,7 @@ import { validate } from '../middleware/validate'
 import { logAudit } from '../services/aedAudit'
 import { sendPushToUser, PUSH_TEMPLATES } from '../services/pushService'
 import { isSmsConfigured, sendSms } from '../services/smsService'
+import { resolveCustodianPhone } from '../services/custodianPhone'
 
 export const aedRouter = Router()
 
@@ -515,17 +516,6 @@ function resolveCustodians(aedId: string): AedManagerRow[] {
   )
 }
 
-/**
- * 解析责任人号码（**现取现用，不落快照**）：
- * 优先 `users.phone`，为空则回落设备级 `aed_devices.custodian_phone`。
- */
-function resolveCustodianPhone(userId: string, device: AedRow): string {
-  const u = get<{ phone: string }>('SELECT phone FROM users WHERE id = ?', userId)
-  const p = (u?.phone || '').trim()
-  if (p) return p
-  return (device.custodian_phone || '').trim()
-}
-
 /** 行 → 对外的 camelCase 领域对象（不返回责任人手机号）。 */
 function rowToAlert(row: AedCustodianAlertRow): AedCustodianAlert {
   return {
@@ -650,7 +640,17 @@ aedRouter.post('/:id/notify-custodian', authMiddleware, validate(CustodianNotify
           device: device.name,
           address: device.address || '',
         })
-        if (r.ok) smsAccepted++
+        if (r.ok) {
+          smsAccepted++
+          if (r.bizId) {
+            // 记录短信下发流水（**仅 biz_id/alert_id/custodian_user_id，不存手机号**）：
+            // 状态报告回调按 biz_id 对账，并在「未送达」时用 custodian_user_id 回库解析号码触发语音降级。
+            const dispatchId = 'sd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
+            db.prepare(
+              'INSERT INTO aed_sms_dispatches (id, biz_id, alert_id, custodian_user_id) VALUES (?,?,?,?)'
+            ).run(dispatchId, r.bizId, alertId, m.user_id)
+          }
+        }
       }
     }
 

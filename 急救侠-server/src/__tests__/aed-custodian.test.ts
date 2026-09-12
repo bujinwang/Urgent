@@ -486,4 +486,29 @@ describe('AED 责任人联动 — 短信即时降级', () => {
     expect(sendSpy).toHaveBeenCalledTimes(1) // 恰好一次
     expect(sendSpy.mock.calls[0][0]).toBe('13911112222') // 只给失败的 backup；成功者不重复发
   })
+
+  it('短信成功且返回 bizId ⇒ 落 aed_sms_dispatches 行（供状态报告对账）；表内不含手机号', async () => {
+    const req = await login('requester')
+    const cp = await login('primary')
+    addCustodian(AED_ID, cp.id, '陈敏', 'primary') // 无订阅
+    db.prepare('UPDATE users SET phone=? WHERE id=?').run('13800138000', cp.id)
+    vi.spyOn(smsService, 'isSmsConfigured').mockReturnValue(true)
+    vi.spyOn(smsService, 'sendSms').mockResolvedValue({ ok: true, code: 'OK', bizId: 'BIZ_X1' })
+
+    const res = await notify(req.token)
+    expect(res.body.data.deliveryState).toBe('sms_fallback')
+
+    const row = db
+      .prepare('SELECT biz_id, alert_id, custodian_user_id FROM aed_sms_dispatches WHERE biz_id=?')
+      .get('BIZ_X1') as { biz_id: string; alert_id: string; custodian_user_id: string } | undefined
+    expect(row?.biz_id).toBe('BIZ_X1')
+    expect(row?.alert_id).toBe(res.body.data.alertId)
+    expect(row?.custodian_user_id).toBe(cp.id)
+
+    // 「不新增 PII 持久化」：该表**不含任何手机号**（结构 + 内容双重断言）
+    const cols = (db.prepare('PRAGMA table_info(aed_sms_dispatches)').all() as Array<{ name: string }>).map((c) => c.name)
+    expect(cols.some((c) => c.toLowerCase().includes('phone'))).toBe(false)
+    const full = db.prepare('SELECT * FROM aed_sms_dispatches WHERE biz_id=?').get('BIZ_X1')
+    expect(JSON.stringify(full)).not.toContain('13800138000')
+  })
 })

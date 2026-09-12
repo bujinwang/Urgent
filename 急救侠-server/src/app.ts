@@ -92,6 +92,17 @@ const govLoginLimiter = isTestMode
       legacyHeaders: false,
     })
 
+/** 阿里云短信状态报告回调限流（公开端点，沿用测试豁免模式） */
+const smsReportLimiter = isTestMode
+  ? (req: any, _res: any, next: any) => next()
+  : rateLimit({
+      windowMs: 60 * 1000,
+      max: 60,
+      message: { code: -1, message: '请求过于频繁，请稍后再试' },
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+
 // Routes
 app.use('/api/auth', authLimiter, authRouter)
 app.use('/api/push/send', pushSendLimiter)
@@ -110,6 +121,7 @@ app.use('/api/gov/login', govLoginLimiter)
 app.use('/api/gov', govRouter)
 app.use('/api/org', orgRouter)
 app.use('/api/admin', adminRouter)
+app.use('/api/public/aliyun-sms-report', smsReportLimiter)
 app.use('/api/public', publicRouter)
 app.use('/api/video', videoRouter)
 app.use('/api/replay', replayRouter)

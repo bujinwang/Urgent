@@ -29,6 +29,15 @@ export const ALIYUN_SMS_SIGN_NAME = process.env.ALIYUN_SMS_SIGN_NAME || ''
 export const ALIYUN_SMS_TEMPLATE_CODE = process.env.ALIYUN_SMS_TEMPLATE_CODE || ''
 export const ALIYUN_SMS_REGION = process.env.ALIYUN_SMS_REGION || 'cn-hangzhou'
 
+// ---- 阿里云语音降级（AED 责任人联动：短信状态报告「未送达」→ 语音呼叫，P1）----
+// 配置门控：`ALIYUN_VOICE_TTS_CODE`（+ 上方 AK/SK）齐备才算开启；缺失即降级为既有行为。
+// 主叫号（`ALIYUN_VOICE_CALLER_NUMBER`）**可选**：留空 = **公共模式**（公共号码池调度，无需购买号码）；
+// 填值 = **专属模式**（须与实际购买号码一致，且 TTS 模板「外呼模式」必须匹配）。
+export const ALIYUN_VOICE_TTS_CODE = process.env.ALIYUN_VOICE_TTS_CODE || ''
+export const ALIYUN_VOICE_CALLER_NUMBER = process.env.ALIYUN_VOICE_CALLER_NUMBER || ''
+// 短信状态报告回调验真密钥：未配置 → 回调端点整体关闭（返回 404，不暴露端点存在）。
+export const ALIYUN_SMS_REPORT_SECRET = process.env.ALIYUN_SMS_REPORT_SECRET || ''
+
 // ---- 政府数据监管看板（P2-8）----
 // 政府访问令牌**必须**使用独立密钥：绝不回落到业务 `JWT_SECRET`
 // （否则 gov 令牌可通过业务 authMiddleware 验签 → 违反「互不通用」锁定决策）。

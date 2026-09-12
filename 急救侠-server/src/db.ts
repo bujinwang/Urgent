@@ -620,6 +620,21 @@ export function initDb(options: { silent?: boolean } = {}) {
       FOREIGN KEY (aed_id) REFERENCES aed_devices(id)
     );
 
+    -- 短信下发流水（P1 语音降级用）：仅存 biz_id / alert_id / custodian_user_id，**绝不存手机号**。
+    -- 状态报告回调按 biz_id 查此行；号码在回调时用 custodian_user_id 从本库重新解析。
+    CREATE TABLE IF NOT EXISTS aed_sms_dispatches (
+      id TEXT PRIMARY KEY,
+      biz_id TEXT NOT NULL,
+      alert_id TEXT NOT NULL,
+      custodian_user_id TEXT NOT NULL,
+      report_status TEXT NOT NULL DEFAULT '',
+      voice_state TEXT NOT NULL DEFAULT 'none',
+      voice_at_ms INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sms_dispatches_biz ON aed_sms_dispatches(biz_id);
+
     CREATE TABLE IF NOT EXISTS news (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -902,6 +917,24 @@ export function initDb(options: { silent?: boolean } = {}) {
       // catch 记为 skipped（与迁移 036 同机制）；既有库则真正补列。
       sql: "ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''",
     },
+    {
+      id: '039_add_sms_dispatches',
+      description: 'create aed_sms_dispatches (AED SMS send流水 for voice fallback; no phone stored)',
+      // 幂等建表 + 建索引：既有库补建；全新库 canonical 已建同一张表 ⇒ 本迁移为 no-op，仍记入 `_migrations`。
+      // 表**只存 biz_id/alert_id/custodian_user_id**，不含任何手机号；无 CHECK 约束（沿用既有惯例）。
+      sql: `CREATE TABLE IF NOT EXISTS aed_sms_dispatches (
+        id TEXT PRIMARY KEY,
+        biz_id TEXT NOT NULL,
+        alert_id TEXT NOT NULL,
+        custodian_user_id TEXT NOT NULL,
+        report_status TEXT NOT NULL DEFAULT '',
+        voice_state TEXT NOT NULL DEFAULT 'none',
+        voice_at_ms INTEGER,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_sms_dispatches_biz ON aed_sms_dispatches(biz_id);`,
+    },
   ]
 
   const applied = new Set(
@@ -978,7 +1011,7 @@ export function setMeta(key: string, value: string): void {
 export function clearAll() {
   // Disable FK constraints so DELETE order doesn't matter
   db.pragma('foreign_keys = OFF')
-  db.exec("DELETE FROM _migrations; DELETE FROM app_meta; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_custodian_alerts; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards; DELETE FROM gov_viewers;")
+  db.exec("DELETE FROM _migrations; DELETE FROM app_meta; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_custodian_alerts; DELETE FROM aed_sms_dispatches; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards; DELETE FROM gov_viewers;")
   db.pragma('foreign_keys = ON')
 }
 
