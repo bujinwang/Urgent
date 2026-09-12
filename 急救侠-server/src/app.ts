@@ -92,16 +92,25 @@ const govLoginLimiter = isTestMode
       legacyHeaders: false,
     })
 
-/** 阿里云短信状态报告回调限流（公开端点，沿用测试豁免模式） */
-const smsReportLimiter = isTestMode
-  ? (req: any, _res: any, next: any) => next()
-  : rateLimit({
-      windowMs: 60 * 1000,
-      max: 60,
-      message: { code: -1, message: '请求过于频繁，请稍后再试' },
-      standardHeaders: true,
-      legacyHeaders: false,
-    })
+/** 阿里云短信状态报告回调：限流参数（导出以便单测断言）。 */
+export const SMS_REPORT_LIMIT = { windowMs: 60 * 1000, max: 60 } as const
+
+/**
+ * 阿里云短信状态报告回调限流中间件（公开端点，沿用测试豁免模式）。
+ * `force=true` 时**绕过测试豁免**，返回真实限流器（供测试注入验证）。
+ */
+export function createSmsReportLimiter(force = false) {
+  if (isTestMode && !force) return (req: any, _res: any, next: any) => next()
+  return rateLimit({
+    windowMs: SMS_REPORT_LIMIT.windowMs,
+    max: SMS_REPORT_LIMIT.max,
+    message: { code: -1, message: '请求过于频繁，请稍后再试' },
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+}
+
+const smsReportLimiter = createSmsReportLimiter()
 
 // Routes
 app.use('/api/auth', authLimiter, authRouter)

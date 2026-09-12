@@ -79,6 +79,19 @@ describe('voiceService — buildVoiceRequest（纯函数）', () => {
     )
     expect(body).toContain('CalledShowNumber=05710000')
   })
+
+  it('M16 确定性 golden 签名（与 smsService 共用 aliyunRpc ⇒ 改签名实现应同时变红）', async () => {
+    const { buildVoiceRequest } = await loadVoice()
+    const { body } = buildVoiceRequest(
+      {
+        accessKeyId: 'AK_ID', accessKeySecret: 'AK_SECRET', region: 'cn-hangzhou',
+        phone: '13800138000', ttsCode: 'TTS_123456', ttsParam: { device: 'AED~1' }, callerNumber: '05710000',
+      },
+      { nonce: 'NONCE123', timestamp: '2026-09-11T00:00:00Z' }
+    )
+    // golden 值由独立脚本按文档算法算得（base64 `rhRkCCYiCymh6+ziFA2V3h39jIw=`）
+    expect(body.endsWith('Signature=rhRkCCYiCymh6%2BziFA2V3h39jIw%3D')).toBe(true)
+  })
 })
 
 describe('voiceService — sendVoiceCall（永不抛出）', () => {

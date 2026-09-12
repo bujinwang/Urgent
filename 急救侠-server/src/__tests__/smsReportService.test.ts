@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { db, seedTestData } from './setup'
 import * as voiceService from '../services/voiceService'
-import { parseSmsReports, handleSmsReport } from '../services/smsReportService'
+import { parseSmsReports, handleSmsReport, getVoiceDailyCount } from '../services/smsReportService'
 import type { SmsReportItem } from '../services/smsReportService'
 
 const USER = 'u_cust_1'
@@ -166,5 +166,17 @@ describe('smsReportService — handleSmsReport', () => {
     const audit = db.prepare("SELECT description FROM aed_audit_log WHERE event_type='custodian_voice_fallback' ORDER BY rowid DESC LIMIT 1").get() as { description: string } | undefined
     expect(audit?.description).toBeTruthy()
     expect(audit?.description).not.toContain('13800138000')
+  })
+
+  it('M9/口径：名额在**呼叫发起前**已预留（呼叫内部即可见 count 已 +1）', async () => {
+    const biz = setupDispatch({ userPhone: '13800138000' })
+    let countAtCall = -1
+    vi.spyOn(voiceService, 'sendVoiceCall').mockImplementation(async () => {
+      countAtCall = getVoiceDailyCount() // 呼叫时刻读取
+      return { ok: true, code: 'OK', callId: 'c1' }
+    })
+    await handleSmsReport(fail(biz))
+    // 旧实现（呼叫返回后才自增）此处为 0 ⇒ 该用例可咬住「预留 vs 事后自增」
+    expect(countAtCall).toBe(1)
   })
 })

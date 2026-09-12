@@ -8,12 +8,14 @@ import type { Server } from 'http'
  * 自建 server（不复用 setup 的）。测试后清理 env，避免污染后续文件。
  */
 type VoiceMod = typeof import('../services/voiceService')
+type SmsReportMod = typeof import('../services/smsReportService')
 type Db = typeof import('../db')['default']
 
 let server: Server
 let db: Db
 let clearAll: typeof import('../db')['clearAll']
 let voiceService: VoiceMod
+let smsReportService: SmsReportMod
 
 const SECRET = 'test-report-secret'
 const URL = '/api/public/aliyun-sms-report'
@@ -24,14 +26,16 @@ beforeAll(async () => {
   process.env.DB_PATH = ':memory:'
   process.env.ALIYUN_SMS_REPORT_SECRET = SECRET
   vi.resetModules()
-  const [appMod, dbMod, voiceMod] = await Promise.all([
+  const [appMod, dbMod, voiceMod, reportMod] = await Promise.all([
     import('../app'),
     import('../db'),
     import('../services/voiceService'),
+    import('../services/smsReportService'),
   ])
   db = dbMod.default
   clearAll = dbMod.clearAll
   voiceService = voiceMod
+  smsReportService = reportMod
   server = appMod.default.listen(0, '127.0.0.1')
 })
 
@@ -113,5 +117,35 @@ describe('POST /api/public/aliyun-sms-report（验真 + 幂等 + 成本护栏）
     await request(server).post(URL).set('x-sms-report-secret', SECRET)
       .send([{ success: false, biz_id: 'BIZ_EP_2' }])
     expect(vi.mocked(voiceService.sendVoiceCall)).toHaveBeenCalledTimes(1)
+  })
+
+  it('M11 仅真正的内部异常 → 500，且响应体不泄露内部错误串', async () => {
+    reset()
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(smsReportService, 'handleSmsReport').mockRejectedValue(new Error('SECRET_INTERNAL_DETAIL_123'))
+    const res = await request(server).post(URL).set('x-sms-report-secret', SECRET).send(FAIL_BODY)
+    expect(res.status).toBe(500)
+    expect(JSON.stringify(res.body)).not.toContain('SECRET_INTERNAL_DETAIL_123')
+    errSpy.mockRestore()
+  })
+
+  it('M10 单次 >100 条 → 只处理前 100 条（超出部分不处理，记日志）', async () => {
+    reset()
+    const N = 105
+    const add = db.prepare('INSERT INTO aed_sms_dispatches (id, biz_id, alert_id, custodian_user_id) VALUES (?,?,?,?)')
+    const reports: Array<Record<string, unknown>> = []
+    for (let i = 0; i < N; i++) {
+      const biz = `BULK_${i}`
+      add.run(`sd_bulk_${i}`, biz, 'ca_1', USER)
+      reports.push({ success: false, biz_id: biz })
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const res = await request(server).post(URL).set('x-sms-report-secret', SECRET).send(reports)
+    expect(res.status).toBe(200)
+    expect(vi.mocked(voiceService.sendVoiceCall)).toHaveBeenCalledTimes(100)
+    // 第 101 条（索引 100）未被处理
+    const row = db.prepare('SELECT voice_state FROM aed_sms_dispatches WHERE biz_id=?').get('BULK_100') as { voice_state: string }
+    expect(row.voice_state).toBe('none')
+    warn.mockRestore()
   })
 })

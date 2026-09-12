@@ -97,17 +97,37 @@ function todayKey(): string {
   return `voice_daily_${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-/** 当日已呼次数（`app_meta` 计数）。 */
-export function getVoiceDailyCount(): number {
-  const r = get<{ value: string }>('SELECT value FROM app_meta WHERE key = ?', todayKey())
+/** 读取指定 key 的当日计数。 */
+function readDailyCount(key: string): number {
+  const r = get<{ value: string }>('SELECT value FROM app_meta WHERE key = ?', key)
   return r ? parseInt(r.value, 10) || 0 : 0
 }
 
-function bumpVoiceDailyCount(): void {
+/** 当日已呼次数（`app_meta` 计数）。 */
+export function getVoiceDailyCount(): number {
+  return readDailyCount(todayKey())
+}
+
+/**
+ * 原子「预留」一个当日呼叫名额：**读 + 判上限 + 自增** 收进**同一个同步事务**（better-sqlite3），
+ * 内部**无 `await`** ⇒ Node 单线程下不会被并发交错（消除 check-then-act 的 TOCTOU 竞态）。
+ *
+ * 口径：**预留计数**（在**即将发起呼叫时**自增，而非呼叫返回后）；失败呼叫**不回收**名额
+ * —— 对「成本护栏」而言，按"发起次数"计数更正确（避免失败呼叫被反复重试无限占用成本）。
+ */
+const reserveVoiceSlotTx = db.transaction((key: string, limit: number): boolean => {
+  const cur = readDailyCount(key)
+  if (cur >= limit) return false
   db.prepare(
     `INSERT INTO app_meta (key, value, updated_at) VALUES (?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-  ).run(todayKey(), String(getVoiceDailyCount() + 1), Date.now())
+  ).run(key, String(cur + 1), Date.now())
+  return true
+})
+
+/** 原子预留一个当日名额；已满返回 false。 */
+function reserveVoiceSlot(): boolean {
+  return reserveVoiceSlotTx(todayKey(), dailyLimit())
 }
 
 export interface SmsReportHandleResult {
@@ -140,8 +160,6 @@ export async function handleSmsReport(item: SmsReportItem): Promise<SmsReportHan
   if (item.status !== 'FAIL') return { matched: true, voiced: false, reason: 'not_failed' }
   // 语音未配置 → 记录但不呼
   if (!isVoiceConfigured()) return { matched: true, voiced: false, reason: 'voice_not_configured' }
-  // 全局日上限（成本护栏）
-  if (getVoiceDailyCount() >= dailyLimit()) return { matched: true, voiced: false, reason: 'daily_cap' }
 
   // 号码**只从本库**解析（回调 payload 号码一律不采信）
   const alert = get<{ aed_id: string }>('SELECT aed_id FROM aed_custodian_alerts WHERE id = ?', row.alert_id)
@@ -155,8 +173,11 @@ export async function handleSmsReport(item: SmsReportItem): Promise<SmsReportHan
     return { matched: true, voiced: false, reason: 'no_phone' }
   }
 
+  // 全局日上限（成本护栏）：**原子预留名额**（读+判+自增 同一同步事务，且在 `await` 呼叫**之前**）——
+  // 名额按"发起次数"预留，呼叫失败**不回收**。此处放在号码解析之后，避免「无号码」白白占用名额。
+  if (!reserveVoiceSlot()) return { matched: true, voiced: false, reason: 'daily_cap' }
+
   const r = await sendVoiceCall(phone, { device: device?.name || 'AED' })
-  bumpVoiceDailyCount() // 已实际发起呼叫（成本动作）即计数
   db.prepare(
     `UPDATE aed_sms_dispatches SET voice_state = ?, voice_at_ms = ?, updated_at = datetime('now') WHERE id = ?`
   ).run(r.ok ? 'called' : 'failed', Date.now(), row.id)
