@@ -23,12 +23,20 @@ export function canonicalizeQuery(query: Record<string, string>): string {
 /**
  * 阿里云 RPC 签名：给定**完整参数集（含公共参数）**，返回 x-www-form-urlencoded body（含 `Signature`）。
  *
- * `stringToSign = 'POST&%2F&' + percentEncode(规范串)`；
+ * `stringToSign = '<METHOD>&%2F&' + percentEncode(规范串)`；
  * `Signature = base64(HMAC-SHA1(AccessKeySecret + '&', stringToSign))`。
+ *
+ * `method` 默认 `POST`（短信/语音发送均用 POST，行为不变）。之所以暴露该参数，是为了能用
+ * **阿里云官方文档的签名示例**做独立验证（官方向量用的是 GET）—— 见
+ * `__tests__/smsService.test.ts` 里的「官方文档向量」用例；那是**第三方权威**断言，而非自算自比。
  */
-export function signRpcParams(params: Record<string, string>, accessKeySecret: string): string {
+export function signRpcParams(
+  params: Record<string, string>,
+  accessKeySecret: string,
+  method: 'GET' | 'POST' = 'POST'
+): string {
   const cqs = canonicalizeQuery(params)
-  const stringToSign = `POST&${percentEncode('/')}&${percentEncode(cqs)}`
+  const stringToSign = `${method}&${percentEncode('/')}&${percentEncode(cqs)}`
   const signature = crypto.createHmac('sha1', accessKeySecret + '&').update(stringToSign).digest('base64')
   return `${cqs}&Signature=${percentEncode(signature)}`
 }
