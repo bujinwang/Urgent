@@ -592,3 +592,20 @@ lockfile **仍为纯镜像 346 条**（用镜像源升级，**未写入混源 UR
 
 **4) 前端 49 个漏洞 —— 判定为构建期/供应链，运行时暴露为零 ⇒ 不修**
 分布 22 low / 15 moderate / 12 high / **0 critical**，几乎全在 uni-app 多端与 CLI 包（`@dcloudio/uni-mp-*`、`@dcloudio/uni-cli-shared`、`jimp`、`ws`）。**证据（非推测）**：`src/` 对 `vue-i18n` / `@intlify` / `@dcloudio/uni-mp*` / `uni-app-harmony` / `uni-quickapp` / `jimp` 的**引用数全为 0**；`package.json` 中 16 个 `@dcloudio/*` 是 uni-app 多端模板的固有声明，而**只构建 H5** ⇒ 不可能进 H5 产物。**不做 `npm audit fix --force`**（会破坏 uni-app 版本对齐，与 vue/pinia 同类陷阱）。
+
+## ✅ 运维可观测：责任人触达 / 短信语音降级统计（已完成 2026-09-12）
+
+**动机**：短信/语音降级链路与成本护栏都建好了，但**运维看不到"是否真的触达了责任人、降级了多少次"** —— 数据只躺在 `aedAudit` 日志与没人读的 `delivery_state` 列里。而这恰是应急平台的**核心健康信号**。
+
+- **落点**：扩展 `GET /api/admin/dashboard`（**平台管理员限定**，中间件已有）—— **不动 gov 看板**（那属产品口径，不该由工程擅自加指标）。**纯新增字段**，既有 6 字段逐字未动。
+- commit：`4b89a77`（功能，3 文件 +167/−1）→ `d3cb0a3`（**`other` 兜底桶**，2 文件 +26/−3）。后端 291 → **298 passed**、`type-check` 0 错、CI/CD success。**无新增端点 / 无迁移 / 零新增依赖 / 零 PII**（只输出计数）。
+- **新增 `custodianReach`**：
+  - 触达分布 `pending / delivered / smsFallback / failed / noSubscription / **other**`
+  - `reachRate` —— `(delivered + smsFallback) / alerts`
+  - `voice{ dispatched, called, failed, noPhone }`
+  - `voiceDaily{ used, limit }`（复用既有日计数与配置，未重复实现）
+  - `last24h{ alerts, smsFallback, voiceCalled }`（按 `notify_time_ms` / `voice_at_ms` 开窗）
+- **两条核心不变量**：① `alerts = 0 ⇒ reachRate = null`（**无样本绝不假报 0**，与看板/导出一致）；② **六项之和 === alerts 对任意输入恒成立** —— `other` 为兜底桶（正常 0；**非 0 即表示出现了未映射的 `delivery_state`**，是给运维的信号，而不是让数字静默对不上）。
+- ⚠️ **文档口径（防误读）**：`reachRate` 分母是**全部 `alerts`（含 `pending` 与历史）** ⇒ 它是**累计触达率**，**不是**终态触达率；`pending` 较多时会**低估**终态触达率。
+- **验证（两轮突变）**：第 1 轮独立 QA **7/7 突变 RED**（空库 `null`、24h 边界、状态守恒、配置读取、admin 403、既有字段），并**挖出真实的守恒缺口**——未映射状态被计入 `alerts` 却不计入任何分项，而 shipped 的守恒断言只因夹具**只用了已知状态**才通过（"舒适区断言"）。修 `other` 桶后**第 2 轮由主理人定向重放全 RED**：`other` 恒 `0` → 红；`other` 偏移 `+1` → **空库/混合夹具/未预期状态三处守恒断言同时红**。
+- 另：`voiceCalled` 用的是 **`voice_at_ms`**（非 `created_at`）—— 复核实证（用"`called` 但 `voice_at_ms=null`"的构造反证：不计入）。
