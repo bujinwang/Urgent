@@ -49,6 +49,12 @@ adminRouter.get('/dashboard', (_req, res) => {
     const smsFallback = ds['sms_fallback'] || 0
     // 触达率 = (直接送达 + 短信降级) / 总告警；**无样本（alerts=0）⇒ null**（禁止假报 0）
     const reachRate = alertTotal > 0 ? (delivered + smsFallback) / alertTotal : null
+    // `other` 兜底桶：alerts 减去 5 个已知态之和的余数 ⇒
+    //   pending + delivered + smsFallback + failed + noSubscription + other === alerts **对任意输入恒成立**。
+    // 正常为 0；非 0 表示出现了**未映射的 delivery_state**（运维信号，而非静默对不上）。
+    const other =
+      alertTotal -
+      ((ds['pending'] || 0) + delivered + smsFallback + (ds['failed'] || 0) + (ds['no_subscription'] || 0))
 
     const voiceRows = all<{ voice_state: string; cnt: number }>(
       'SELECT voice_state, COUNT(*) as cnt FROM aed_sms_dispatches GROUP BY voice_state'
@@ -69,6 +75,7 @@ adminRouter.get('/dashboard', (_req, res) => {
       smsFallback,
       failed: ds['failed'] || 0,
       noSubscription: ds['no_subscription'] || 0,
+      other,
       reachRate,
       voice: {
         dispatched,

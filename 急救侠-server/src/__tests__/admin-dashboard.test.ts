@@ -36,7 +36,7 @@ describe('GET /api/admin/dashboard — custodianReach（责任人触达/降级�
     expect(res.status).toBe(200)
     const c = res.body.data.custodianReach
     expect(c).toMatchObject({
-      alerts: 0, pending: 0, delivered: 0, smsFallback: 0, failed: 0, noSubscription: 0,
+      alerts: 0, pending: 0, delivered: 0, smsFallback: 0, failed: 0, noSubscription: 0, other: 0,
       reachRate: null,
       voice: { dispatched: 0, called: 0, failed: 0, noPhone: 0 },
       voiceDaily: { used: 0, limit: 200 },
@@ -67,9 +67,25 @@ describe('GET /api/admin/dashboard — custodianReach（责任人触达/降级�
     expect(c.noSubscription).toBe(1)
     expect(c.pending).toBe(1)
     expect(c.reachRate).toBeCloseTo((3 + 2) / 8, 10)
-    // 守恒：各状态之和 === alerts
-    expect(c.pending + c.delivered + c.smsFallback + c.failed + c.noSubscription).toBe(c.alerts)
+    // 守恒（含 other）：六项之和 === alerts（本夹具均为已知态 ⇒ other=0）
+    expect(c.other).toBe(0)
+    expect(c.pending + c.delivered + c.smsFallback + c.failed + c.noSubscription + c.other).toBe(c.alerts)
     expect(c.voice).toEqual({ dispatched: 5, called: 2, failed: 1, noPhone: 1 })
+  })
+
+  it('未预期 delivery_state（`` / queued）⇒ 计入 other，六项之和仍 === alerts', async () => {
+    addAlert('ca_k0', 'delivered')
+    addAlert('ca_k1', 'failed')
+    addAlert('ca_u0', '') // 未映射
+    addAlert('ca_u1', 'queued') // 未映射（未来新增态）
+
+    const c = (await getDash(userToken(ADMIN))).body.data.custodianReach
+    expect(c.alerts).toBe(4)
+    expect(c.other).toBe(2) // 两个未映射态归入 other
+    expect(c.delivered).toBe(1)
+    expect(c.failed).toBe(1)
+    // 守恒在**任意输入**下成立
+    expect(c.pending + c.delivered + c.smsFallback + c.failed + c.noSubscription + c.other).toBe(c.alerts)
   })
 
   it('24h 窗口：早于 24h 的告警计入累计、不计入 last24h', async () => {
