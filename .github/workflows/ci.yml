@@ -44,6 +44,13 @@ jobs:
         env:
           DB_PATH: ':memory:'
 
+      # 生产依赖漏洞扫描。**必须显式指定官方源**：项目默认走镜像 registry.npmmirror.com，
+      # 而该镜像未实现 audit 接口（返回 NOT_IMPLEMENTED），不指定源此步会直接报错。
+      # 阈值 high：当前 `--omit=dev` 为 0 漏洞，任何新增的 high/critical 都会红。
+      # 放在测试之后，避免依赖告警掩盖 type-check / test 的信号。
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --registry=https://registry.npmjs.org/ --audit-level=high
+
   uniapp:
     name: Uniapp — type-check + test
     runs-on: ubuntu-latest
@@ -77,3 +84,10 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      # 前端 audit 阈值故意放宽到 critical（而非 high）：现存告警几乎全在 uni-app 的**多端与
+      # CLI 包**（@dcloudio/uni-mp-*、jimp、ws 等），它们**不会进入 H5 产物** —— `src/` 对这些包
+      # 引用数为 0，且我们只构建 H5 ⇒ 属构建期/供应链风险，而非运行时暴露。若按 high 卡住，
+      # CI 会永久变红（实测 exit 1）。待 uni-app 上游升级后，应把阈值收紧回 high。
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --registry=https://registry.npmjs.org/ --audit-level=critical
