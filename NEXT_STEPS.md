@@ -391,7 +391,7 @@ node scripts/smoke.mjs --base https://<域名>     # 生产（不跳过 TLS 校�
 - QA 对抗式验证：功能可接受（映射诚实、无静默 mock）。QA 揪出并已修复：① `fetchCaseByIdApi` 空值崩溃（曾使 CI 红）；② 重写时误删的 6 组真实行为单测（news 筛选 / task 相位机 / aed 排序·发现 / records roleStats / cases selectCase-null / learn tab）—— 已补回。
 - 映射表：`急救侠-uniapp/docs/p2-6-api-mapping.md`。
 
-**已知后端缺口（前端已诚实降级、未臆造）**：`learn /trainings` 无端点（用前端本地 UI 配置）；`records` 无 `/:id`（列表 + 客户端筛选）；`volunteer/rankings` 不支持 `type` 维度（两榜同数据）；`media-alert` 后端只记元数据、不落盘二进制；`cases↔news` 互链字段缺失。建议作为后续小项补后端。
+**已知后端缺口（前端已诚实降级、未臆造）** —— ⚠️ **本节为当时的现状记录；这 5 项随后已全部补齐或有结论，见紧接的下一节与映射表**（`learn /trainings` 无端点（用前端本地 UI 配置）；`records` 无 `/:id`；`volunteer/rankings` 不支持 `type` 维度；`media-alert` 只记元数据不落盘；`cases↔news` 互链缺失）。**请勿把这段当作"待办"引用 —— 曾因此误判（2026-09-12）。**
 
 ### ✅ P2-6 后端缺口补齐（已完成，2026-09-11）
 
