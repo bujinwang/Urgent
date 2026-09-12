@@ -112,6 +112,26 @@ export function createSmsReportLimiter(force = false) {
 
 const smsReportLimiter = createSmsReportLimiter()
 
+/**
+ * 匿名端点的**按 IP 小时限流**（复用测试豁免模式）；`force=true` 绕过豁免（供测试）。
+ * 阈值可用 env 覆盖（缺省用 `def`）。仅**限频**，**不加登录要求**（保持"急救现场无需注册"）。
+ */
+export function createHourlyIpLimiter(envKey: string, def: number, force = false) {
+  if (isTestMode && !force) return (req: any, _res: any, next: any) => next()
+  const n = parseInt(process.env[envKey] || '', 10)
+  const max = Number.isFinite(n) && n > 0 ? n : def
+  return rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max,
+    message: { code: -1, message: '操作过于频繁，请稍后再试' },
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+}
+
+/** 阈值缺省值（导出以便单测断言）。 */
+export const ANON_LIMITS = { mediaUpload: 10, inquire: 5 } as const
+
 // Routes
 app.use('/api/auth', authLimiter, authRouter)
 app.use('/api/push/send', pushSendLimiter)
@@ -125,12 +145,14 @@ app.use('/api/volunteer', volunteerRouter)
 app.use('/api/records', recordsRouter)
 app.use('/api/cases', casesRouter)
 app.use('/api/atlas', atlasRouter)
+app.use('/api/media-alert/upload', createHourlyIpLimiter('MEDIA_UPLOAD_HOURLY_LIMIT', ANON_LIMITS.mediaUpload))
 app.use('/api/media-alert', mediaAlertRouter)
 app.use('/api/gov/login', govLoginLimiter)
 app.use('/api/gov', govRouter)
 app.use('/api/org', orgRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/public/aliyun-sms-report', smsReportLimiter)
+app.use('/api/public/inquire', createHourlyIpLimiter('INQUIRE_HOURLY_LIMIT', ANON_LIMITS.inquire))
 app.use('/api/public', publicRouter)
 app.use('/api/video', videoRouter)
 app.use('/api/replay', replayRouter)

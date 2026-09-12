@@ -618,6 +618,7 @@ export const AlertCode = {
   CONSENT_REQUIRED: 4006,   // 未同意 PIPL
   DEVICE_NOT_FOUND: 4007,
   PICKUP_NOT_FOUND: 4008,
+  RATE_LIMITED: 4009,       // 反滥用：冷却中 / 小时频次超限（拒绝时零触达）
 } as const
 export type AlertCode = (typeof AlertCode)[keyof typeof AlertCode]
 

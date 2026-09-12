@@ -18,6 +18,7 @@ export const AlertCode = {
   CONSENT_REQUIRED: 4006,   // 未同意 PIPL
   DEVICE_NOT_FOUND: 4007,
   PICKUP_NOT_FOUND: 4008,
+  RATE_LIMITED: 4009,       // 反滥用：冷却中 / 频次超限
 } as const
 
 export interface CustodianAlert {

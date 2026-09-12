@@ -31,6 +31,18 @@ function getParam(req: Request, name: string): string {
   return Array.isArray(v) ? (v[0] || '') : (v || '')
 }
 
+/** 反滥用：同请求者 × 同 AED 的冷却期（ms，默认 120s；env `AED_NOTIFY_COOLDOWN_MS`，0=关闭）。 */
+function notifyCooldownMs(): number {
+  const n = parseInt(process.env.AED_NOTIFY_COOLDOWN_MS || '', 10)
+  return Number.isFinite(n) && n >= 0 ? n : 120000
+}
+
+/** 反滥用：同请求者小时频次上限（默认 10；env `AED_NOTIFY_HOURLY_LIMIT`）。 */
+function notifyHourlyLimit(): number {
+  const n = parseInt(process.env.AED_NOTIFY_HOURLY_LIMIT || '', 10)
+  return Number.isFinite(n) && n > 0 ? n : 10
+}
+
 
 function rowToDevice(row: AedRow): AedDevice {
   const checkins = all<AedCheckinRow>(
@@ -592,6 +604,33 @@ aedRouter.post('/:id/notify-custodian', authMiddleware, validate(CustodianNotify
     }
 
     const requester = get<UserRow>('SELECT * FROM users WHERE id = ?', callerId)
+
+    // ---- 反滥用护栏（P1）----
+    // ★ 关键不变量：必须在**任何写入/触达之前**判完 ⇒ 被拒绝时**零副作用**
+    //   （不落 alert、不发推送/短信/语音、不消耗语音日配额）。冷却与超限用**不同 message** 便于前端区分。
+    const cooldownMs = notifyCooldownMs()
+    if (cooldownMs > 0) {
+      const last = get<{ last: number | null }>(
+        'SELECT MAX(notify_time_ms) AS last FROM aed_custodian_alerts WHERE aed_id = ? AND requester_user_id = ?',
+        aedId, callerId
+      )
+      const lastMs = last?.last
+      if (lastMs != null && now - lastMs < cooldownMs) {
+        const waitSec = Math.ceil((cooldownMs - (now - lastMs)) / 1000)
+        logAudit(aedId, 'custodian_notify_blocked', `重复通知被拒（冷却中，剩余约 ${waitSec} 秒）`, callerId, requester?.name || '')
+        return res.status(429).json(error(`请勿重复通知，${waitSec} 秒后可再次发起`, AlertCode.RATE_LIMITED))
+      }
+    }
+    const hourlyLimit = notifyHourlyLimit()
+    const hourly = get<CountRow>(
+      'SELECT COUNT(*) AS cnt FROM aed_custodian_alerts WHERE requester_user_id = ? AND notify_time_ms >= ?',
+      callerId, now - 60 * 60 * 1000
+    )
+    if ((hourly?.cnt || 0) >= hourlyLimit) {
+      logAudit(aedId, 'custodian_notify_blocked', `小时频次超限被拒（上限 ${hourlyLimit} 次/小时）`, callerId, requester?.name || '')
+      return res.status(429).json(error('操作过于频繁，请稍后再试', AlertCode.RATE_LIMITED))
+    }
+
     const alertId = genAlertId()
     const slaDeadlineMs = notifyTimeMs + CUSTODIAN_SLA_MS
 
