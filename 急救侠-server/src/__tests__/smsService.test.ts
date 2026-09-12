@@ -1,4 +1,6 @@
 import { describe, it, expect, afterEach, afterAll, vi } from 'vitest'
+// 共用签名模块是**纯函数**（不吃配置），故可静态引入 —— 无需 vi.resetModules()。
+import { signRpcParams, canonicalizeQuery } from '../services/aliyunRpc'
 
 type SmsModule = typeof import('../services/smsService')
 
@@ -233,5 +235,49 @@ describe('smsService — maskPhone（PII 脱敏）', () => {
     const { maskPhone } = await loadModule()
     expect(maskPhone('12345')).toBe('***')
     expect(maskPhone('')).toBe('***')
+  })
+})
+
+/**
+ * 共用签名模块的**第三方权威**验证。
+ *
+ * 上面所有 golden 都是「自算自比」（同义反复：用同一套实现算出期望值），只能防回归、
+ * 不能证明算法正确。本组用例改用**阿里云官方文档给出的签名示例**做独立向量 ——
+ * 出处：`help.aliyun.com/zh/sdk/product-overview/rpc-mechanism`「签名示例」。
+ * 官方给定：AccessKeySecret=`testsecret`，期望签名 = `9NaGiOspFP5UPcwX8Iwt2YJXXuk=`。
+ */
+describe('aliyunRpc — 阿里云官方文档签名向量（权威断言）', () => {
+  const OFFICIAL = {
+    AccessKeyId: 'testid',
+    Action: 'DescribeDedicatedHosts',
+    Format: 'JSON',
+    RegionId: 'cn-beijing',
+    SignatureMethod: 'HMAC-SHA1',
+    SignatureNonce: 'edb2b34af0af9a6d14deaf7c1a5315eb',
+    SignatureVersion: '1.0',
+    Timestamp: '2023-03-13T08:34:30Z',
+    Version: '2014-05-26',
+  }
+
+  it('规范化查询串与官方文档逐字一致', () => {
+    expect(canonicalizeQuery(OFFICIAL)).toBe(
+      'AccessKeyId=testid&Action=DescribeDedicatedHosts&Format=JSON&RegionId=cn-beijing' +
+        '&SignatureMethod=HMAC-SHA1&SignatureNonce=edb2b34af0af9a6d14deaf7c1a5315eb' +
+        '&SignatureVersion=1.0&Timestamp=2023-03-13T08%3A34%3A30Z&Version=2014-05-26'
+    )
+  })
+
+  it('★ 签名值与官方文档期望值逐字一致（GET，AccessKeySecret=testsecret）', () => {
+    const body = signRpcParams(OFFICIAL, 'testsecret', 'GET')
+    const sig = decodeURIComponent(body.slice(body.indexOf('Signature=') + 'Signature='.length))
+    expect(sig).toBe('9NaGiOspFP5UPcwX8Iwt2YJXXuk=')
+  })
+
+  it('method 默认 POST（短信/语音的既有行为不变）', () => {
+    const viaDefault = signRpcParams(OFFICIAL, 'testsecret')
+    const viaExplicit = signRpcParams(OFFICIAL, 'testsecret', 'POST')
+    expect(viaDefault).toBe(viaExplicit)
+    // 且与 GET 不同（方法参与 stringToSign）
+    expect(viaDefault).not.toBe(signRpcParams(OFFICIAL, 'testsecret', 'GET'))
   })
 })
