@@ -572,3 +572,23 @@ node scripts/smoke.mjs --base https://<域名>     # 生产（不跳过 TLS 校�
 
 **结论**：后端本轮全部改动在实机侧**已无未验证项**。唯一仍缺的是**真实阿里云凭证下的联调**（照 `docs/DEPLOY.md §11` 七项清单）。
 本机栈保持运行（`https://localhost:8443`）；停止：`docker compose -f docker-compose.local.yml --env-file .env.local down`。
+
+## ✅ 上线前审计：环境变量一致性 + 依赖漏洞（已完成 2026-09-12）
+
+**1) 环境变量一致性** —— 代码读 **18** 个 `process.env.*`，`.env.example` 只覆盖 15 ⇒ 补上遗漏的 **`GOV_TOKEN_TTL`**（政府令牌有效期，默认 `12h`）与 **`ALIYUN_VOICE_DAILY_LIMIT`**（语音成本护栏日上限，默认 `200`）。两个 compose（local/prod）均用 `env_file` **整份透传** ⇒ 不存在"漏变量传不进容器"。
+
+**2) ⚠️ `npm audit` 在本仓库**不能**直接用**：淘宝镜像 `npmmirror.com` 未实现 audit 接口（`/-/npm/v1/security/* not implemented yet`）⇒ 必须 `npm audit --registry=https://registry.npmjs.org/`。**CI 若要加依赖扫描必须单独指定官方源。**
+
+**3) 后端生产依赖：5 个漏洞 → `found 0 vulnerabilities`**
+| 包 | 原 → 新 | 说明 |
+|---|---|---|
+| **`multer`** | 2.1.1 → **2.3.0** | **high，且真实可达** —— 直连且用于 `routes/video.ts` + `routes/media-alert.ts` 上传端点（登录后可触达）：嵌套/超大数组下标字段名 DoS |
+| **`ip-address`** | 10.2.0 → **10.7.0** | **high**，由 `express-rate-limit` 引入（信任边界绕过） |
+| `express-rate-limit` | 8.5.2 → **8.7.0** | 直连升级（带上 `ip-address`） |
+| `body-parser` | 1.20.5 → **1.20.8** | moderate |
+| `qs` | 6.15.1 → **6.16.0** | moderate（`req.query` 解析 DoS）。**`express@4.22.2` 把 `qs` 钉在 `~6.15.1` 且已是最新 4.x ⇒ 正常升级路径拿不到补丁** → 采用 **`overrides: { "qs": "^6.16.0" }`**（**同主版本补丁级**，与当初被否的 vue **跨主版本**强推不同；若不接受该 overrides，删掉一行即回到"待 express 自升 qs"） |
+
+lockfile **仍为纯镜像 346 条**（用镜像源升级，**未写入混源 URL**）。验证：门禁 **291 passed + type-check 0**；**容器重建走 `npm ci` 通过**、容器内实际版本为新版、**冒烟 13/13**。
+
+**4) 前端 49 个漏洞 —— 判定为构建期/供应链，运行时暴露为零 ⇒ 不修**
+分布 22 low / 15 moderate / 12 high / **0 critical**，几乎全在 uni-app 多端与 CLI 包（`@dcloudio/uni-mp-*`、`@dcloudio/uni-cli-shared`、`jimp`、`ws`）。**证据（非推测）**：`src/` 对 `vue-i18n` / `@intlify` / `@dcloudio/uni-mp*` / `uni-app-harmony` / `uni-quickapp` / `jimp` 的**引用数全为 0**；`package.json` 中 16 个 `@dcloudio/*` 是 uni-app 多端模板的固有声明，而**只构建 H5** ⇒ 不可能进 H5 产物。**不做 `npm audit fix --force`**（会破坏 uni-app 版本对齐，与 vue/pinia 同类陷阱）。
