@@ -3,6 +3,7 @@ import db, { get, all } from '../db'
 import { success, error } from '../types'
 import { authMiddleware } from '../middleware/auth'
 import type { AuthPayload } from '../middleware/auth'
+import { getVoiceDailyCount, getVoiceDailyLimit } from '../services/smsReportService'
 import type {
   CountRow, UserWithCountsRow, OrganizationWithCountsRow,
   AdminCertificateRow, VolunteerRow,
@@ -35,7 +36,51 @@ adminRouter.get('/dashboard', (_req, res) => {
     const aeds = get<CountRow>('SELECT COUNT(*) as cnt FROM aed_devices')
     const certs = get<CountRow>('SELECT COUNT(*) as cnt FROM certificates')
     const activePickups = get<CountRow>('SELECT COUNT(*) as cnt FROM aed_pickups WHERE return_time IS NULL')
-    res.json(success({ totalUsers:users!.cnt,totalOrganizations:orgs!.cnt,totalCoaches:coaches!.cnt,totalAeds:aeds!.cnt,totalCertificates:certs!.cnt,activePickups:activePickups!.cnt }))
+
+    // ---- 责任人触达 / 短信·语音降级 可观测（P1）----
+    // 仅**计数**，绝不含任何手机号/PII。delivery_state 用一条 GROUP BY 再映射（避免 5 条查询）。
+    const deliveryRows = all<{ delivery_state: string; cnt: number }>(
+      'SELECT delivery_state, COUNT(*) as cnt FROM aed_custodian_alerts GROUP BY delivery_state'
+    )
+    const ds: Record<string, number> = {}
+    let alertTotal = 0
+    for (const r of deliveryRows) { ds[r.delivery_state] = r.cnt; alertTotal += r.cnt }
+    const delivered = ds['delivered'] || 0
+    const smsFallback = ds['sms_fallback'] || 0
+    // 触达率 = (直接送达 + 短信降级) / 总告警；**无样本（alerts=0）⇒ null**（禁止假报 0）
+    const reachRate = alertTotal > 0 ? (delivered + smsFallback) / alertTotal : null
+
+    const voiceRows = all<{ voice_state: string; cnt: number }>(
+      'SELECT voice_state, COUNT(*) as cnt FROM aed_sms_dispatches GROUP BY voice_state'
+    )
+    const vs: Record<string, number> = {}
+    let dispatched = 0
+    for (const r of voiceRows) { vs[r.voice_state] = r.cnt; dispatched += r.cnt }
+
+    const since24h = Date.now() - 24 * 60 * 60 * 1000
+    const l24Alerts = get<CountRow>('SELECT COUNT(*) as cnt FROM aed_custodian_alerts WHERE notify_time_ms >= ?', since24h)
+    const l24Sms = get<CountRow>("SELECT COUNT(*) as cnt FROM aed_custodian_alerts WHERE notify_time_ms >= ? AND delivery_state = 'sms_fallback'", since24h)
+    const l24Voice = get<CountRow>("SELECT COUNT(*) as cnt FROM aed_sms_dispatches WHERE voice_state = 'called' AND voice_at_ms >= ?", since24h)
+
+    const custodianReach = {
+      alerts: alertTotal,
+      pending: ds['pending'] || 0,
+      delivered,
+      smsFallback,
+      failed: ds['failed'] || 0,
+      noSubscription: ds['no_subscription'] || 0,
+      reachRate,
+      voice: {
+        dispatched,
+        called: vs['called'] || 0,
+        failed: vs['failed'] || 0,
+        noPhone: vs['no_phone'] || 0,
+      },
+      voiceDaily: { used: getVoiceDailyCount(), limit: getVoiceDailyLimit() },
+      last24h: { alerts: l24Alerts!.cnt, smsFallback: l24Sms!.cnt, voiceCalled: l24Voice!.cnt },
+    }
+
+    res.json(success({ totalUsers:users!.cnt,totalOrganizations:orgs!.cnt,totalCoaches:coaches!.cnt,totalAeds:aeds!.cnt,totalCertificates:certs!.cnt,activePickups:activePickups!.cnt, custodianReach }))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 

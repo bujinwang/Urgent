@@ -29,6 +29,11 @@ function dailyLimit(): number {
   return Number.isFinite(n) && n > 0 ? n : 200
 }
 
+/** 对外暴露当日上限（供管理看板读取；避免重复实现）。 */
+export function getVoiceDailyLimit(): number {
+  return dailyLimit()
+}
+
 export type SmsReportStatus = 'SUCCESS' | 'FAIL' | 'UNKNOWN'
 
 export interface SmsReportItem {
