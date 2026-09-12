@@ -433,4 +433,45 @@ npm run admin:narrow -- --list                       # 3) 复核：标记应为�
 - **结合 §10 机制判断**：若 `platform_admin_narrowing_done` 已置位（收窄已执行），则回填**应保持停用**，不要手动调用 `backfillPlatformAdmins()` 去"补"——否则会把已降级账号静默重新提权。
 - 因该路径**一次性且不自动重试**，出现该 error 必须人工确认，**不能只以「服务已启动」判定正常**。
 
+## 11. 阿里云短信 / 语音 · 联调验收清单（拿到凭证后照此跑）
+
+> 代码侧已完成（配置门控 + 确定性单测 + 两轮突变验证），**唯一未验证的是真实调用**。本清单把"真机联调"固化为可复跑步骤。
+
+### 11.1 阿里云控制台（一次性）
+1. **企业实名认证**。
+2. **短信签名**（建议「急救侠」）→ 审核 1–2 工作日。
+3. **短信模板**：变量名必须与代码 `templateParam` 的键**逐字一致**（现为 `device`、`address`；如需改动，改 `routes/aed.ts` 里 `sendSms(phone, {...})` 的键名，只此一处）。
+4. **语音 TTS 模板**（`TtsCode`）→ 语音通知用。
+5. **语音主叫模式**：**公共模式**（用公共号码池，**无需购买号码**）或**专属模式**（须已购号码，且模板的**外呼模式必须与之一致**）。
+6. **开启短信状态报告 → HTTP 批量推送**，回调 URL 填 `https://<你的域名>/api/public/aliyun-sms-report`。
+
+### 11.2 后端环境变量
+```
+ALIYUN_SMS_ACCESS_KEY_ID / ALIYUN_SMS_ACCESS_KEY_SECRET
+ALIYUN_SMS_SIGN_NAME / ALIYUN_SMS_TEMPLATE_CODE / ALIYUN_SMS_REGION   # region 默认 cn-hangzhou
+ALIYUN_SMS_REPORT_SECRET        # 回调验真；未配置则回调端点整体关闭（返 404）
+ALIYUN_VOICE_TTS_CODE
+ALIYUN_VOICE_CALLER_NUMBER      # 可留空 = 公共模式
+ALIYUN_VOICE_DAILY_LIMIT        # 可选，默认 200
+```
+**任一 `ALIYUN_SMS_*` 缺失 ⇒ 短信功能整体关闭（不发起任何网络请求）**；语音同理（需 AK/SK + TTS code）。
+
+### 11.3 逐项验收
+| # | 操作 | 期望 |
+|---|---|---|
+| 1 | 让责任人**无推送订阅**，触发一次 `POST /api/aed/:id/notify-custodian` | 手机**收到短信**；`aed_sms_dispatches` 新增一行且 `biz_id` 非空；该 alert `delivery_state='sms_fallback'`、`status='sent'` |
+| 2 | 等阿里云推送状态报告（通常数秒~数十秒） | 该行 `report_status` 被写入阿里云返回的 `err_code`（成功态如 `DELIVERED`） |
+| 3 | 制造**送达失败**（如把 `ALIYUN_SMS_TEMPLATE_CODE` 临时配错，或用确实收不到短信的号码） | **收到语音呼叫**；该行 `voice_state='called'`、`voice_at_ms` 非空；`aedAudit` 出现 `custodian_voice_fallback` |
+| 4 | **重推同一份状态报告**（控制台重试 / 手工重放） | **不再产生第二次呼叫**（幂等；`voice_state` 已是 `called`） |
+| 5 | 请求回调端点时**不带**或**带错** `x-sms-report-secret`（含**长度不同**的错密钥） | **404**，且**无任何呼叫**；服务不崩 |
+| 6 | `ALIYUN_VOICE_DAILY_LIMIT=1` 下推两条 FAIL | **只呼 1 次**（第 2 条走 `daily_cap`） |
+| 7 | **清空**全部 `ALIYUN_*` 后重复 #1 | 行为与上线前一致（`no_subscription`/`unreachable` 不变），**零网络请求** |
+
+### 11.4 计费与文案
+- 短信**按 70 字/条**计费，超出按 **67 字/条拆分多条** ⇒ 模板文案须压在 70 字内（含签名）。建议：`【急救侠】${device}有急救取用请求，请立即响应并确认开箱。`（约 37 字）。
+- 语音按分钟、**不足 1 分钟按 1 分钟**计（≈ 0.11 元/分钟，是短信的 ~2.4 倍）；专属模式另有号码月租。
+
+### 11.5 报错排查
+以接口返回的 `Code` / `Message` 为准。常见成因：签名或模板**未审核通过**；模板**变量名与代码不一致**；语音模板的**外呼模式与主叫号模式不匹配**；AccessKey 权限不足（需 `dysms:SendSms`、`dyvms:SingleCallByTts`）；回调 URL 不可公网访问或被网关拦截。
+
 
