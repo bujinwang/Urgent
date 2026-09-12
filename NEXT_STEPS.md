@@ -609,3 +609,27 @@ lockfile **仍为纯镜像 346 条**（用镜像源升级，**未写入混源 UR
 - ⚠️ **文档口径（防误读）**：`reachRate` 分母是**全部 `alerts`（含 `pending` 与历史）** ⇒ 它是**累计触达率**，**不是**终态触达率；`pending` 较多时会**低估**终态触达率。
 - **验证（两轮突变）**：第 1 轮独立 QA **7/7 突变 RED**（空库 `null`、24h 边界、状态守恒、配置读取、admin 403、既有字段），并**挖出真实的守恒缺口**——未映射状态被计入 `alerts` 却不计入任何分项，而 shipped 的守恒断言只因夹具**只用了已知状态**才通过（"舒适区断言"）。修 `other` 桶后**第 2 轮由主理人定向重放全 RED**：`other` 恒 `0` → 红；`other` 偏移 `+1` → **空库/混合夹具/未预期状态三处守恒断言同时红**。
 - 另：`voiceCalled` 用的是 **`voice_at_ms`**（非 `created_at`）—— 复核实证（用"`called` 但 `voice_at_ms=null`"的构造反证：不计入）。
+
+## ⏳ 阿里云联调（进行中）：**缺真实凭证**，已完成"除真实送达外"的全部验证
+
+**现状**：8 个 `ALIYUN_*` 变量在 `急救侠-server/.env`、`.env.local`、进程环境里**全部未设置** ⇒ **真机联调无法进行**，需业务侧提供凭证（见下"待办"）。
+
+**已用假凭证完成的实机验证（零报备成本，覆盖了能覆盖的全部环节）**
+
+| 验证 | 方法 | 结果 |
+|---|---|---|
+| **签名实现正确性** | 拿**阿里云官方文档的签名示例**做独立向量（`help.aliyun.com/zh/sdk/product-overview/rpc-mechanism`：`testid`/`testsecret` ⇒ 期望 `9NaGiOspFP5UPcwX8Iwt2YJXXuk=`） | **规范串与签名值均与官方逐字一致** ✅ —— 把此前"自算自比"的 golden 升级为**第三方权威断言**，并已固化为常驻用例（`smsService.test.ts`）|
+| 真实出站（短信） | 假凭证调真实 `dysmsapi.aliyuncs.com` | 返回 **`InvalidAccessKeyId.NotFound`**（业务错误，**非** `SignatureDoesNotMatch`/`InvalidAction`/`InvalidVersion`）⇒ 端点、Action/Version、参数集结构均正确；**错误被结构化处理、未抛异常**；日志脱敏 `phone=138****8000` 生效 ✅ |
+| **状态报告 → 语音降级 全链路（活体服务）** | 造真实夹具（AED+告警+dispatch 对账行）→ 推真实形态的 FAIL 报告 | **200 `{"code":0,"msg":"接收成功"}`**；`report_status=DELIVER_FAILED`；`voice_state=failed`；`voice_at_ms` 置位；审计 `custodian_voice_fallback`（**不含号码**）；**真实出站恰好 1 次** ⇒ **幂等生效**（两份重复报告只呼 1 次）✅ |
+| 端点验真 | 密钥缺失/错误 | **404**，且无任何呼叫 ✅ |
+
+**仍然无法在无凭证下验证的（只有两件事）**：① **真实短信/语音的实际送达**；② 合法 AK 下阿里云返回 `Code:'OK'` 与 `BizId`（假 AK 必被拒，故无法覆盖）。
+
+**待办（需业务侧，非工程）**
+1. 阿里云**企业实名**认证。
+2. 报备**短信签名**（建议「急救侠」）+ **短信模板**（变量名须与 `routes/aed.ts` 的 `templateParam` 键一致，现为 `device`/`address`）。
+3. 报备**语音 TTS 模板**（`TtsCode`）；决定 **公共模式**（无需购号）还是**专属模式**（须购号且外呼模式匹配）。
+4. 控制台开启短信状态报告 **HTTP 批量推送**，回调 URL 填 `https://<域名>/api/public/aliyun-sms-report`。
+5. 把 8 个 `ALIYUN_*` 值（含自定的 `ALIYUN_SMS_REPORT_SECRET`）写入 `急救侠-server/.env` 或根 `.env.local`（**不要发到对话里**），然后照 `docs/DEPLOY.md §11` 跑七项验收。
+
+**过程备注（重要教训，已写入技能）**：突变测试用 `git checkout -- <file>` 还原时，**会把同一文件里未提交的正当改动一并回滚** —— 本次因此把 `signRpcParams` 的 `method` 参数误删，而**还原后没重跑门禁**，导致 `7e22cee` 的 CI/CD 因 `TS2554` 变红（`070f6b4` 已修复）。**两条硬规矩：① 先提交正当改动再做突变；② 每处突变还原后立刻重跑 type-check + test。**
