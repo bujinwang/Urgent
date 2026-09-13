@@ -694,6 +694,66 @@ lockfile **仍为纯镜像 346 条**（用镜像源升级，**未写入混源 UR
 - ⚠️ **本机 grep 陷阱（反复踩到）**：BSD grep **不支持** `\|` 交替（会被当字面量、静默 0 命中）；且跨行统计易受全角/半角 dash 影响。**用 `-E`、或改用 Grep 工具**。
 
 ### 遗留（非阻塞）
-1. 报备材料 §8.6：**签名超 6 个月无发送即失效** —— 本项目属低频场景，建议后续单开「签名保活巡检」。
+1. ~~报备材料 §8.6：**签名超 6 个月无发送即失效** —— 本项目属低频场景，建议后续单开「签名保活巡检」。~~ ✅ **已闭环（2026-09-12）**，见下方「阿里云签名保活巡检」归档段（`40555c6` / `6dfb841` / `58b5c73` / `be3ca8d`）。
 2. 本机**未安装 docker**，故 ② 的 compose 证据为**声明式**（非 runtime 观测）；有主机后可补一次 `docker compose config` 实证。
 3. `docs/DEPLOY.md §11.3` 七项验收等**技术行为断言**未改（无口径冲突）。
+
+---
+
+## ✅ 阿里云签名保活巡检（已完成 2026-09-12）
+
+**动机**：这是上一条「上线最后一公里」遗留项 1 的兑现 —— 阿里云规定**签名报备通过后超 6 个月无任何发送记录 ⇒ 报备失效、发送失败，须重新报备**（`aliyun-approval.md` §8.6）。而本项目短信属**低频**（AED 取用 / 降级告警），**天然容易触发「静默失效」**：平时不报错，等某次真实取用才发现发不出。这是**唯一不需要外部凭证就能闭环**的遗留项，故优先做掉。
+
+| commit | 说明 |
+|--------|------|
+| `40555c6` | **保活巡检本体**：纯判定函数 + 取数服务 + CLI + 看板字段 + `DEPLOY.md §12` runbook |
+| `6dfb841` | CLI 增加 `--mark-sent`（**控制台手工发送后销账**，见下「真问题」） |
+| `58b5c73` | `SCRIPTS.md` 登记 `--mark-sent` + 写明 `--at` 的**宽松解析语义**（裸日期=UTC / 无偏移=本机时区） |
+| `be3ca8d` | **取数改 parse-then-max**（QA 挖出的遮蔽隐患，见下） |
+
+### 实现（三层，职责单一）
+- **判定（纯函数）** `src/scripts/keepalive-plan.ts`：`evaluateSignatureKeepAlive({lastSentAtMs, nowMs, thresholdDays?})`，阈值常量 `SIGNATURE_KEEPALIVE_THRESHOLD_DAYS = 180`。分级：`never_sent` / `overdue`(≥180) / `action_due`(≥150) / `warn`(≥120) / `ok`。`daysSinceLastSent = max(0, floor((now−lastSent)/86 400 000))` ⇒ **对「未来时间戳」防御性归零**（时钟回拨不会产生负数）。
+- **取数** `src/services/signatureKeepAlive.ts`：取**两处来源的较晚者** —— ① `aed_sms_dispatches.created_at`（UTC 文本，`strftime('%s', …)` 按 UTC 解析），② `app_meta.aliyun_signature_last_sent_ms`（`--send-test` 成功写入 / 手工记录）。**两处皆缺 ⇒ 返回 `null`（不是 0）**，与项目既有「**无样本不假报 0**」不变量一致。
+- **CLI** `src/scripts/aliyun-keepalive.ts`：`--status` / `--send-test <手机号>` / `--mark-sent [--at <ISO>]` / `--days N` / `--help`。`--send-test` **必须显式传号（无默认值，防误发）**。
+- **看板** `src/routes/admin.ts` `/dashboard` **纯新增** `smsSignature` 字段（`never_sent` 时 3 个数值字段为 `null`）；既有 6 个字段 + `custodianReach` **逐字未动**（有回归用例咬住）。
+- **只读**：`aed_sms_dispatches` 只读；保活时间戳写**既有** `app_meta`（迁移 037）。**零新增依赖 / 无新表迁移 / 无新 HTTP 端点 / 无定时器。**
+
+### 退出码契约（可接 cron / CI）
+| 命令 | 码 | 含义 |
+|---|---|---|
+| `--status` | `0` | `ok` / `warn`（尚舒适） |
+| `--status` | `1` | `action_due`（临近，需**安排**保活） |
+| `--status` | `2` | `overdue` / `never_sent`（**已超期 / 从未发送**）或**用法错误** |
+| `--send-test` | `0` | 发送**已受理**（已写入保活时间戳） |
+| `--send-test` | `2` | 用法错误 / **短信未配置** / 号码非法 |
+| `--send-test` | `1` | 发送失败 |
+
+> **零 PII**：输出经 `maskPhone` 脱敏，**绝不含完整手机号**。**绝不静默**：短信未配置时**明确报错并非零退出**（与「`ALIYUN_*` 任一为空即静默关闭」形成刻意的反差 —— 巡检场景必须吵）。
+> **边界**：恰好 180 天即 `overdue`；分级边界有确定性单测（119/120/149/150/179/180/181）。运维节奏：**每季度**跑一次 `--status`（舒适落在 180 天窗口内）。
+
+### 修复的真问题①：控制台手工发送 ⇒ 永久 `overdue`（`6dfb841`）
+巡检只认 ⓐ `aed_sms_dispatches` 与 ⓑ `app_meta`。若运维**在阿里云控制台手工发测试短信**（报备后官方本就要求这样验证），**两处都不会有记录** ⇒ 巡检**永远**判 `overdue`，人被狼来了训练到无视告警。
+修法：`--mark-sent [--at <ISO>]` **销账**（写保活时间戳并**立刻复算**）。`--at` 语义为**宽松解析**：裸日期按 UTC、无偏移按本机时区 —— 已在 `SCRIPTS.md` / `DEPLOY.md §12` 写明。
+
+### 修复的真问题②：取数 SQL 的**遮蔽隐患**（`be3ca8d`，QA 挖出）
+原 SQL 为 `SELECT CAST(strftime('%s', MAX(created_at)) AS INTEGER) …` —— 即「**先对文本取 max、再解析**」。而 `created_at` 是 **TEXT** 列，`MAX` 是**文本比较**：若表中存在**不可解析**值（如 `'not-a-date'`，因 `'n' > '2'` 会成为**文本最大值**），`strftime('%s', 'not-a-date')` 返回 **NULL** ⇒ **该行把合法行整体遮蔽**、reader 退化为 `null` ⇒ 看板**误报 `never_sent`**（正是本工具要防的那种"静默"）。
+- 修法：`SELECT MAX(CAST(strftime('%s', created_at) AS INTEGER)) …`（**先解析再取 max**）；SQLite 聚合 `MAX()` **忽略 NULL** ⇒ 不可解析行被跳过、不再遮蔽。注释加了 ⚠️「顺序不可颠倒」。
+- **性质如实说明**：这是**潜在 / 加固**类修复，**非现网活动缺陷** —— 现网唯一写入方 `aed.ts` 恒用 `DEFAULT datetime('now')`（canonical UTC），不会产生不可解析行。但工具的价值就在「**平时没人看**」，若某天有脏数据，**它必须还报得准**。
+
+### 验证方式（两轮，皆对抗式）
+- **第 1 轮**（`40555c6`/`6dfb841`/`58b5c73`）⇒ **可接受，0 缺陷**：**7/7 突变全 RED**；**UTC 基准实测**（构造时刻差 335ms 而非 8 小时 ⇒ 证明未误用本地解析）；`max(meta, dispatch)` **双向**生效；`meta='0'`/垃圾值不污染；`--mark-sent` 失败路径**零副作用**；退出码**可区分**；**零 PII**；**328 passed** / `type-check` 0 错。
+- **第 2 轮**（`be3ca8d`，**定向**复验，只针对这一处行为变化）⇒ **可接受，0 缺陷**：
+  - **突变测试**：把 SQL 手工改回旧形式 ⇒ 新用例**精确变红**，失败文本正是 `AssertionError: expected null not to be null`（栈指向 `readLastSentAsMs()` 调用行）—— 证明用例**真能咬住隐患**、不是空转。
+  - **独立探针实数值**：`strftime('%s','2026-06-01T12:00:00Z')` = `'2026-06-01 12:00:00'` = **1780315200**（同一 UTC 基准）；`'not-a-date'`/`''`/`'null'` → `null`；混合表**旧 SQL=null、新 SQL=1780315200**；空表 / 全不可解析 → **null（不假报 0）**。
+  - **边界语义 8/8 PASS**（走真实 `readLastSentAtMs()`：空表 / 仅 meta / 仅 dispatch / 双边取较晚者 / meta='0' / meta=垃圾 / 全不可解析 / 混合）。
+  - **回归安全**：**仅规范行**时新旧 SQL 结果**逐字相同** ⇒ **零行为变化**。全量 **329 passed (37 files)** / `type-check` **0 错**。
+  - **无越界**：`git diff --name-only 58b5c73..be3ca8d` **恰 2 文件**；新增行内无 `setInterval`/`setTimeout`/`package.json`/`Router.post`/`CREATE|ALTER TABLE`。
+  - **纪律**：变异测试的回滚用 **`cp` 备份还原**（**未用** `git checkout --` —— 那会连带回滚同文件其它改动）；探针与临时文件**全部清理**；结束 `git status` 干净、未 push。
+
+### ⚠️ 本机 grep 陷阱（**本轮又踩一次**）
+归档时我按关键词全仓复扫，`grep -rna '保活\|keepalive'` **静默 0 命中** —— 又是 **BSD grep 不支持 `\|` 交替**（会被当字面量）。改用 `-E` 后立刻命中 20+ 处。**这已是本项目第 3 次踩**（前两次：`开箱\|开锁`、`notifyCustodian`）。**纪律：一律用 `-E`，或改用 Grep 工具。**
+
+### 遗留（非阻塞）
+1. **人工节奏未自动化**：工具是**被动的**（要人去跑）。本次**未接入任何 cron/看板告警**（避免引入定时器 —— 与项目「无后台定时任务」现状一致）。若后续有主机，建议把 `npm run aliyun:keepalive -- --status || echo ALERT`（见 `DEPLOY.md §12.4` 示例）挂进季度 cron。
+2. **`--status` 退出码 `2` 同时表示「`overdue`/`never_sent`」与「用法错误」** —— cron 里**无法区分**这两者（都是 2）。当前可接受（都需人工介入）；若将来要在告警里区分，再拆码。
+3. 签名**失效的第二条路径**（**资质/证件有效期过期 → 关联资质失效**）**不由本工具覆盖**，仍是**每月人工核对**（`DEPLOY.md §12.6`）。
