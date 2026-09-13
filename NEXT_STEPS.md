@@ -633,3 +633,25 @@ lockfile **仍为纯镜像 346 条**（用镜像源升级，**未写入混源 UR
 5. 把 8 个 `ALIYUN_*` 值（含自定的 `ALIYUN_SMS_REPORT_SECRET`）写入 `急救侠-server/.env` 或根 `.env.local`（**不要发到对话里**），然后照 `docs/DEPLOY.md §11` 跑七项验收。
 
 **过程备注（重要教训，已写入技能）**：突变测试用 `git checkout -- <file>` 还原时，**会把同一文件里未提交的正当改动一并回滚** —— 本次因此把 `signRpcParams` 的 `method` 参数误删，而**还原后没重跑门禁**，导致 `7e22cee` 的 CI/CD 因 `TS2554` 变红（`070f6b4` 已修复）。**两条硬规矩：① 先提交正当改动再做突变；② 每处突变还原后立刻重跑 type-check + test。**
+
+## ✅ 反滥用护栏（已完成 2026-09-12）
+
+**范围核实（重要：推翻了最初的设想）**：原以为要做"**虚假 SOS 反滥用**"，但核实发现 **SOS/急救指引流程 100% 本地**（`pages/rescue/index.vue` 未 import 任何 api 模块：语音指引、节拍器、本机拨 120、勾选式免责确认）⇒ **服务端不存在可检测的"虚假 SOS"**。真正的滥用面是**三个会触达真人 / 写盘 / 写库的端点**：
+
+| 端点 | 鉴权 | 风险 |
+|---|---|---|
+| `POST /api/aed/:id/notify-custodian` | 仅"已登录" | ⭐ **真的发短信/呼语音**（花钱 + 骚扰真人 + 耗语音日配额）；原先**无频次、无去重** |
+| `POST /api/media-alert/upload` | **匿名**（**有意设计**，不可加鉴权）| 匿名写盘 ⇒ 磁盘填充 |
+| `POST /api/public/inquire` | **匿名** | 匿名写库 ⇒ 表单灌水 |
+
+- commit：`ded2b84`（护栏本体）→ `3a04c38`（**trust proxy 修复 + 补真实挂载覆盖**）。后端 301 → **313 passed**、`type-check` 0 错、CI/CD/pages success。
+- **护栏**：`notify-custodian` 加**同请求者 × 同 AED 冷却**（`AED_NOTIFY_COOLDOWN_MS`，默认 120s，`0`=关闭）+ **同请求者小时上限**（`AED_NOTIFY_HOURLY_LIMIT`，默认 10）→ 拒绝返回 **429 + `AlertCode.RATE_LIMITED`(4009)**；两个匿名端点按 IP 小时限流（`MEDIA_UPLOAD_HOURLY_LIMIT` 10 / `INQUIRE_HOURLY_LIMIT` 5）。被拒尝试写审计 `custodian_notify_blocked`。**零新增依赖 / 无迁移 / 无新端点 / 未给匿名端点加鉴权。**
+- **★ 核心不变量（已断言）**：**被拒时绝不插入告警、绝不发任何推送/短信/语音** —— 拒绝点严格早于 `genAlertId()`/`INSERT`/推送循环（复核给出行号），**不存在半完成态** ⇒ **不花钱、不触达真人**。
+- **⚠️ 独立复核挖出的真缺陷（中危）**：`app.ts` **未设 `trust proxy`**，而生产是 **Caddy(443) → nginx(web:80) → server 两级反代** ⇒ Express **忽略 `X-Forwarded-For`**、`req.ip` = 反代容器 IP ⇒ **所有外部客户端共用一个桶**，**按 IP 限流在生产退化为全局限流** ⇒ **一人刷满即阻断全体合法用户（DoS）**。
+  - 证据：探针"换个 XFF 第 3 次即 429" + express-rate-limit 自身抛 `ValidationError: X-Forwarded-For is set but 'trust proxy' is false` + `Caddyfile` 的 `reverse_proxy web:80`。
+  - **同类问题也影响既有 `authLimiter`/`govLoginLimiter`/`smsReportLimiter`**（既有模式），本次一并修好。
+  - 修法：`TRUST_PROXY_HOPS`（默认 **2**；`0` = 不启用 ⇒ `trust proxy=false`），在**所有限流器之前** `app.set('trust proxy', hops)`。**绝不使用 `true`**（v8 会因过宽报错；且服务若被直接暴露，`true` 等于允许客户端伪造 XFF **绕过限流**）。
+  - ⚠️ **运维注意**：**跳数必须与真实拓扑一致** —— 拓扑若少一跳（如 Caddy 直连 server）而不同步改成 1，**又会退回全局共桶**。已在 `.env.example` 注明。
+- **验证（两轮突变）**：第 1 轮独立 QA **10 处突变 + 7 项对抗点** ⇒ **9/10 RED**（零触达、冷却键**双向**误伤、被拒审计、`force`、env 覆盖全部有牙），另 PASS：拒绝点早于触达、边界语义（第 10 次放行/第 11 次 429、恰好 120s 放行）、429 契约、flaki 修复正当、确定性、不越界。**M10 GREEN 暴露覆盖缺口 + B 挖出 trust proxy 缺陷**。
+  修复后**第 2 轮由主理人定向重放 R1–R3 全 RED**：`trust proxy` 恒 `false` ⇒ **换 XFF 仍拿到 429**（`expected 429 to be 200`，正是共桶风险）；默认跳数 `2→1` ⇒ 常量断言红；**去掉真实挂载** ⇒ `expected 200 to be 429`（M10 缺口确已补）。
+- **过程备注**：工程师曾据 `grep notifyCustodian` **0 命中**断言"无前端调用方、无需改前端"——**该 grep 又静默失败**（实际有 3 处：store + api + `pages/aed/detail.vue:147`）。**结论碰巧对、依据全错**：真正原因是 `notifyOwner()` 有 catch-all `else` → `showToast(res.message)`，故 429 的 message **会正常展示**。已把"grep 可能静默返回空，须加 `-a` 或用 Grep 工具"写进**工单纪律**（teammate 不读技能正文，只能写进工单）。
