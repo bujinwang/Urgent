@@ -29,6 +29,37 @@ sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw allow 443/udp
 
 ## 2. 首次部署（在主机上）
 
+### 2.0 ⚠️ 环境变量该写进哪个文件（生产 / 本机自测 / 本地开发**各不相同**）
+
+三个 compose 文件各自 `env_file:` **不同的**文件，**写错 = 变量静默缺失**
+（`ALIYUN_*` 的门控是「任一为空即关闭」，**不报错** ⇒ 短信/语音会**永久不发出**且无任何日志）：
+
+| 场景 | compose 文件 | 实际读取的 env 文件 | 用途 |
+|---|---|---|---|
+| **生产部署**（本手册） | `docker-compose.prod.yml` | 仓库根 **`.env`** | Caddy TLS + GHCR 镜像；server 运行时变量（含 `ALIYUN_*`）**全部**写这里 |
+| **本机生产同构自测** | `docker-compose.local.yml` | 仓库根 **`.env.local`** | 见 §9（含随机密钥，已 gitignore） |
+| **本地开发 / 裸跑后端** | `docker-compose.yml`（或 `cd 急救侠-server && npm run dev`） | **`急救侠-server/.env`** | 仅本地；**生产部署下不被读取** |
+
+依据（三个 compose 文件里的 `env_file:` 原文，逐字引用）：
+
+```yaml
+# docker-compose.prod.yml:45-47
+    env_file:
+      # 与 compose 同目录的根级 .env（**不是** 急救侠-server/.env）
+      - ./.env
+
+# docker-compose.local.yml:43-44
+    env_file:
+      - ./.env.local
+
+# docker-compose.yml:20-21
+    env_file:
+      - ./急救侠-server/.env
+```
+
+> ⚠️ **生产请把 `ALIYUN_*` / `TRUST_PROXY_HOPS` / 反滥用限流等全部填进仓库根 `.env`**
+> （根 `.env.example` 已按此列全并带注释）；写进 `急救侠-server/.env` 在生产里**完全不生效**。
+
 ```bash
 sudo mkdir -p /opt/jiujiaxia && sudo chown "$USER" /opt/jiujiaxia
 cd /opt/jiujiaxia
@@ -454,6 +485,11 @@ ALIYUN_VOICE_TTS_CODE
 ALIYUN_VOICE_CALLER_NUMBER      # 可留空 = 公共模式
 ALIYUN_VOICE_DAILY_LIMIT        # 可选，默认 200
 ```
+> **写入位置（务必按环境选对，见 §2.0）**：
+> **生产 → 仓库根 `.env`**；**本机同构自测 → 仓库根 `.env.local`**；**本地裸跑后端 → `急救侠-server/.env`**。
+> ⚠️ `NEXT_STEPS.md`「阿里云联调待办」第 5 条的旧写法（「写入 `急救侠-server/.env` **或** 根 `.env.local`」）
+> **对生产是错的** —— 生产 compose 的 `env_file` 只读根 `.env`，写错文件时短信/语音会**静默失效**。
+
 **任一 `ALIYUN_SMS_*` 缺失 ⇒ 短信功能整体关闭（不发起任何网络请求）**；语音同理（需 AK/SK + TTS code）。
 
 ### 11.3 逐项验收
