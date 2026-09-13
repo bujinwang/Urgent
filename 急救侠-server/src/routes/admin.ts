@@ -4,6 +4,7 @@ import { success, error } from '../types'
 import { authMiddleware } from '../middleware/auth'
 import type { AuthPayload } from '../middleware/auth'
 import { getVoiceDailyCount, getVoiceDailyLimit } from '../services/smsReportService'
+import { getSignatureKeepAlive } from '../services/signatureKeepAlive'
 import type {
   CountRow, UserWithCountsRow, OrganizationWithCountsRow,
   AdminCertificateRow, VolunteerRow,
@@ -87,7 +88,12 @@ adminRouter.get('/dashboard', (_req, res) => {
       last24h: { alerts: l24Alerts!.cnt, smsFallback: l24Sms!.cnt, voiceCalled: l24Voice!.cnt },
     }
 
-    res.json(success({ totalUsers:users!.cnt,totalOrganizations:orgs!.cnt,totalCoaches:coaches!.cnt,totalAeds:aeds!.cnt,totalCertificates:certs!.cnt,activePickups:activePickups!.cnt, custodianReach }))
+    // ---- 阿里云签名保活巡检（运维可观测）----
+    // 阿里云规定签名超 6 个月无发送即「报备失效」；本项目属低频场景，故在看板暴露状态。
+    // **纯新增**：不改既有 6 字段与 custodianReach；never_sent 时三个数值字段为 null（无样本不假报 0）。
+    const smsSignature = getSignatureKeepAlive(Date.now())
+
+    res.json(success({ totalUsers:users!.cnt,totalOrganizations:orgs!.cnt,totalCoaches:coaches!.cnt,totalAeds:aeds!.cnt,totalCertificates:certs!.cnt,activePickups:activePickups!.cnt, custodianReach, smsSignature }))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 

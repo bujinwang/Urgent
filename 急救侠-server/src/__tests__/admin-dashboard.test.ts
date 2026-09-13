@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import request from 'supertest'
 import { server, seedTestData, db, userToken, makeAdmin } from './setup'
+import { setMeta } from '../db'
+import { readLastSentAtMs, SIGNATURE_LAST_SENT_META_KEY } from '../services/signatureKeepAlive'
 
 const ADMIN = 'user_001'
 
@@ -24,6 +26,16 @@ function addDispatch(id: string, bizId: string, voiceState: string, voiceAtMs: n
 
 function getDash(token: string) {
   return request(server).get('/api/admin/dashboard').set('Authorization', `Bearer ${token}`)
+}
+
+const DAY = 86_400_000
+
+/** 插入一条短信下发流水，`created_at` 用 SQLite `datetime('now', <modifier>)` 生成（**UTC 文本**）。 */
+function addDispatchAt(id: string, modifier: string): void {
+  db.prepare(
+    `INSERT INTO aed_sms_dispatches (id, biz_id, alert_id, custodian_user_id, created_at)
+     VALUES (?,?,?,?, datetime('now', ?))`
+  ).run(id, 'B_' + id, 'ca_x', 'u_x', modifier)
 }
 
 afterEach(() => { delete process.env.ALIYUN_VOICE_DAILY_LIMIT })
@@ -128,5 +140,64 @@ describe('GET /api/admin/dashboard — custodianReach（责任人触达/降级�
     db.prepare('UPDATE users SET is_platform_admin = 0 WHERE id = ?').run(ADMIN) // 收回管理权限
     const res = await getDash(userToken(ADMIN))
     expect(res.status).toBe(403)
+  })
+})
+
+describe('GET /api/admin/dashboard — smsSignature（阿里云签名保活巡检）', () => {
+  beforeEach(() => { seedTestData(); makeAdmin(ADMIN) })
+
+  it('空库 ⇒ level=never_sent，三个数值字段全为 null（无样本不假报 0）', async () => {
+    const s = (await getDash(userToken(ADMIN))).body.data.smsSignature
+    expect(s.level).toBe('never_sent')
+    expect(s.actionRequired).toBe(true)
+    expect(s.lastSentAtMs).toBeNull()
+    expect(s.daysSinceLastSent).toBeNull()
+    expect(s.daysRemaining).toBeNull()
+    // 形状固定为 5 个字段
+    expect(Object.keys(s).sort()).toEqual(
+      ['actionRequired', 'daysRemaining', 'daysSinceLastSent', 'lastSentAtMs', 'level'].sort()
+    )
+  })
+
+  it('插入 100 天前的下发流水 ⇒ level=ok、daysSinceLastSent≈100', async () => {
+    addDispatchAt('sd_k100', '-100 days')
+    const s = (await getDash(userToken(ADMIN))).body.data.smsSignature
+    expect(s.level).toBe('ok')
+    expect(s.daysSinceLastSent).toBe(100)
+    expect(s.daysRemaining).toBe(180 - 100)
+  })
+
+  it('取证 db 与 meta 取 max：db=-100d、meta=-5d ⇒ 用 meta（更晚）', async () => {
+    addDispatchAt('sd_k100b', '-100 days')
+    setMeta(SIGNATURE_LAST_SENT_META_KEY, String(Date.now() - 5 * DAY))
+    const s = (await getDash(userToken(ADMIN))).body.data.smsSignature
+    expect(s.daysSinceLastSent).toBe(5)
+    expect(s.level).toBe('ok')
+  })
+
+  it('取证 max 语义（反向）：db=-1d、meta=-100d ⇒ 用 db（更晚）', async () => {
+    addDispatchAt('sd_k1', '-1 days')
+    setMeta(SIGNATURE_LAST_SENT_META_KEY, String(Date.now() - 100 * DAY))
+    const s = (await getDash(userToken(ADMIN))).body.data.smsSignature
+    expect(s.daysSinceLastSent).toBe(1)
+  })
+
+  it('UTC 基准取证：DB 默认 created_at（datetime(\'now\')）与 Date.now() 同基准（差 < 60s，而非时区偏移 8h）', () => {
+    addDispatchAt('sd_now', '+0 seconds') // 即 datetime('now')
+    const ms = readLastSentAtMs()
+    expect(ms).not.toBeNull()
+    // 若把 UTC 文本按本地时区解析，东八区会差 8h（28,800,000ms）⇒ 本条会失败。
+    expect(Math.abs((ms as number) - Date.now())).toBeLessThan(60_000)
+  })
+
+  it('回归：既有 custodianReach 字段逐字未变（纯新增 smsSignature）', async () => {
+    const d = (await getDash(userToken(ADMIN))).body.data
+    expect(d.custodianReach).toMatchObject({
+      alerts: 0, pending: 0, delivered: 0, smsFallback: 0, failed: 0, noSubscription: 0, other: 0,
+      reachRate: null,
+      voice: { dispatched: 0, called: 0, failed: 0, noPhone: 0 },
+      voiceDaily: { used: 0, limit: 200 },
+      last24h: { alerts: 0, smsFallback: 0, voiceCalled: 0 },
+    })
   })
 })

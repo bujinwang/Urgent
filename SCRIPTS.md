@@ -39,6 +39,30 @@ node scripts/smoke.mjs --help                   # 查看全部选项
 - 依赖被测栈已启动（本机见 `docs/DEPLOY.md` §9）；连不上服务会逐条 `FAIL` 且退出码 1。
 - `/api/auth/*` 有限流（15 分钟 20 次），一次冒烟消耗 **5** 次（CORS 与 413 两条已改打无限流的 `/api/health`）→ **连跑上限约 4 轮**；命中限流时汇总首行会显式标注「本轮含 N 处 429」，不代表真实回归，等窗口重置后重跑即可。
 
+## 急救侠-server 运维 CLI
+
+后端 `急救侠-server/package.json` 中的运维命令（均为 `tsx` 直跑，**零新增依赖**）。
+
+| 命令 | 脚本 | 作用 |
+|------|------|------|
+| `npm run admin:narrow` | `src/scripts/narrow-platform-admins.ts` | **平台管理员收窄**：`--list` 查看候选 / `--downgrade <ids>` 降级（`--force` 才允许清零）。用于把历史「隐式赋权」收窄为显式白名单（详见 `docs/DEPLOY.md` §10） |
+| `npm run aliyun:keepalive` | `src/scripts/aliyun-keepalive.ts` | **阿里云签名保活巡检**：`--status` 打印最近发送/距今/剩余/等级（可用退出码接 cron/CI）；`--send-test <手机号>` 发一条保活测试短信并记时间戳（`--days N` 覆盖阈值）。详见 `docs/DEPLOY.md` §12 |
+
+用法（在 `急救侠-server/` 下）：
+
+```bash
+npm run admin:narrow -- --list
+npm run admin:narrow -- --downgrade 3,7
+npm run aliyun:keepalive -- --status
+npm run aliyun:keepalive -- --send-test 13900000000
+npm run aliyun:keepalive -- --help
+```
+
+说明：
+
+- **阿里云签名保活**：阿里云规定签名**超 6 个月无发送记录即失效**（见 `deliverables/software-company/aliyun-approval.md` §8.6）。`--status` 退出码：`0`=ok/warn、`1`=action_due、`2`=overdue/never_sent；`--send-test` 退出码：`0`=受理、`2`=用法错误/短信未配置/号码非法、`1`=发送失败。**输出绝不含完整手机号**（`maskPhone` 脱敏），**短信未配置时明确报错并非零退出**（绝不静默）。
+- **平台管理员收窄**：收窄完成后写入 `app_meta.platform_admin_narrowing_done` 标记，使 `backfillPlatformAdmins()` 不再反向回填。
+
 ## HTML / CSS 校验脚本
 
 下列 Python/JS 脚本用于校验静态 HTML 演示文件 `急救侠_H5_Demo_v17.html`：

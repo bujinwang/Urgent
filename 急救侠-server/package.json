@@ -10,6 +10,7 @@
     "start": "node dist/index.js",
     "seed": "tsx src/seed.ts",
     "admin:narrow": "tsx src/scripts/narrow-platform-admins.ts",
+    "aliyun:keepalive": "tsx src/scripts/aliyun-keepalive.ts",
     "type-check": "tsc --noEmit",
     "test": "vitest run"
   },
