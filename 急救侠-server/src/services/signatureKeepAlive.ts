@@ -22,9 +22,14 @@ export const SIGNATURE_LAST_SENT_META_KEY = 'aliyun_signature_last_sent_ms'
  * 最近一次短信发送时间（ms）—— 取两处来源的**较晚者**：
  *
  * 1. `aed_sms_dispatches.created_at`：该列是 **UTC 文本**（`TEXT NOT NULL DEFAULT (datetime('now'))`，
- *    形如 `'YYYY-MM-DD HH:MM:SS'`）。`MAX(...)` 对同构文本即**时序最大**；
- *    `strftime('%s', ...)` 按 **UTC** 解析为「秒」→ ×1000 得 ms，**与 `Date.now()`（UTC epoch ms）同基准**
- *    （若误用本地解析会引入时区偏移，如东八区差 8 小时）。
+ *    形如 `'YYYY-MM-DD HH:MM:SS'`）。此处采用 **parse-then-max**：
+ *    先 `strftime('%s', created_at)` 把每行按 **UTC** 解析为「秒」，再 `MAX(...)` 取最大，最后 ×1000 得 ms，
+ *    **与 `Date.now()`（UTC epoch ms）同基准**（若误用本地解析会引入时区偏移，如东八区差 8 小时）。
+ *    ⚠️ 顺序**不可颠倒**为「先 `MAX(created_at)` 再解析」：`created_at` 是 **TEXT**，`MAX` 是**文本比较**；
+ *    若表中存在**不可解析**的值（如 `'not-a-date'`，因 `'n' > '2'` 会成为文本最大值），
+ *    `strftime('%s', 'not-a-date')` 返回 **NULL** ⇒ **该行会把合法行整体遮蔽**、reader 退化为 `null`。
+ *    改为 parse-then-max 后，SQLite 聚合 `MAX()` **忽略 NULL** ⇒ 不可解析的行被自动跳过、不再遮蔽合法行。
+ *    规范行（`'YYYY-MM-DD HH:MM:SS'`）与带 `T`/`Z` 的 ISO 串，`strftime('%s', …)` 均按 UTC 解析成同一基准的秒。
  * 2. `app_meta.aliyun_signature_last_sent_ms`（`--send-test` 成功后写入或人工记录）。
  *
  * ⚠️ **两处皆缺失 ⇒ 返回 `null`（不是 0）** —— 与项目既有「无样本不假报 0」不变量一致，
@@ -32,7 +37,7 @@ export const SIGNATURE_LAST_SENT_META_KEY = 'aliyun_signature_last_sent_ms'
  */
 export function readLastSentAtMs(): number | null {
   const row = get<{ s: number | null }>(
-    "SELECT CAST(strftime('%s', MAX(created_at)) AS INTEGER) AS s FROM aed_sms_dispatches"
+    "SELECT MAX(CAST(strftime('%s', created_at) AS INTEGER)) AS s FROM aed_sms_dispatches"
   )
   const fromDb = row && row.s != null && Number.isFinite(Number(row.s)) ? Number(row.s) * 1000 : 0
   const fromMeta = Number(getMeta(SIGNATURE_LAST_SENT_META_KEY)) || 0

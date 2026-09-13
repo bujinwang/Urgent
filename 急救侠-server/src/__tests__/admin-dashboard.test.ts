@@ -208,6 +208,27 @@ describe('GET /api/admin/dashboard — smsSignature（阿里云签名保活巡�
     expect(Math.abs((ms as number) - Date.now())).toBeLessThan(60_000)
   })
 
+  it('不可解析 created_at 不遮蔽合法行（parse-then-max）：MAX 忽略 NULL，不把状态打成 never_sent', async () => {
+    // ① 不可解析行：按**文本**比较 'not-a-date' > '2...'（'n' > '2'）。
+    //    旧 SQL（max-then-parse）会先取到这行文本最大值，strftime 返回 NULL ⇒ 遮蔽合法行。
+    db.prepare(
+      'INSERT INTO aed_sms_dispatches (id, biz_id, alert_id, custodian_user_id, created_at) VALUES (?,?,?,?,?)'
+    ).run('sd_bad', 'B_bad', 'ca_x', 'u_x', 'not-a-date')
+    // ② 合法行：now - 30 天
+    addDispatchAt('sd_ok30', '-30 days')
+
+    const ms = readLastSentAtMs()
+    // 旧 SQL 在此为 null（被不可解析行整体遮蔽）⇒ 本条即咬住隐患
+    expect(ms).not.toBeNull()
+    // 解析到的是合法行的时刻（约 now-30d，误差 < 60s）
+    expect(Math.abs((ms as number) - (Date.now() - 30 * DAY))).toBeLessThan(60_000)
+
+    // 看板：30 天 ⇒ ok（**不可解析行没有把状态打成 never_sent**）
+    const s = (await getDash(userToken(ADMIN))).body.data.smsSignature
+    expect(s.level).toBe('ok')
+    expect(s.daysSinceLastSent).toBe(30)
+  })
+
   it('回归：既有 custodianReach 字段逐字未变（纯新增 smsSignature）', async () => {
     const d = (await getDash(userToken(ADMIN))).body.data
     expect(d.custodianReach).toMatchObject({
