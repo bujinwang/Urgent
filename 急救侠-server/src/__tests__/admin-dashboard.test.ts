@@ -182,6 +182,24 @@ describe('GET /api/admin/dashboard — smsSignature（阿里云签名保活巡�
     expect(s.daysSinceLastSent).toBe(1)
   })
 
+  it('销账（--mark-sent 等价路径）：先造 overdue，写入 meta=now 后 reader 与看板均反映新值 ⇒ ok', async () => {
+    addDispatchAt('sd_k200', '-200 days') // 先造 overdue 状态
+    // 等价于 `--mark-sent`：把保活时间戳写为当前时刻
+    setMeta(SIGNATURE_LAST_SENT_META_KEY, String(Date.now()))
+
+    // reader 直接反映新值（与 Date.now() 同基准，差 < 60s）
+    const ms = readLastSentAtMs()
+    expect(ms).not.toBeNull()
+    expect(Math.abs((ms as number) - Date.now())).toBeLessThan(60_000)
+
+    // 看板 smsSignature 随之变为 ok
+    const s = (await getDash(userToken(ADMIN))).body.data.smsSignature
+    expect(s.level).toBe('ok')
+    expect(s.daysSinceLastSent).toBe(0)
+    expect(s.daysRemaining).toBe(180)
+    expect(s.actionRequired).toBe(false)
+  })
+
   it('UTC 基准取证：DB 默认 created_at（datetime(\'now\')）与 Date.now() 同基准（差 < 60s，而非时区偏移 8h）', () => {
     addDispatchAt('sd_now', '+0 seconds') // 即 datetime('now')
     const ms = readLastSentAtMs()

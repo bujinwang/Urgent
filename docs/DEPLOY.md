@@ -550,6 +550,10 @@ npm run aliyun:keepalive -- --status
 # 保活发送：发一条测试短信，成功后更新保活时间戳（app_meta）。必须显式传号（无默认值，防误发）
 npm run aliyun:keepalive -- --send-test <11 位手机号>
 
+# 销账：在「阿里云控制台」手工测试发送后回来登记（写保活时间戳并立刻复算；见下方 ⚠️）
+npm run aliyun:keepalive -- --mark-sent
+npm run aliyun:keepalive -- --mark-sent --at 2026-09-12T20:00:00Z   # 指定发送时刻（ISO8601）
+
 # 自定义阈值（仅影响本次判定的分级，不改默认值）
 npm run aliyun:keepalive -- --days 90
 
@@ -565,17 +569,24 @@ npx tsx src/scripts/aliyun-keepalive.ts --help
 | `--send-test` | `0` | 发送**已受理**（已写入保活时间戳） |
 | `--send-test` | `2` | 用法错误 / **短信未配置** / 号码非法 |
 | `--send-test` | `1` | 发送失败（凭阿里云返回的 `Code`/`Message` 排查，见 §11.5） |
+| `--mark-sent` | `0` | 销账后**复算**为 `ok` / `warn`（**销账成功**的常见结果） |
+| `--mark-sent` | `1` / `2` | 复算为 `action_due` / `overdue`·`never_sent`（**登记的时刻距现在仍偏旧**，请核对 `--at`）；用法错误 / `--at` 不可解析 → `2` |
 
 > **退出码接 cron / CI**：`0` 视为达标；非 `0` 触发告警（如 `1` 提醒安排、`2` 立即处理）。这样「低频静默失效」被转成**可观测的失败**，而不是等症状出现。
+
+> ⚠️ **`--mark-sent` 的定位 —— 「销账」，不是「检测」**：它把 `app_meta.aliyun_signature_last_sent_ms` 写为**指定时刻**（默认当前）并**立刻复算**分级。
+> 存在的**唯一理由**：运维发现 `overdue` 后，**最自然的动作是去阿里云控制台点「测试发送」** —— 那一次发送**不经过本项目**，
+> 因此 `aed_sms_dispatches` 无记录、`app_meta` 也不会自动更新 ⇒ 若不销账，巡检会**一直报 overdue**（明明修好了却永远报警）。
+> **仅在确实已发送后使用；不得用它伪造记录掩盖问题。**（`--at` 不可解析时明确报错 `exit 2`，**绝不静默回落 now**。）
 
 ### 12.3 分级表与建议动作（默认阈值 180 天）
 
 | 等级 | 触发条件（距上次发送天数 `d`） | 需人工动作 | 建议动作 |
 |---|---|---|---|
-| `never_sent` | 无任何发送记录（`d = null`） | ✅ | **尽快**发一次保活（`--send-test`）或触发一次真实链路；确认签名/模板可用 |
-| `overdue` | `d ≥ 180` | ✅ | **已超期**：立即发保活；若发送失败 → 按 §8.6 重新报备（预留 5–10 工作日） |
-| `action_due` | `150 ≤ d < 180` | ✅ | 本周期内安排一次保活发送 |
-| `warn` | `120 ≤ d < 150` | ⛔ | 关注即可，下个巡检窗口留意 |
+| `never_sent` | 无任何发送记录（`d = null`） | ✅ | **尽快**发一次保活（`--send-test`）或触发一次真实链路；确认签名/模板可用。**若走阿里云控制台发送，发后必须回来 `--mark-sent` 销账** |
+| `overdue` | `d ≥ 180` | ✅ | **已超期**：立即发保活；若发送失败 → 按 §8.6 重新报备（预留 5–10 工作日）。**发送后若走的是控制台，务必回来 `--mark-sent` 销账**，否则会**一直报 overdue** |
+| `action_due` | `150 ≤ d < 180` | ✅ | 本周期内安排一次保活发送。**发送后若走的是控制台，务必回来 `--mark-sent` 销账** |
+| `warn` | `120 ≤ d < 150` | ⛔ | 关注即可，下个巡检窗口留意（**不触发告警**，见 §12.4） |
 | `ok` | `d < 120` | ⛔ | 无需动作 |
 
 > 边界：**恰好 180 天即 `overdue`**；`d` 对**未来时间戳**防御性归零（时钟回拨不会产生负数）。分级边界有确定性单测覆盖（`src/__tests__/signature-keepalive.test.ts`，含 119/120/149/150/179/180/181 等）。
@@ -587,7 +598,7 @@ npx tsx src/scripts/aliyun-keepalive.ts --help
   ```bash
   cd 急救侠-server && npm run aliyun:keepalive -- --status || echo "ALERT: 阿里云签名保活巡检未达标"
   ```
-  ⚠️ 自动执行**只做 `--status` 巡检**；`--send-test` **不建议**放进无人值守的定时任务（会产生真实计费与外呼，且**必须显式传号**）。
+  ⚠️ 自动执行**只做 `--status` 巡检**；`--send-test` / `--mark-sent` **不要**放进无人值守的定时任务（前者产生真实计费与外呼且**必须显式传号**；后者是**人工销账动作**，自动化等于伪造发送记录）。
 
 ### 12.5 看板字段 `smsSignature`
 
@@ -606,7 +617,7 @@ npx tsx src/scripts/aliyun-keepalive.ts --help
 }
 ```
 
-> 取数同时看两处并取**较晚者**：`aed_sms_dispatches.created_at` 的 `MAX`（UTC 文本，经 `strftime('%s', …)` 转 ms，**与 `Date.now()` 同基准**）与 `app_meta.aliyun_signature_last_sent_ms`（`--send-test` 成功后写入）；**两处皆空返回 `null`**（区别于「很久以前发送过」，不假报 0）。
+> 取数同时看两处并取**较晚者**：`aed_sms_dispatches.created_at` 的 `MAX`（UTC 文本，经 `strftime('%s', …)` 转 ms，**与 `Date.now()` 同基准**）与 `app_meta.aliyun_signature_last_sent_ms`（`--send-test` 发送成功后、或 `--mark-sent` 销账时写入）；**两处皆空返回 `null`**（区别于「很久以前发送过」，不假报 0）。
 
 ### 12.6 ⚠️ 无法自动化的部分：资质 / 证件有效期
 
