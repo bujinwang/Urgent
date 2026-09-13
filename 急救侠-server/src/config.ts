@@ -38,6 +38,15 @@ export const ALIYUN_VOICE_CALLER_NUMBER = process.env.ALIYUN_VOICE_CALLER_NUMBER
 // 短信状态报告回调验真密钥：未配置 → 回调端点整体关闭（返回 404，不暴露端点存在）。
 export const ALIYUN_SMS_REPORT_SECRET = process.env.ALIYUN_SMS_REPORT_SECRET || ''
 
+// ---- 反代信任跳数（安全：IP 限流依赖**真实客户端 IP**）----
+// 生产链路：Caddy(443) → nginx(web:80) → server ⇒ **2 跳**。必须与**真实链路一致**：
+//   设**过多** = 允许客户端伪造 `X-Forwarded-For` 绕过限流；设 `0` = 关闭（服务被直接暴露时用）。
+//   绝不使用 `true`（express-rate-limit 会因过宽报错，且允许伪造 XFF）。
+export const TRUST_PROXY_HOPS = (() => {
+  const n = parseInt(process.env.TRUST_PROXY_HOPS || '', 10)
+  return Number.isFinite(n) && n >= 0 ? n : 2
+})()
+
 // ---- 政府数据监管看板（P2-8）----
 // 政府访问令牌**必须**使用独立密钥：绝不回落到业务 `JWT_SECRET`
 // （否则 gov 令牌可通过业务 authMiddleware 验签 → 违反「互不通用」锁定决策）。

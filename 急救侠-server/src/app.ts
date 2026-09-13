@@ -16,6 +16,7 @@ import { atlasRouter } from './routes/atlas'
 import { mediaAlertRouter } from './routes/media-alert'
 import { govRouter } from './routes/gov'
 import { initDb } from './db'
+import { TRUST_PROXY_HOPS } from './config'
 import { authMiddleware } from './middleware/auth'
 import { authRouter } from './routes/auth'
 import { pushRouter } from './routes/push'
@@ -32,6 +33,11 @@ import { wildlifeRouter } from './routes/wildlife'
 import { animalRouter } from './routes/animals'
 
 const app = express()
+
+// 反代信任跳数（安全）：生产为 Caddy → nginx → server（2 跳）。**必须在所有限流器与路由之前**设置，
+// 否则 Express 会忽略 `X-Forwarded-For`，`req.ip` 退化为反代容器 IP ⇒ **所有外部客户端共用一个限流桶**
+// （一人刷满即阻断全体合法用户）。`0` ⇒ `false`（关闭；服务被直接暴露时用）。
+app.set('trust proxy', TRUST_PROXY_HOPS === 0 ? false : TRUST_PROXY_HOPS)
 
 // Middleware
 // CORS（安全收敛 E）：来源白名单来自 env `CORS_ORIGINS`（逗号分隔）；
@@ -95,15 +101,16 @@ const govLoginLimiter = isTestMode
 /** 阿里云短信状态报告回调：限流参数（导出以便单测断言）。 */
 export const SMS_REPORT_LIMIT = { windowMs: 60 * 1000, max: 60 } as const
 
-/**
- * 阿里云短信状态报告回调限流中间件（公开端点，沿用测试豁免模式）。
+/** 阿里云短信状态报告回调限流中间件（公开端点，沿用测试豁免模式）。
  * `force=true` 时**绕过测试豁免**，返回真实限流器（供测试注入验证）。
- */
+ * 阈值可用 env `SMS_REPORT_MINUTE_LIMIT` 覆盖（与其它限流器一致）。 */
 export function createSmsReportLimiter(force = false) {
   if (isTestMode && !force) return (req: any, _res: any, next: any) => next()
+  const n = parseInt(process.env.SMS_REPORT_MINUTE_LIMIT || '', 10)
+  const max = Number.isFinite(n) && n > 0 ? n : SMS_REPORT_LIMIT.max
   return rateLimit({
     windowMs: SMS_REPORT_LIMIT.windowMs,
-    max: SMS_REPORT_LIMIT.max,
+    max,
     message: { code: -1, message: '请求过于频繁，请稍后再试' },
     standardHeaders: true,
     legacyHeaders: false,
