@@ -695,7 +695,10 @@ lockfile **仍为纯镜像 346 条**（用镜像源升级，**未写入混源 UR
 
 ### 遗留（非阻塞）
 1. ~~报备材料 §8.6：**签名超 6 个月无发送即失效** —— 本项目属低频场景，建议后续单开「签名保活巡检」。~~ ✅ **已闭环（2026-09-12）**，见下方「阿里云签名保活巡检」归档段（`40555c6` / `6dfb841` / `58b5c73` / `be3ca8d`）。
-2. 本机**未安装 docker**，故 ② 的 compose 证据为**声明式**（非 runtime 观测）；有主机后可补一次 `docker compose config` 实证。
+2. ~~本机**未安装 docker**，故 ② 的 compose 证据为**声明式**（非 runtime 观测）；有主机后可补一次 `docker compose config` 实证。~~ **已部分升级（2026-09-12）**：改为**程序化校验**（非阅读式声明）—— 用 PyYAML **解析**三个 compose 取 `env_file`，并逐一对齐文档引用的行号，另核对 `.dockerignore`/`Dockerfile`/变量覆盖。**仍缺**：`docker compose config` 的 **runtime 插值**观测（需主机 + docker）。复核结论如下。
+   - 复核结论：三个 compose 的 `env_file` 与文档**逐字相符**（`prod.yml:45-47` → `./.env`；`local.yml:43-44` → `./.env.local`；`docker-compose.yml:20-21` → `./急救侠-server/.env`），**引用行号全部精确命中**；`.dockerignore` 排除 `.env` 与 `.env.*`；`Dockerfile` 5 条 `COPY` 均不涉 `.env`。
+   - **`NODE_ENV` 之谜彻底闭合**：代码实读 **24** 个 `process.env.*`，两份 `.env.example` 各覆盖 **23/24**，唯一缺口 `NODE_ENV` —— 已证实由三个 compose 的 `environment:` **显式注入 `production`**（`docker-compose.yml:23` / `local:46` / **`prod.yml:49`**）⇒ `config.ts:11-13` 的 JWT 密钥 fail-fast **已武装**，"跳过 fail-fast ⇒ 用随机密钥发 token" 的担忧**不成立**。
+   - **`DOMAIN`/`TLS_EMAIL` 的归属也对上了**：二者**只**出现在根 `.env.example`（不进 `急救侠-server/.env.example`）—— 因为它们**不由服务端代码读**，而是被 `Caddyfile:22-23`（`{$DOMAIN}` / `{$TLS_EMAIL}`）消费，经 `docker-compose.prod.yml:30-31` 的 `environment: DOMAIN=${DOMAIN} / TLS_EMAIL=${TLS_EMAIL}` **从根 `.env` 插值转发**。三者形成闭环，**无悬空变量**。
 3. `docs/DEPLOY.md §11.3` 七项验收等**技术行为断言**未改（无口径冲突）。
 
 ---
