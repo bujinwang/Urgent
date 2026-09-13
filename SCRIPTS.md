@@ -46,7 +46,7 @@ node scripts/smoke.mjs --help                   # 查看全部选项
 | 命令 | 脚本 | 作用 |
 |------|------|------|
 | `npm run admin:narrow` | `src/scripts/narrow-platform-admins.ts` | **平台管理员收窄**：`--list` 查看候选 / `--downgrade <ids>` 降级（`--force` 才允许清零）。用于把历史「隐式赋权」收窄为显式白名单（详见 `docs/DEPLOY.md` §10） |
-| `npm run aliyun:keepalive` | `src/scripts/aliyun-keepalive.ts` | **阿里云签名保活巡检**：`--status` 打印最近发送/距今/剩余/等级（可用退出码接 cron/CI）；`--send-test <手机号>` 发一条保活测试短信并记时间戳（`--days N` 覆盖阈值）。详见 `docs/DEPLOY.md` §12 |
+| `npm run aliyun:keepalive` | `src/scripts/aliyun-keepalive.ts` | **阿里云签名保活巡检**：`--status` 打印最近发送/距今/剩余/等级（可用退出码接 cron/CI）；`--send-test <手机号>` 发一条保活测试短信并记时间戳；`--mark-sent [--at <ISO8601>]` 在**阿里云控制台手工发送后回来销账**（否则巡检会一直报 `overdue`）；`--days N` 覆盖阈值。详见 `docs/DEPLOY.md` §12 |
 
 用法（在 `急救侠-server/` 下）：
 
@@ -55,6 +55,7 @@ npm run admin:narrow -- --list
 npm run admin:narrow -- --downgrade 3,7
 npm run aliyun:keepalive -- --status
 npm run aliyun:keepalive -- --send-test 13900000000
+npm run aliyun:keepalive -- --mark-sent
 npm run aliyun:keepalive -- --help
 ```
 
