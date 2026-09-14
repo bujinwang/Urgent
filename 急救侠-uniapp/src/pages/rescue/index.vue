@@ -6,15 +6,15 @@
       <view v-if="isDrill" class="training-banner">
         <text class="training-banner-icon">⚠️</text>
         <view class="training-banner-body">
-          <text class="training-banner-title">演习模式</text>
-          <text class="training-banner-sub">本次为流程演练，不会真实拨打 120</text>
+          <text class="training-banner-title">{{ $t('rescue.banner.title') }}</text>
+          <text class="training-banner-sub">{{ $t('rescue.banner.sub') }}</text>
         </view>
       </view>
 
       <!-- 顶栏 -->
       <view class="rescue-appbar">
         <text class="rescue-back" @click="goBack">‹</text>
-        <text class="rescue-title">紧急救护</text>
+        <text class="rescue-title">{{ $t('rescue.title') }}</text>
         <view class="rescue-call-120" @click="call120">
           <text class="rescue-120-dot">📞</text>
           <text>120</text>
@@ -25,21 +25,21 @@
       <view class="decision-tag-row">
         <view class="decision-tag" :class="{ drill: isDrill }">
           <view class="decision-tag-dot" :class="{ drill: isDrill }" />
-          <text>{{ isDrill ? '演习 · 熟悉 CPR 流程' : 'EMERGENCY · 黄金 4 分钟' }}</text>
+          <text>{{ isDrill ? $t('rescue.decision.tag.drill') : $t('rescue.decision.tag.real') }}</text>
         </view>
       </view>
 
       <view class="decision-headline">
-        <text class="decision-main">患者倒地无反应？</text>
-        <text class="decision-sub">深呼吸 · 您不会孤军奋战</text>
+        <text class="decision-main">{{ $t('rescue.decision.main') }}</text>
+        <text class="decision-sub">{{ $t('rescue.decision.sub') }}</text>
       </view>
 
       <!-- CPR 按钮 -->
       <view class="sos-btn-wrap">
         <SosButton
           variant="dark"
-          :title="isDrill ? '开始 CPR 演习' : '立即启动 CPR'"
-          :subtitle="isDrill ? '熟悉全流程 · 模拟调度 AED 小队' : '全自动呼叫 120 + 调度 AED 小队'"
+          :title="isDrill ? $t('rescue.decision.start.drill') : $t('rescue.decision.start.real')"
+          :subtitle="isDrill ? $t('rescue.decision.startSub.drill') : $t('rescue.decision.startSub.real')"
           :show-arrow="false"
           @click="showConfirm"
         />
@@ -47,7 +47,7 @@
 
       <!-- 系统自动操作说明 -->
       <view class="decision-auto-box">
-        <text class="decision-auto-label">{{ isDrill ? '演习模式 · 系统将模拟以下操作：' : '点击后 5 秒内系统自动:' }}</text>
+        <text class="decision-auto-label">{{ isDrill ? $t('rescue.decision.autoLabel.drill') : $t('rescue.decision.autoLabel.real') }}</text>
         <view class="decision-auto-row">
           <view v-for="item in autoActions" :key="item.label" class="decision-auto-item">
             <view class="decision-auto-icon">{{ item.icon }}</view>
@@ -57,7 +57,7 @@
       </view>
 
       <!-- 其他紧急情况 -->
-      <view class="decision-other-label">其他紧急情况</view>
+      <view class="decision-other-label">{{ $t('rescue.decision.other') }}</view>
       <view class="decision-other-grid">
         <view v-for="g in emergencyGuides" :key="g.type" class="decision-other-btn" :class="{ 'decision-other-wide': g.wide }" @click="showGuide(g.type)">
           <text class="decision-other-emoji">{{ g.emoji }}</text>
@@ -66,7 +66,7 @@
       </view>
 
       <view class="decision-legal">
-        <text>🛡 善意救助免责</text><text>·</text><text>《民法典》184 条</text>
+        <text>{{ $t('rescue.decision.legalSave') }}</text><text>·</text><text>{{ $t('rescue.decision.legalLaw') }}</text>
       </view>
     </view>
 
@@ -74,7 +74,7 @@
     <view v-if="stage === 'cpr'" class="rescue-cpr">
       <view v-if="isDrill" class="training-banner cpr-banner">
         <text class="training-banner-icon">⚠️</text>
-        <text class="training-banner-compact-text">演习 · 不会拨打 120</text>
+        <text class="training-banner-compact-text">{{ $t('rescue.banner.compact') }}</text>
       </view>
 
       <view class="rescue-appbar">
@@ -90,79 +90,77 @@
       <!-- 步骤1 -->
       <view v-if="cprStep === 1" class="cpr-step-card">
         <view class="step-icon-wrap" style="background:linear-gradient(135deg,#F59E0B,#D97706);"><text class="step-icon-emoji">📣</text></view>
-        <text class="step-action-label">{{ isDrill ? '演习 · 系统模拟调度中' : '系统调度中 · 您只管准备按压' }}</text>
-        <text class="step-quote">"系统已调度！现场清空，准备按压！"</text>
+        <text class="step-action-label">{{ isDrill ? $t('rescue.step1.action.drill') : $t('rescue.step1.action.real') }}</text>
+        <text class="step-quote">{{ $t('rescue.step1.quote') }}</text>
         <view class="step-tasks">
           <view class="step-task done">
             <view class="step-task-check">✓</view>
             <view class="step-task-text">
-              <strong>{{ isDrill ? '【演习】模拟拨打 120' : '120 已自动呼叫' }}</strong>
-              <view v-if="isDrill" class="step-task-sub">（本次不会真实呼叫）</view>
-              <view v-else class="step-task-sub">已发送您的精准位置</view>
+              <strong>{{ isDrill ? $t('rescue.step1.taskCall.drill') : $t('rescue.step1.taskCall.real') }}</strong>
+              <view v-if="isDrill" class="step-task-sub">{{ $t('rescue.step1.taskCallSubDrill') }}</view>
+              <view v-else class="step-task-sub">{{ $t('rescue.step1.taskCallSubReal') }}</view>
             </view>
           </view>
           <view class="step-task done">
             <view class="step-task-check">✓</view>
             <view class="step-task-text">
-              <strong>{{ isDrill ? '【演习】模拟通知 5km 内志愿者' : '5km 内 8 名志愿者已通知' }}</strong>
-              <view class="step-task-sub">最近模拟距离 240m · 预计 3 分钟</view>
+              <strong>{{ isDrill ? $t('rescue.step1.taskVolunteers.drill') : $t('rescue.step1.taskVolunteers.real') }}</strong>
+              <view class="step-task-sub">{{ $t('rescue.step1.taskVolunteersSub') }}</view>
             </view>
           </view>
           <view class="step-task active">
             <view class="step-task-check" style="background:#F59E0B;">⚡</view>
             <view class="step-task-text">
-              <strong>{{ isDrill ? '【演习】3 名志愿者角色已模拟分配' : '3 名志愿者小队已分工响应' }}</strong>
-              <view class="step-task-sub">压缩手 240m · AED 手 100m · 记录员 310m</view>
+              <strong>{{ isDrill ? $t('rescue.step1.taskTeam.drill') : $t('rescue.step1.taskTeam.real') }}</strong>
+              <view class="step-task-sub">{{ $t('rescue.step1.taskTeamSub') }}</view>
             </view>
           </view>
-          <view class="step-task" @click="goHelper"><view class="step-task-check todo">→</view><view class="step-task-text">点这里 · 让现场路人扫码协助</view></view>
+          <view class="step-task" @click="goHelper"><view class="step-task-check todo">→</view><view class="step-task-text">{{ $t('rescue.step1.taskHelper') }}</view></view>
         </view>
-        <view class="step-detail">
-          <strong style="color:#FF8B5B;">{{ isDrill ? '本次为演习，不会真实调度资源' : '您不用自己去找 AED' }}</strong>——{{ isDrill ? '请跟着语音指令熟悉完整 CPR 流程。' : '系统已同步调度压缩、AED 与记录协作角色。' }}<br>放下手机，跟着语音指引准备开始按压。
-        </view>
+        <view class="step-detail" v-html="isDrill ? $t('rescue.step1.detail.drill') : $t('rescue.step1.detail.real')" />
         <StepTimer :seconds="7" @done="cprStep = 2" />
-        <view class="step-buttons"><view class="step-btn-primary" @click="cprStep = 2">已喊人 · 立即开始</view></view>
+        <view class="step-buttons"><view class="step-btn-primary" @click="cprStep = 2">{{ $t('rescue.step1.start') }}</view></view>
       </view>
 
       <!-- 步骤2/3/4/5/循环/AED 保持不变（无演习相关文字） -->
       <view v-if="cprStep === 2" class="cpr-step-card">
         <view class="step-icon-wrap" style="background:linear-gradient(135deg,#FF6B5B,#C0392B);"><text class="step-icon-emoji">👋</text></view>
-        <text class="step-action-label">判断意识 · 5 秒</text>
-        <text class="step-quote">"喂！你怎么啦？"</text>
-        <view class="step-detail">拍打患者两侧肩膀，在耳边大声呼喊。观察是否有反应。</view>
+        <text class="step-action-label">{{ $t('rescue.step2.action') }}</text>
+        <text class="step-quote">{{ $t('rescue.step2.quote') }}</text>
+        <view class="step-detail">{{ $t('rescue.step2.detail') }}</view>
         <StepTimer :seconds="5" @done="cprStep = 3" />
-        <view class="step-buttons"><view class="step-btn-secondary" @click="abort('有反应')">有反应 · 暂停</view></view>
+        <view class="step-buttons"><view class="step-btn-secondary" @click="abort($t('rescue.toast.reason.responded'))">{{ $t('rescue.step2.pause') }}</view></view>
       </view>
 
       <view v-if="cprStep === 3" class="cpr-step-card">
         <view class="step-icon-wrap" style="background:linear-gradient(135deg,#4A90E2,#2563EB);"><text class="step-icon-emoji">🫁</text></view>
-        <text class="step-action-label">判断呼吸 · 默数 7 秒</text>
+        <text class="step-action-label">{{ $t('rescue.step3.action') }}</text>
         <text class="step-quote">{{ breathCounter }}</text>
-        <view class="step-detail">把脸贴近患者口鼻，同时看胸口起伏、听呼吸。</view>
+        <view class="step-detail">{{ $t('rescue.step3.detail') }}</view>
         <StepTimer :seconds="7" @done="cprStep = 4" />
-        <view class="step-buttons"><view class="step-btn-secondary" @click="abort('有正常呼吸')">有正常呼吸 · 暂停</view></view>
+        <view class="step-buttons"><view class="step-btn-secondary" @click="abort($t('rescue.toast.reason.breathing'))">{{ $t('rescue.step3.pause') }}</view></view>
       </view>
 
       <view v-if="cprStep === 4" class="cpr-step-card">
         <view class="cpr-bar">
-          <view class="cpr-bar-item"><text class="cpr-bar-label">总坚持</text><text class="cpr-bar-value">{{ elapsed }}</text></view>
-          <view class="cpr-bar-item"><text class="cpr-bar-label">本组</text><text class="cpr-bar-value">{{ pressCount }}/30</text></view>
-          <view class="cpr-bar-item"><text class="cpr-bar-label">完成组数</text><text class="cpr-bar-value">{{ rounds }}</text></view>
+          <view class="cpr-bar-item"><text class="cpr-bar-label">{{ $t('rescue.cpr.totalLabel') }}</text><text class="cpr-bar-value">{{ elapsed }}</text></view>
+          <view class="cpr-bar-item"><text class="cpr-bar-label">{{ $t('rescue.cpr.roundLabel') }}</text><text class="cpr-bar-value">{{ pressCount }}/30</text></view>
+          <view class="cpr-bar-item"><text class="cpr-bar-label">{{ $t('rescue.cpr.roundsLabel') }}</text><text class="cpr-bar-value">{{ rounds }}</text></view>
         </view>
         <Metronome :display="pressNumDisplay" :label="pressLabel" @reset="resetCount" />
         <view class="cpr-instruction">
-          <text class="cpr-instruction-num">按压要点</text>
-          <text class="cpr-instruction-text">双掌交叠 · 胸骨中下段 · 下压 5-6cm</text>
-          <text class="cpr-instruction-detail">手臂保持<strong style="color:#FF8B5B;">伸直</strong>，借上半身重量。</text>
+          <text class="cpr-instruction-num">{{ $t('rescue.cpr.keyNum') }}</text>
+          <text class="cpr-instruction-text">{{ $t('rescue.cpr.keyText') }}</text>
+          <text class="cpr-instruction-detail" v-html="$t('rescue.cpr.keyDetail')" />
         </view>
         <view class="cpr-actions">
-          <view class="cpr-action" @click="goHelper"><text class="cpr-action-icon">+</text><text>叫人协助</text></view>
-          <view class="cpr-action aed-action" @click="goAedFlow"><text class="cpr-action-icon">⚡</text><text>AED 连好了</text></view>
+          <view class="cpr-action" @click="goHelper"><text class="cpr-action-icon">+</text><text>{{ $t('rescue.cpr.callHelper') }}</text></view>
+          <view class="cpr-action aed-action" @click="goAedFlow"><text class="cpr-action-icon">⚡</text><text>{{ $t('rescue.cpr.aedReady') }}</text></view>
           <view class="cpr-action danger" @click="call120"><text class="cpr-action-icon">📞</text><text>120</text></view>
         </view>
         <view class="cpr-action-media" @click="goMediaAlert">
           <text class="cpr-action-media-icon">📸</text>
-          <text>拍照/录像 · 发送现场情况给 120</text>
+          <text>{{ $t('rescue.cpr.media') }}</text>
         </view>
       </view>
 
@@ -172,13 +170,13 @@
         <text class="step-quote">{{ aedPhaseQuote }}</text>
         <view class="step-detail" v-html="aedPhaseDetail" />
         <StepTimer :seconds="aedPhaseSeconds" :key="aedPhase" @done="advanceAedPhase" />
-        <view class="step-buttons"><view class="step-btn-secondary" @click="cancelAed">取消 · 继续按压</view></view>
+        <view class="step-buttons"><view class="step-btn-secondary" @click="cancelAed">{{ $t('rescue.aed.cancel') }}</view></view>
       </view>
 
       <view v-if="cprStep === 5" class="cpr-step-card">
         <view class="step-icon-wrap" style="background:linear-gradient(135deg,#10B981,#059669);"><text class="step-icon-emoji">💨</text></view>
-        <text class="step-action-label">人工呼吸 · {{ ventRound }} / 2</text>
-        <text class="step-quote">{{ ventRound === 1 ? '第 1 次' : '第 2 次' }}</text>
+        <text class="step-action-label">{{ $t('rescue.vent.actionLabel', { round: ventRound }) }}</text>
+        <text class="step-quote">{{ ventRound === 1 ? $t('rescue.vent.round1') : $t('rescue.vent.round2') }}</text>
         <image class="vent-img" src="/static/ventilation.png" mode="aspectFill" />
         <view class="vent-checklist">
           <view v-for="(v,i) in ventSteps" :key="i" class="vent-item" :class="{ done: i<3, active: i===3 }">
@@ -190,32 +188,32 @@
 
       <view v-if="cprStep === 'loop'" class="cpr-step-card">
         <view class="step-icon-wrap" style="background:linear-gradient(135deg,#C0392B,#8B2A1F);"><text class="step-icon-emoji">🔁</text></view>
-        <text class="step-action-label">完成 {{ rounds }} 个 CPR 循环</text>
-        <text class="step-quote">继续 30 按压 + 2 人工呼吸</text>
-        <view class="step-detail">持续循环到 120 急救员到达。<strong style="color:#FF8B5B;">不要停下！</strong></view>
+        <text class="step-action-label">{{ $t('rescue.loop.actionLabel', { rounds }) }}</text>
+        <text class="step-quote">{{ $t('rescue.loop.quote') }}</text>
+        <view class="step-detail" v-html="$t('rescue.loop.detail')" />
         <StepTimer :seconds="3" @done="nextRound" />
-        <view class="step-buttons"><view class="step-btn-primary" @click="nextRound">立即开始下一组</view></view>
+        <view class="step-buttons"><view class="step-btn-primary" @click="nextRound">{{ $t('rescue.loop.start') }}</view></view>
       </view>
     </view>
 
     <!-- 确认弹层 -->
-    <BottomSheet :visible="confirmVisible" dark :title="isDrill ? '⚠️ 演习模式 · 免责确认' : '⚠️ 责任与义务确认'" @close="confirmVisible = false">
+    <BottomSheet :visible="confirmVisible" dark :title="isDrill ? $t('rescue.confirm.title.drill') : $t('rescue.confirm.title.real')" @close="confirmVisible = false">
       <view class="confirm-body">
         <view v-if="isDrill" class="confirm-drill-box">
           <text class="confirm-drill-icon">⚠️</text>
           <view>
-            <text class="confirm-drill-title">本次为演习，不会真实拨打 120</text>
-            <text class="confirm-drill-desc">请放心按照语音指引完成全流程练习</text>
+            <text class="confirm-drill-title">{{ $t('rescue.confirm.drillTitle') }}</text>
+            <text class="confirm-drill-desc">{{ $t('rescue.confirm.drillDesc') }}</text>
           </view>
         </view>
         <view class="confirm-body-text">
-          {{ isDrill ? '您即将进入 CPR 心肺复苏流程演习。系统将模拟呼叫 120、通知附近志愿者等操作，帮助您熟悉真实急救场景下的每一步。' : '您即将启动真实紧急救援流程。系统将自动呼叫 120、通知附近志愿者，并记录本次触发的时间与账号用于反滥用（不记录精确位置）。' }}
+          {{ isDrill ? $t('rescue.confirm.body.drill') : $t('rescue.confirm.body.real') }}
         </view>
         <view class="confirm-check" @click="confirmed = !confirmed">
           <view class="confirm-checkbox" :class="{ checked: confirmed }">{{ confirmed ? '✓' : '' }}</view>
-          <text class="confirm-check-label">{{ isDrill ? '我已理解这是演习模式，不会真实拨打 120' : '我已阅读并理解《善意救助免责声明》' }}（《民法典》第 184 条）</text>
+          <text class="confirm-check-label">{{ isDrill ? $t('rescue.confirm.check.drill') : $t('rescue.confirm.check.real') }}{{ $t('rescue.confirm.lawSuffix') }}</text>
         </view>
-        <view class="confirm-btn" :class="confirmed ? 'ready' : 'disabled'" @click="startCpr">{{ isDrill ? '开始 CPR 演习' : '确认启动 CPR' }}</view>
+        <view class="confirm-btn" :class="confirmed ? 'ready' : 'disabled'" @click="startCpr">{{ isDrill ? $t('rescue.confirm.start.drill') : $t('rescue.confirm.start.real') }}</view>
       </view>
     </BottomSheet>
   </view>
@@ -246,8 +244,24 @@ const confirmed = ref(false)
 const pressCount = ref(0)
 const rounds = ref(0)
 const elapsed = ref('00:00')
-const pressNumDisplay = ref('准备')
-const pressLabel = ref('点圆圈可重置')
+/**
+ * 节拍器主数字 —— **状态与文本分离**（设计要求的"防语言冻结"关键）。
+ *
+ * 原实现是 `ref('准备')`，切语言时不会变（ref 只取一次值）。
+ * 这里把"是否已开始"存成 `pressNumStarted`，未开始时才用 i18n 渲染"准备/Ready"；
+ * 开始后显示 `0`..`30` 的**纯数字**（数字不翻译，无需 i18n）。
+ */
+const pressNumStarted = ref(false)
+const pressNumValue = ref('0')
+const pressNumDisplay = computed<string>(() =>
+  pressNumStarted.value ? pressNumValue.value : t('rescue.cpr.pressNumIdle'),
+)
+/**
+ * 节拍器副标签 —— 同样状态/文本分离（`idle` / `hint` / `reset` 三档）。
+ * 由 `pressLabelState` 承载状态，`pressLabel` 用 computed 翻成当前语言文本。
+ */
+const pressLabelState = ref<'idle' | 'hint' | 'reset'>('idle')
+const pressLabel = computed<string>(() => t(`rescue.cpr.pressLabel.${pressLabelState.value}`))
 const totalSeconds = ref(0)
 let totalTimer: number | null = null
 let pressTimer: number | null = null
@@ -264,8 +278,17 @@ let breathTimer: number | null = null
  */
 const i18nGlobal = i18n.global as unknown as {
   locale: { value: string }
-  t: (key: string) => unknown
+  t: (key: string, named?: Record<string, unknown>) => string
   tm: (key: string) => unknown
+}
+/**
+ * 脚本内翻译。
+ *
+ * ⚠️ **只能在 `computed` / 函数体里调用**（不能在 `<script setup>` 顶层把结果赋给 `const`）：
+ * `t` 内部读 `locale`，顶层取值会**冻结语言**，切到 en-US 后仍显示中文。
+ */
+function t(key: string, named?: Record<string, unknown>): string {
+  return i18nGlobal.t(key, named)
 }
 /** 当前语音语言（随 i18n 语言切换响应式变化）。范围外页面不走这里 —— 它们用 voice 的默认 zh-CN。 */
 const voiceLang = computed<VoiceLang>(() => (i18nGlobal.locale.value === 'en-US' ? 'en-US' : 'zh-CN'))
@@ -280,35 +303,49 @@ const cprNumbers = computed<string[]>(() => {
 /** 人工呼吸计数起手念法（zh `一零零一` / en `one zero zero one`）。 */
 const breathStart = computed<string>(() => String(i18nGlobal.t('voice.breathStart')))
 
-// --- 常量 ---
-const stepLabels = ['呼救', '判断', '呼吸', '按压', '人工呼吸']
+// --- 常量（全部走 i18n：必须是 computed，否则切语言时文字会"冻结"）---
+/** 顶部 5 个步骤胶囊标签。 */
+const stepLabels = computed<string[]>(() => {
+  const v = i18nGlobal.tm('rescue.steps.labels')
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+})
 const autoActions = computed(() => isDrill.value
-  ? [{ icon: '📞', label: '模拟呼叫 120' }, { icon: '👥', label: '模拟召志愿者' }, { icon: '⚡', label: '模拟派 AED' }]
-  : [{ icon: '📞', label: '呼叫 120' }, { icon: '👥', label: '召志愿者' }, { icon: '⚡', label: '派 AED' }]
+  ? [{ icon: '📞', label: t('rescue.auto.call120Drill') }, { icon: '👥', label: t('rescue.auto.volunteersDrill') }, { icon: '⚡', label: t('rescue.auto.aedDrill') }]
+  : [{ icon: '📞', label: t('rescue.auto.call120') }, { icon: '👥', label: t('rescue.auto.volunteers') }, { icon: '⚡', label: t('rescue.auto.aed') }]
 )
-const emergencyGuides = [
-  { type: 'heimlich', emoji: '🫁', title: '异物窒息', desc: '海姆立克法', wide: false },
-  { type: 'bleeding', emoji: '🩸', title: '大出血', desc: '压迫止血包扎', wide: false },
-  { type: 'fracture', emoji: '🦴', title: '骨折外伤', desc: '原位固定防二次损伤', wide: false },
-  { type: 'transport', emoji: '🚑', title: '伤员搬运', desc: '脊柱损伤搬运技巧', wide: false },
-  { type: 'psychological', emoji: '🧠', title: '紧急心理干预', desc: '安抚情绪转移注意力', wide: true },
-]
-const ventSteps = [
-  { title: '仰头抬下巴', sub: '让气道打开' }, { title: '检查口腔', sub: '清除可见异物' },
-  { title: '捏住鼻子', sub: '嘴包嘴密封' }, { title: '吹一口气', sub: '看到胸部鼓起即可' },
-]
+const emergencyGuides = computed(() => [
+  { type: 'heimlich', emoji: '🫁', title: t('rescue.guides.heimlich.title'), desc: t('rescue.guides.heimlich.desc'), wide: false },
+  { type: 'bleeding', emoji: '🩸', title: t('rescue.guides.bleeding.title'), desc: t('rescue.guides.bleeding.desc'), wide: false },
+  { type: 'fracture', emoji: '🦴', title: t('rescue.guides.fracture.title'), desc: t('rescue.guides.fracture.desc'), wide: false },
+  { type: 'transport', emoji: '🚑', title: t('rescue.guides.transport.title'), desc: t('rescue.guides.transport.desc'), wide: false },
+  { type: 'psychological', emoji: '🧠', title: t('rescue.guides.psychological.title'), desc: t('rescue.guides.psychological.desc'), wide: true },
+])
+const ventSteps = computed(() => [
+  { title: t('rescue.vent.s1.title'), sub: t('rescue.vent.s1.sub') },
+  { title: t('rescue.vent.s2.title'), sub: t('rescue.vent.s2.sub') },
+  { title: t('rescue.vent.s3.title'), sub: t('rescue.vent.s3.sub') },
+  { title: t('rescue.vent.s4.title'), sub: t('rescue.vent.s4.sub') },
+])
 
 // --- 计算 ---
 const stepTitle = computed(() => {
-  const m: Record<string,string> = { '1':'第 1 步 · 呼救','2':'第 2 步 · 判断意识','3':'第 3 步 · 判断呼吸','4':'第 4 步 · 胸外按压','5':'第 5 步 · 人工呼吸','aed':'AED 介入','loop':'循环 · 持续救护' }
-  return m[String(cprStep.value)] || 'CPR 进行中'
+  const m: Record<string, string> = {
+    '1': t('rescue.stepTitle.s1'),
+    '2': t('rescue.stepTitle.s2'),
+    '3': t('rescue.stepTitle.s3'),
+    '4': t('rescue.stepTitle.s4'),
+    '5': t('rescue.stepTitle.s5'),
+    aed: t('rescue.stepTitle.aed'),
+    loop: t('rescue.stepTitle.loop'),
+  }
+  return m[String(cprStep.value)] || t('rescue.stepTitle.ongoing')
 })
-const aedPhaseLabel = computed(() => ({0:'AED 分析中 · 停止按压',1:'AED 建议电击 · 再次离开',2:'电击完成 · 立即恢复按压'})[aedPhase.value] || '')
-const aedPhaseQuote = computed(() => aedPhase.value===0?'所有人离开患者！':aedPhase.value===1?'"离开！按下电击键！"':'"立即按压！"')
-const aedPhaseDetail = computed(() => aedPhase.value===2?'电击已完成。<strong style="color:#FF8B5B;">不要等待心跳</strong>，立即从 1 开始重新按压 30 次。':'')
-const aedPhaseSeconds = computed(() => aedPhase.value===0?10:aedPhase.value===1?5:2.5)
+const aedPhaseLabel = computed(() => ({ 0: t('rescue.aed.label0'), 1: t('rescue.aed.label1'), 2: t('rescue.aed.label2') }[aedPhase.value] || ''))
+const aedPhaseQuote = computed(() => aedPhase.value === 0 ? t('rescue.aed.quote0') : aedPhase.value === 1 ? t('rescue.aed.quote1') : t('rescue.aed.quote2'))
+const aedPhaseDetail = computed(() => aedPhase.value === 2 ? t('rescue.aed.detail2') : '')
+const aedPhaseSeconds = computed(() => aedPhase.value === 0 ? 10 : aedPhase.value === 1 ? 5 : 2.5)
 
-function stepPillClass(s: number) { const n = typeof cprStep.value==='number'?cprStep.value:5; return { active:s===n, done:s<n && n>0 } }
+function stepPillClass(s: number) { const n = typeof cprStep.value === 'number' ? cprStep.value : 5; return { active: s === n, done: s < n && n > 0 } }
 
 function showConfirm() { confirmVisible.value = true; confirmed.value = false }
 
@@ -320,7 +357,7 @@ function showConfirm() { confirmVisible.value = true; confirmed.value = false }
  * 中反复重入，挂在那里会产生**多条记录**，直接污染反滥用计数。
  */
 function startCpr() {
-  if(!confirmed.value) return
+  if (!confirmed.value) return
   confirmVisible.value = false
   stage.value = 'cpr'
   cprStep.value = 1
@@ -329,14 +366,20 @@ function startCpr() {
   void reportSosEvent({ clientEventId: newSosEventId(), isDrill: isDrill.value })
 }
 function backToDecision() { stopVoice(); stage.value = 'decision'; stopAll() }
-function goBack() { const p = getCurrentPages(); if(p.length>1) uni.navigateBack(); else uni.switchTab({ url:'/pages/home/index' }) }
-function abort(reason: string) { stopAll(); uni.showToast({ title:(isDrill.value?'演习暂停':'已暂停')+`：${reason}`, icon:'none' }); stage.value = 'decision' }
+function goBack() { const p = getCurrentPages(); if (p.length > 1) uni.navigateBack(); else uni.switchTab({ url: '/pages/home/index' }) }
+/** 中断急救。`reason` 是**已翻译**的原因文本（调用方在模板里用 `$t(...)` 传入）。 */
+function abort(reason: string) {
+  stopAll()
+  const state = isDrill.value ? t('rescue.toast.drillPaused') : t('rescue.toast.paused')
+  uni.showToast({ title: t('rescue.toast.abortedWithReason', { state, reason }), icon: 'none' })
+  stage.value = 'decision'
+}
 
 function call120() {
   if (isDrill.value) {
-    uni.showToast({ title: '演习模式 · 不会真实呼叫 120', icon: 'none' })
+    uni.showToast({ title: t('rescue.toast.drillCall'), icon: 'none' })
   } else {
-    uni.makePhoneCall({ phoneNumber: '120' }).catch(() => { uni.showToast({ title: '正在呼叫 120...', icon: 'none' }) })
+    uni.makePhoneCall({ phoneNumber: '120' }).catch(() => { uni.showToast({ title: t('rescue.toast.calling'), icon: 'none' }) })
   }
 }
 
@@ -346,52 +389,52 @@ function goMediaAlert() { uni.navigateTo({ url: '/pages/media-alert/index' }) }
 
 // --- CPR ---
 function startTotalTimer() {
-  if(totalTimer) return
-  totalTimer = setInterval(() => { totalSeconds.value++; const m=Math.floor(totalSeconds.value/60).toString().padStart(2,'0'); const s=(totalSeconds.value%60).toString().padStart(2,'0'); elapsed.value=`${m}:${s}` }, 1000) as unknown as number
+  if (totalTimer) return
+  totalTimer = setInterval(() => { totalSeconds.value++; const m = Math.floor(totalSeconds.value / 60).toString().padStart(2, '0'); const s = (totalSeconds.value % 60).toString().padStart(2, '0'); elapsed.value = `${m}:${s}` }, 1000) as unknown as number
 }
-function resetCount() { stopPress(); pressCount.value=0; pressNumDisplay.value='0'; pressLabel.value='已重置'; setTimeout(()=>{ pressLabel.value='跟屏幕数字按压'; startPress() }, 1500) }
-function wordForCpr(n:number):string { if(n<=10) return cprNumbers.value[n] ?? String(n); return String(n) }
+function resetCount() { stopPress(); pressCount.value = 0; pressNumStarted.value = true; pressNumValue.value = '0'; pressLabelState.value = 'reset'; setTimeout(() => { pressLabelState.value = 'hint'; startPress() }, 1500) }
+function wordForCpr(n: number): string { if (n <= 10) return cprNumbers.value[n] ?? String(n); return String(n) }
 function startPress() {
-  stopPress(); pressCount.value=0; pressNumDisplay.value='0'
+  stopPress(); pressCount.value = 0; pressNumStarted.value = true; pressNumValue.value = '0'
   const tick = () => {
-    pressCount.value++; pressNumDisplay.value = pressCount.value<10?'0'+pressCount.value:String(pressCount.value)
-    voice.speak(wordForCpr(pressCount.value),{rate:1.7,volume:1.0,priority:'URGENT',lang:voiceLang.value}); uni.vibrateShort({type:"light"}); playClick()
-    if(pressCount.value>=30) { stopPress(); cprStep.value=5; ventRound.value=1 }
+    pressCount.value++; pressNumValue.value = pressCount.value < 10 ? '0' + pressCount.value : String(pressCount.value)
+    voice.speak(wordForCpr(pressCount.value), { rate: 1.7, volume: 1.0, priority: 'URGENT', lang: voiceLang.value }); uni.vibrateShort({ type: "light" }); playClick()
+    if (pressCount.value >= 30) { stopPress(); cprStep.value = 5; ventRound.value = 1 }
   }
-  tick(); pressTimer = setInterval(tick,545) as unknown as number
+  tick(); pressTimer = setInterval(tick, 545) as unknown as number
 }
-function stopPress() { if(pressTimer){clearInterval(pressTimer);pressTimer=null} }
-function goAedFlow() { stopPress(); uni.switchTab({url:'/pages/aed/index'}) }
-function advanceAedPhase() { if(aedPhase.value===0) aedPhase.value=1; else if(aedPhase.value===1) aedPhase.value=2; else { cprStep.value=4; pressCount.value=0; pressNumDisplay.value='0' } }
-function cancelAed() { cprStep.value=4 }
-function advanceVent() { if(ventRound.value===1) ventRound.value=2; else { rounds.value++; cprStep.value='loop' } }
-function nextRound() { cprStep.value=4 }
+function stopPress() { if (pressTimer) { clearInterval(pressTimer); pressTimer = null } }
+function goAedFlow() { stopPress(); uni.switchTab({ url: '/pages/aed/index' }) }
+function advanceAedPhase() { if (aedPhase.value === 0) aedPhase.value = 1; else if (aedPhase.value === 1) aedPhase.value = 2; else { cprStep.value = 4; pressCount.value = 0; pressNumStarted.value = true; pressNumValue.value = '0' } }
+function cancelAed() { cprStep.value = 4 }
+function advanceVent() { if (ventRound.value === 1) ventRound.value = 2; else { rounds.value++; cprStep.value = 'loop' } }
+function nextRound() { cprStep.value = 4 }
 
 function stopVoice() { voice.stop() }
 
 watch([cprStep, aedPhase], ([step, phase]) => {
   voice.stop()
   setTimeout(() => {
-    if(step===1) speakCommand(isDrill.value?'演习模式。系统已模拟调度。现场清空，准备按压。':'系统已调度。现场清空，准备按压。')
-    else if(step===2) speakGuide('拍打患者两侧肩膀，在耳边大声呼喊。观察是否有反应。')
-    else if(step===3) startBreathCount()
+    if (step === 1) speakCommand(isDrill.value ? t('rescue.voice.step1Drill') : t('rescue.voice.step1'))
+    else if (step === 2) speakGuide(t('rescue.voice.step2'))
+    else if (step === 3) startBreathCount()
     else stopBreathCount()
-    if(step===4) { pressLabel.value='跟屏幕数字按压'; startPress() }
-    if(step==='aed') { if(phase===0) speakUrgent('所有人离开患者。AED 正在分析心率。'); else if(phase===1) speakUrgent('离开。按下电击键。') }
-    else if(step===5) speakGuide('仰头抬下巴，让气道打开。检查口腔，清除可见异物。捏住鼻子，嘴包嘴密封，吹一口气。')
-    else if(step==='loop') speakCommand('继续三十次按压，加两次人工呼吸。不要停下。')
+    if (step === 4) { pressLabelState.value = 'hint'; startPress() }
+    if (step === 'aed') { if (phase === 0) speakUrgent(t('rescue.voice.aed0')); else if (phase === 1) speakUrgent(t('rescue.voice.aed1')) }
+    else if (step === 5) speakGuide(t('rescue.voice.step5'))
+    else if (step === 'loop') speakCommand(t('rescue.voice.loop'))
   }, 50)
 })
 
-function speakGuide(t:string) { voice.guide(t, voiceLang.value) }
-function speakCommand(t:string) { voice.command(t, voiceLang.value) }
-function speakUrgent(t:string) { voice.speak(t,{rate:1.2,pitch:1.05,priority:'URGENT',lang:voiceLang.value}) }
+function speakGuide(t2: string) { voice.guide(t2, voiceLang.value) }
+function speakCommand(t2: string) { voice.command(t2, voiceLang.value) }
+function speakUrgent(t2: string) { voice.speak(t2, { rate: 1.2, pitch: 1.05, priority: 'URGENT', lang: voiceLang.value }) }
 
-function stopAll() { stopPress(); stopBreathCount(); stopVoice(); if(totalTimer){clearInterval(totalTimer);totalTimer=null} }
-function startBreathCount() { stopBreathCount(); breathCounter.value='1001'; voice.count(breathStart.value, voiceLang.value); let count=1; breathTimer=setInterval(()=>{count++;breathCounter.value=String(1000+count);voice.count(String(1000+count), voiceLang.value);if(count>=7)stopBreathCount()},1000) as unknown as number }
-function stopBreathCount() { if(breathTimer){clearInterval(breathTimer);breathTimer=null} }
+function stopAll() { stopPress(); stopBreathCount(); stopVoice(); if (totalTimer) { clearInterval(totalTimer); totalTimer = null } }
+function startBreathCount() { stopBreathCount(); breathCounter.value = '1001'; voice.count(breathStart.value, voiceLang.value); let count = 1; breathTimer = setInterval(() => { count++; breathCounter.value = String(1000 + count); voice.count(String(1000 + count), voiceLang.value); if (count >= 7) stopBreathCount() }, 1000) as unknown as number }
+function stopBreathCount() { if (breathTimer) { clearInterval(breathTimer); breathTimer = null } }
 
-onUnmounted(()=>stopAll())
+onUnmounted(() => stopAll())
 </script>
 
 <style lang="scss" scoped>

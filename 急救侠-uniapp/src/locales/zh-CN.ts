@@ -39,4 +39,206 @@ export default {
      */
     breathStart: '一零零一',
   },
+
+  /**
+   * `pages/rescue/index.vue`（SOS 急救主链路，F2 最高优先落点）。
+   *
+   * ⚠️ 本域内**含 HTML** 的值（`step1.detail.*` / `cpr.keyDetail` / `aed.detail2` /
+   * `loop.detail`）是给 `v-html` 用的：`<strong>` 的强调落到句中不同位置，
+   * 因此**必须整句一个 key**（若拆成前后缀拼装，英文语序会被破坏，违反 §3.3 第 4 条）。
+   */
+  rescue: {
+    title: '紧急救护',
+    banner: {
+      title: '演习模式',
+      sub: '本次为流程演练，不会真实拨打 120',
+      /** CPR 阶段顶部的紧凑横幅。 */
+      compact: '演习 · 不会拨打 120',
+    },
+
+    /** === 阶段1：决策 === */
+    decision: {
+      tag: { drill: '演习 · 熟悉 CPR 流程', real: 'EMERGENCY · 黄金 4 分钟' },
+      main: '患者倒地无反应？',
+      sub: '深呼吸 · 您不会孤军奋战',
+      start: { drill: '开始 CPR 演习', real: '立即启动 CPR' },
+      startSub: { drill: '熟悉全流程 · 模拟调度 AED 小队', real: '全自动呼叫 120 + 调度 AED 小队' },
+      autoLabel: { drill: '演习模式 · 系统将模拟以下操作：', real: '点击后 5 秒内系统自动:' },
+      other: '其他紧急情况',
+      legalSave: '🛡 善意救助免责',
+      legalLaw: '《民法典》184 条',
+    },
+
+    /** 决策页"系统自动操作"三格。 */
+    auto: {
+      call120: '呼叫 120',
+      call120Drill: '模拟呼叫 120',
+      volunteers: '召志愿者',
+      volunteersDrill: '模拟召志愿者',
+      aed: '派 AED',
+      aedDrill: '模拟派 AED',
+    },
+
+    /** 顶部 5 个步骤胶囊下的标签（顺序 = 步骤 1..5）。 */
+    steps: {
+      labels: ['呼救', '判断', '呼吸', '按压', '人工呼吸'],
+    },
+
+    /** 决策页"其他紧急情况"入口（`type` 与路由参数一致）。 */
+    guides: {
+      heimlich: { title: '异物窒息', desc: '海姆立克法' },
+      bleeding: { title: '大出血', desc: '压迫止血包扎' },
+      fracture: { title: '骨折外伤', desc: '原位固定防二次损伤' },
+      transport: { title: '伤员搬运', desc: '脊柱损伤搬运技巧' },
+      psychological: { title: '紧急心理干预', desc: '安抚情绪转移注意力' },
+    },
+
+    /** CPR 阶段顶栏标题。 */
+    stepTitle: {
+      s1: '第 1 步 · 呼救',
+      s2: '第 2 步 · 判断意识',
+      s3: '第 3 步 · 判断呼吸',
+      s4: '第 4 步 · 胸外按压',
+      s5: '第 5 步 · 人工呼吸',
+      aed: 'AED 介入',
+      loop: '循环 · 持续救护',
+      ongoing: 'CPR 进行中',
+    },
+
+    step1: {
+      action: { drill: '演习 · 系统模拟调度中', real: '系统调度中 · 您只管准备按压' },
+      quote: '"系统已调度！现场清空，准备按压！"',
+      taskCall: { drill: '【演习】模拟拨打 120', real: '120 已自动呼叫' },
+      taskCallSubDrill: '（本次不会真实呼叫）',
+      taskCallSubReal: '已发送您的精准位置',
+      taskVolunteers: { drill: '【演习】模拟通知 5km 内志愿者', real: '5km 内 8 名志愿者已通知' },
+      taskVolunteersSub: '最近模拟距离 240m · 预计 3 分钟',
+      taskTeam: { drill: '【演习】3 名志愿者角色已模拟分配', real: '3 名志愿者小队已分工响应' },
+      taskTeamSub: '压缩手 240m · AED 手 100m · 记录员 310m',
+      taskHelper: '点这里 · 让现场路人扫码协助',
+      /** `v-html`：整句含 `<strong>`，不可拆分拼装。 */
+      detail: {
+        drill: '<strong style="color:#FF8B5B;">本次为演习，不会真实调度资源</strong>——请跟着语音指令熟悉完整 CPR 流程。<br>放下手机，跟着语音指引准备开始按压。',
+        real: '<strong style="color:#FF8B5B;">您不用自己去找 AED</strong>——系统已同步调度压缩、AED 与记录协作角色。<br>放下手机，跟着语音指引准备开始按压。',
+      },
+      start: '已喊人 · 立即开始',
+    },
+
+    step2: {
+      action: '判断意识 · 5 秒',
+      quote: '"喂！你怎么啦？"',
+      detail: '拍打患者两侧肩膀，在耳边大声呼喊。观察是否有反应。',
+      pause: '有反应 · 暂停',
+    },
+
+    step3: {
+      action: '判断呼吸 · 默数 7 秒',
+      detail: '把脸贴近患者口鼻，同时看胸口起伏、听呼吸。',
+      pause: '有正常呼吸 · 暂停',
+    },
+
+    /** 步骤4：胸外按压。 */
+    cpr: {
+      totalLabel: '总坚持',
+      roundLabel: '本组',
+      roundsLabel: '完成组数',
+      /** 节拍器主数字：**未开始**时显示的字样（开始后显示 `0`..`30` 数字，不翻译）。 */
+      pressNumIdle: '准备',
+      /**
+       * 节拍器副标签的三档状态（`pressLabelState` 驱动）。
+       * ⚠️ 代码里是**动态拼 key**（`rescue.cpr.pressLabel.${state}`），静态扫描器抓不到
+       * ⇒ `rescue-i18n.test.ts` 里**显式枚举**这三个 key 断言可解析。
+       */
+      pressLabel: {
+        idle: '点圆圈可重置',
+        hint: '跟屏幕数字按压',
+        reset: '已重置',
+      },
+      keyNum: '按压要点',
+      keyText: '双掌交叠 · 胸骨中下段 · 下压 5-6cm',
+      /** `v-html`：整句含 `<strong>`。 */
+      keyDetail: '手臂保持<strong style="color:#FF8B5B;">伸直</strong>，借上半身重量。',
+      callHelper: '叫人协助',
+      aedReady: 'AED 连好了',
+      media: '拍照/录像 · 发送现场情况给 120',
+    },
+
+    /** AED 阶段三档（0 分析 / 1 建议电击 / 2 电击完成）。 */
+    aed: {
+      label0: 'AED 分析中 · 停止按压',
+      label1: 'AED 建议电击 · 再次离开',
+      label2: '电击完成 · 立即恢复按压',
+      quote0: '所有人离开患者！',
+      quote1: '"离开！按下电击键！"',
+      quote2: '"立即按压！"',
+      /** `v-html`：含 `<strong>`。仅 phase 2 有内容，其余为空串（由代码控制，非翻译）。 */
+      detail2: '电击已完成。<strong style="color:#FF8B5B;">不要等待心跳</strong>，立即从 1 开始重新按压 30 次。',
+      cancel: '取消 · 继续按压',
+    },
+
+    /** 步骤5：人工呼吸。 */
+    vent: {
+      actionLabel: '人工呼吸 · {round} / 2',
+      round1: '第 1 次',
+      round2: '第 2 次',
+      s1: { title: '仰头抬下巴', sub: '让气道打开' },
+      s2: { title: '检查口腔', sub: '清除可见异物' },
+      s3: { title: '捏住鼻子', sub: '嘴包嘴密封' },
+      s4: { title: '吹一口气', sub: '看到胸部鼓起即可' },
+    },
+
+    loop: {
+      actionLabel: '完成 {rounds} 个 CPR 循环',
+      quote: '继续 30 按压 + 2 人工呼吸',
+      /** `v-html`：含 `<strong>`。 */
+      detail: '持续循环到 120 急救员到达。<strong style="color:#FF8B5B;">不要停下！</strong>',
+      start: '立即开始下一组',
+    },
+
+    /** 确认弹层（BottomSheet）。 */
+    confirm: {
+      title: { drill: '⚠️ 演习模式 · 免责确认', real: '⚠️ 责任与义务确认' },
+      drillTitle: '本次为演习，不会真实拨打 120',
+      drillDesc: '请放心按照语音指引完成全流程练习',
+      body: {
+        drill: '您即将进入 CPR 心肺复苏流程演习。系统将模拟呼叫 120、通知附近志愿者等操作，帮助您熟悉真实急救场景下的每一步。',
+        real: '您即将启动真实紧急救援流程。系统将自动呼叫 120、通知附近志愿者，并记录本次触发的时间与账号用于反滥用（不记录精确位置）。',
+      },
+      check: {
+        drill: '我已理解这是演习模式，不会真实拨打 120',
+        real: '我已阅读并理解《善意救助免责声明》',
+      },
+      /** 勾选项文案的**固定后缀**（与两种 check 文案拼接，故独立成 key）。 */
+      lawSuffix: '（《民法典》第 184 条）',
+      start: { drill: '开始 CPR 演习', real: '确认启动 CPR' },
+    },
+
+    /** `uni.showToast` 文案（含 `abort()` 的中断提示）。 */
+    toast: {
+      drillCall: '演习模式 · 不会真实呼叫 120',
+      calling: '正在呼叫 120...',
+      drillPaused: '演习暂停',
+      paused: '已暂停',
+      /** `{state}` = 暂停档，`{reason}` = 中断原因；**整句一个 key**（分隔符随语言变化）。 */
+      abortedWithReason: '{state}：{reason}',
+      reason: {
+        responded: '有反应',
+        breathing: '有正常呼吸',
+      },
+    },
+
+    /**
+     * 语音**整句**（设计 §10.2 收口：P0-2 只本地化了计数词，整句仍是中文）。
+     * ⚠️ 这是**朗读文本**：标点习惯与屏幕文案不同 —— zh 用「。」断句，en 用自然停顿。
+     */
+    voice: {
+      step1Drill: '演习模式。系统已模拟调度。现场清空，准备按压。',
+      step1: '系统已调度。现场清空，准备按压。',
+      step2: '拍打患者两侧肩膀，在耳边大声呼喊。观察是否有反应。',
+      aed0: '所有人离开患者。AED 正在分析心率。',
+      aed1: '离开。按下电击键。',
+      step5: '仰头抬下巴，让气道打开。检查口腔，清除可见异物。捏住鼻子，嘴包嘴密封，吹一口气。',
+      loop: '继续三十次按压，加两次人工呼吸。不要停下。',
+    },
+  },
 }
