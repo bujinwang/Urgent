@@ -49,6 +49,7 @@ vi.mock('@/api/sos', () => ({
 
 import StepTimer from '@/components/StepTimer/index.vue'
 import { i18n, setLocale } from '@/i18n'
+import { messages } from '@/locales'
 
 /** 中文字符（CJK 统一表意文字）。 */
 const RE_CJK = /[\u4e00-\u9fa5]/
@@ -151,25 +152,26 @@ describe('rescue 页：P0-3 文案本地化', () => {
   describe('reactivity：切语言后页面立即改语言（防"冻结语言"）', () => {
     it('★ 模板静态文案：zh → en 立即生效', async () => {
       wrapper = await mountRescue()
-      expect(wrapper.find('.rescue-title').text()).toBe('紧急救护')
-      expect(wrapper.find('.decision-main').text()).toBe('患者倒地无反应？')
+      expect(wrapper.find('.rescue-title').text()).toBe(messages['zh-CN'].rescue.title)
+      expect(wrapper.find('.decision-main').text()).toBe(messages['zh-CN'].rescue.decision.main)
 
       setLocale('en-US')
       await nextTick()
 
-      expect(wrapper.find('.rescue-title').text()).toBe('Emergency Rescue')
-      expect(wrapper.find('.decision-main').text()).toBe('Someone collapsed and unresponsive?')
+      expect(wrapper.find('.rescue-title').text()).toBe(messages['en-US'].rescue.title)
+      expect(wrapper.find('.decision-main').text()).toBe(messages['en-US'].rescue.decision.main)
     })
 
     it('★ 双向：zh → en → zh 都能生效（防止"只能切一次"）', async () => {
       wrapper = await mountRescue()
-      expect(wrapper.find('.decision-main').text()).toBe('患者倒地无反应？')
+      const main = () => wrapper!.find('.decision-main').text()
+      expect(main()).toBe(messages['zh-CN'].rescue.decision.main)
 
       setLocale('en-US'); await nextTick()
-      expect(wrapper.find('.decision-main').text()).toBe('Someone collapsed and unresponsive?')
+      expect(main()).toBe(messages['en-US'].rescue.decision.main)
 
       setLocale('zh-CN'); await nextTick()
-      expect(wrapper.find('.decision-main').text()).toBe('患者倒地无反应？')
+      expect(main()).toBe(messages['zh-CN'].rescue.decision.main)
     })
 
     it('★ dispose 承重：卸载一个实例后，新实例的 locale 仍可响应式切换（防 globalScope.stop 冻结 composer.locale）', async () => {
@@ -340,26 +342,28 @@ describe('rescue 页：P0-3 文案本地化', () => {
   // -------------------------------------------------------------------------
   describe('语音整句按语言取（7 条）', () => {
     it('★ zh-CN：7 条整句逐条为中文且 lang=zh-CN', async () => {
+      // 期望值锚到 locale 文件（不硬抄），改文案时测试自动跟随。
+      const zhv = messages['zh-CN'].rescue.voice
       wrapper = await mountRescue()
 
       // ① 非演习 step1
       await startCpr(wrapper)
-      expect(captured.commands[0], 'step1 非演习').toEqual({ text: '系统已调度。现场清空，准备按压。', lang: 'zh-CN' })
+      expect(captured.commands[0], 'step1 非演习').toEqual({ text: zhv.step1, lang: 'zh-CN' })
 
       // ② step2
       await wrapper.find('.step-btn-primary').trigger('click'); await settle()
-      expect(captured.guides[0], 'step2').toEqual({ text: '拍打患者两侧肩膀，在耳边大声呼喊。观察是否有反应。', lang: 'zh-CN' })
+      expect(captured.guides[0], 'step2').toEqual({ text: zhv.step2, lang: 'zh-CN' })
 
       // ③ step5
       done(wrapper); await settle()  // 2 → 3
       done(wrapper); await settle()  // 3 → 4
       await vi.advanceTimersByTimeAsync(545 * 30); await settle()
-      expect(captured.guides[1], 'step5').toEqual({ text: '仰头抬下巴，让气道打开。检查口腔，清除可见异物。捏住鼻子，嘴包嘴密封，吹一口气。', lang: 'zh-CN' })
+      expect(captured.guides[1], 'step5').toEqual({ text: zhv.step5, lang: 'zh-CN' })
 
       // ④ loop
       done(wrapper); await nextTick()
       done(wrapper); await settle()
-      expect(captured.commands[1], 'loop').toEqual({ text: '继续三十次按压，加两次人工呼吸。不要停下。', lang: 'zh-CN' })
+      expect(captured.commands[1], 'loop').toEqual({ text: zhv.loop, lang: 'zh-CN' })
 
       // 卸掉上一个实例，避免其定时器污染后续捕获
       wrapper.unmount(); wrapper = null
@@ -367,61 +371,186 @@ describe('rescue 页：P0-3 文案本地化', () => {
       // ⑤⑥ AED phase0 / phase1
       const w2 = await mountRescue()
       await reachAed(w2, 0)
-      expect(captured.speaks.at(-1), 'aed phase0').toEqual({ text: '所有人离开患者。AED 正在分析心率。', lang: 'zh-CN' })
+      expect(captured.speaks.at(-1), 'aed phase0').toEqual({ text: zhv.aed0, lang: 'zh-CN' })
       ;(w2.vm as unknown as { aedPhase: number }).aedPhase = 1; await settle()
-      expect(captured.speaks.at(-1), 'aed phase1').toEqual({ text: '离开。按下电击键。', lang: 'zh-CN' })
+      expect(captured.speaks.at(-1), 'aed phase1').toEqual({ text: zhv.aed1, lang: 'zh-CN' })
       w2.unmount()
 
       // ⑦ 演习 step1
       useDrillMode()
       const w4 = await mountRescue()
       await startCpr(w4)
-      expect(captured.commands.at(-1), 'step1 演习').toEqual({ text: '演习模式。系统已模拟调度。现场清空，准备按压。', lang: 'zh-CN' })
+      expect(captured.commands.at(-1), 'step1 演习').toEqual({ text: zhv.step1Drill, lang: 'zh-CN' })
       w4.unmount()
     })
 
     it('★ en-US：7 条整句逐条为英文且 lang=en-US（不含中文字符）', async () => {
+      const env = messages['en-US'].rescue.voice
       setLocale('en-US')
       wrapper = await mountRescue()
 
       await startCpr(wrapper)
-      expect(captured.commands[0], 'step1 非演习').toEqual({ text: 'Help is on the way. Clear the area, get ready to compress.', lang: 'en-US' })
+      expect(captured.commands[0], 'step1 非演习').toEqual({ text: env.step1, lang: 'en-US' })
 
       await wrapper.find('.step-btn-primary').trigger('click'); await settle()
-      expect(captured.guides[0], 'step2').toEqual({ text: 'Tap both shoulders and shout loudly into their ear. Watch for any response.', lang: 'en-US' })
+      expect(captured.guides[0], 'step2').toEqual({ text: env.step2, lang: 'en-US' })
 
       done(wrapper); await settle()
       done(wrapper); await settle()
       await vi.advanceTimersByTimeAsync(545 * 30); await settle()
-      expect(captured.guides[1], 'step5').toEqual({
-        text: 'Tilt the head back and lift the chin to open the airway. Check the mouth and clear any visible obstruction. Pinch the nose, seal your mouth over theirs, and give one breath.',
-        lang: 'en-US',
-      })
+      expect(captured.guides[1], 'step5').toEqual({ text: env.step5, lang: 'en-US' })
 
       done(wrapper); await nextTick()
       done(wrapper); await settle()
-      expect(captured.commands[1], 'loop').toEqual({ text: 'Keep going — thirty compressions, then two rescue breaths. Do not stop.', lang: 'en-US' })
+      expect(captured.commands[1], 'loop').toEqual({ text: env.loop, lang: 'en-US' })
 
       // 卸掉上一个实例，避免其定时器污染后续捕获
       wrapper.unmount(); wrapper = null
 
       const w2 = await mountRescue()
       await reachAed(w2, 0)
-      expect(captured.speaks.at(-1), 'aed phase0').toEqual({ text: 'Everyone stand clear. The AED is analyzing the heart rhythm.', lang: 'en-US' })
+      expect(captured.speaks.at(-1), 'aed phase0').toEqual({ text: env.aed0, lang: 'en-US' })
       ;(w2.vm as unknown as { aedPhase: number }).aedPhase = 1; await settle()
-      expect(captured.speaks.at(-1), 'aed phase1').toEqual({ text: 'Stand clear. Press the shock button.', lang: 'en-US' })
+      expect(captured.speaks.at(-1), 'aed phase1').toEqual({ text: env.aed1, lang: 'en-US' })
       w2.unmount()
 
       useDrillMode()
       const w4 = await mountRescue()
       await startCpr(w4)
-      expect(captured.commands.at(-1), 'step1 演习').toEqual({ text: 'Drill mode. Dispatch simulated. Clear the area, get ready to compress.', lang: 'en-US' })
+      expect(captured.commands.at(-1), 'step1 演习').toEqual({ text: env.step1Drill, lang: 'en-US' })
       w4.unmount()
 
       // 7 条整句都不得含中文字符
       const all = [...captured.commands, ...captured.guides, ...captured.speaks].map((x) => x.text)
       expect(all.filter(hasCjk)).toEqual([])
     })
+  })
+
+  // -------------------------------------------------------------------------
+  // 4.4) ★ 卸载清理：不得残留「已调度但未清理」的延后回调
+  //
+  // 为什么单独测：`watch` 里"延后 50ms 播报"与 `resetCount` 里"1.5s 后恢复"都是 `setTimeout`，
+  // 原先**没存句柄**，`stopAll()` 清不到 ⇒ 卸载后仍会触发。其内容改成 `t(...)`（i18n）后，
+  // 卸载后触发会去碰 i18n 运行时：测试环境已拆除 ⇒ `ReferenceError: window is not defined`
+  // （vitest 报 `Errors 1 error`，且可能掩盖真失败）；生产则是"已退出还在说话"。
+  // -------------------------------------------------------------------------
+  describe('★ 卸载清理：不得残留延后触发的语音回调', () => {
+    it('★ 到 step1 后**立即** unmount ⇒ 越过 50ms 也不得再播报', async () => {
+      wrapper = await mountRescue()
+      await wrapper.find('.sos-button').trigger('click')     // showConfirm()
+      await wrapper.find('.confirm-check').trigger('click')  // confirmed = true
+      await wrapper.find('.confirm-btn').trigger('click')    // cprStep=1 ⇒ watch 调度 50ms 定时器
+      await nextTick()                                       // watch 同步跑完：定时器已排队、尚未触发
+
+      wrapper.unmount()                                      // 卸载 ⇒ onUnmounted → stopAll() 必须清掉它
+      wrapper = null
+
+      await vi.advanceTimersByTimeAsync(200)                 // 越过 50ms
+
+      expect(captured.commands, 'voice.command').toEqual([])
+      expect(captured.guides, 'voice.guide').toEqual([])
+      expect(captured.speaks, 'voice.speak').toEqual([])
+      expect(captured.counts, 'voice.count').toEqual([])
+    })
+
+    it('★ resetCount 的 1.5s 延后回调同样不得在卸载后重新起按压', async () => {
+      wrapper = await mountRescue()
+      await reachStep4(wrapper)                              // 进入按压步（watch 已调度并落地）
+      await wrapper.find('.metronome').trigger('click')      // resetCount ⇒ 调度 1.5s 回调
+      await nextTick()
+      const speaksBefore = captured.speaks.length
+
+      wrapper.unmount(); wrapper = null
+      await vi.advanceTimersByTimeAsync(3000)                // 越过 1.5s
+
+      // 卸载后不得再有新的合成请求（否则说明 1.5s 回调又 startPress 了）
+      expect(captured.speaks.length, 'reset 回调后新增播报').toBe(speaksBefore)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // 4.5) ★ 内容完整性守卫：渲染值 === locale 值，数量 === locale 条目数
+  //
+  // 为什么需要它：上面两条守卫（源码裸 CJK 扫描 / en 渲染快照）**都只证明「没有多余的中文」，
+  // 证明不了「该有的还在」** —— 整段删掉一个 UI 区块、把列表项由 4 删成 3，CI 会**静默通过**
+  // （QA 的 M1「删 transport 整项」、M2「ventSteps 4→3」突变实测 SURVIVED）。
+  //
+  // 设计要点：**期望值锚到 locale 文件（`messages[locale]`），不在测试里硬抄文案** ——
+  // 否则每次正常改文案都要改测试，会训练人盲目更新断言（快照测试的经典失效模式）。
+  // 这样同时拿到两条保证：删项 ⇒ 数量断言红；渲染漂移（computed 忘了跟 locale）⇒ 内容断言红。
+  //
+  // ⚠️ **刻意不覆盖的边界（不是漏写，勿"修"）**：
+  // 「有人把某条 locale 值改成乱码」这类**纯文案损坏**，任何「渲染 == locale」的断言**原理上都抓不到**
+  // （它比的是同一个源）。要抓它只能把期望中文**逐字硬抄进测试**，代价是每次正常改文案都会误报，
+  // 反而鼓励盲目更新断言。⇒ **不写**；该风险由 diff review 覆盖（已记入设计文档，属已知边界）。
+  // -------------------------------------------------------------------------
+  describe('★ 内容完整性：渲染值 === locale 值，数量 === locale 条目数', () => {
+    const LOCALES = ['zh-CN', 'en-US'] as const
+    /** 折叠空白后再比，避免模板文本节点的空格差异造成假红。 */
+    const norm = (s: string) => s.replace(/\s+/g, ' ').trim()
+
+    for (const loc of LOCALES) {
+      it(`★ [${loc}] 决策页「其他紧急情况」：数量 === rescue.guides 条目数，且每张卡片 title/desc === locale 值`, async () => {
+        setLocale(loc)
+        wrapper = await mountRescue()
+        const expected = Object.values(messages[loc].rescue.guides)
+
+        // 先数量、再内容：删项时失败信息直指"少了一个"，而不是一堆文本 diff。
+        const cards = wrapper.findAll('.decision-other-btn')
+        expect(cards.length, '卡片数量').toBe(expected.length)
+
+        expect(wrapper.findAll('.decision-other-name').map((n) => n.text())).toEqual(expected.map((g) => g.title))
+        expect(wrapper.findAll('.decision-other-desc').map((n) => n.text())).toEqual(expected.map((g) => g.desc))
+      })
+
+      it(`★ [${loc}] step5 人工呼吸清单：数量 === ventSteps 条目数，且每项渲染 === locale 值`, async () => {
+        setLocale(loc)
+        wrapper = await mountRescue()
+        await reachStep5(wrapper)
+        const v = messages[loc].rescue.vent
+        const expected = [v.s1, v.s2, v.s3, v.s4]
+
+        const items = wrapper.findAll('.vent-item')
+        expect(items.length, '清单项数量').toBe(expected.length)
+
+        expect(wrapper.findAll('.vent-sub').map((n) => n.text())).toEqual(expected.map((s) => s.sub))
+        expect(wrapper.findAll('.vent-text').map((n) => norm(n.text())))
+          .toEqual(expected.map((s) => norm(`${s.title} ${s.sub}`)))
+      })
+
+      it(`★ [${loc}] stepLabels：5 个 pill 标签逐个 === rescue.steps.labels`, async () => {
+        setLocale(loc)
+        wrapper = await mountRescue()
+        await startCpr(wrapper)
+        const expected = messages[loc].rescue.steps.labels
+
+        const pills = wrapper.findAll('.step-pill-label')
+        expect(pills.length, 'pill 数量').toBe(expected.length)
+        expect(pills.map((n) => n.text())).toEqual([...expected])
+      })
+
+      it(`★ [${loc}] stepTitle：7 个阶段顶栏标题逐个 === rescue.stepTitle.*`, async () => {
+        setLocale(loc)
+        const st = messages[loc].rescue.stepTitle
+        wrapper = await mountRescue()
+        const title = () => wrapper!.find('.rescue-title').text()
+
+        await startCpr(wrapper)
+        expect(title(), 's1').toBe(st.s1)
+        await wrapper.find('.step-btn-primary').trigger('click'); await settle()
+        expect(title(), 's2').toBe(st.s2)
+        done(wrapper); await settle()
+        expect(title(), 's3').toBe(st.s3)
+        done(wrapper); await settle()
+        expect(title(), 's4').toBe(st.s4)
+        await vi.advanceTimersByTimeAsync(545 * 30); await settle()
+        expect(title(), 's5').toBe(st.s5)
+        done(wrapper); await nextTick(); done(wrapper); await settle()
+        expect(title(), 'loop').toBe(st.loop)
+        ;(wrapper.vm as unknown as { cprStep: string }).cprStep = 'aed'; await settle()
+        expect(title(), 'aed').toBe(st.aed)
+      })
+    }
   })
 
   // -------------------------------------------------------------------------
@@ -453,7 +582,14 @@ describe('rescue 页：P0-3 文案本地化', () => {
 //    （这是"中文都抽齐了"的唯一守卫；静态扫描只证明"抽走的都对"）
 // ---------------------------------------------------------------------------
 
-/** 剥离 HTML / 块 / 行注释。行注释仅在 `//` 前是空白或行首时剥离，避免误伤字符串里的 `//`。 */
+/**
+ * 剥离 HTML / 块 / 行注释。行注释仅在 `//` 前是空白或行首时剥离，避免误伤字符串里的 `//`。
+ *
+ * ⚠️ **已知理论边界**（当前代码无此形态 ⇒ 非现网问题，如需改动此正则请留意）：
+ * 若某个**字符串字面量内部**含「空格 + `//` + 中文」（如 `const x = 'a // 中文'`），
+ * 该行会被误剥成空 ⇒ 可能造成**假阴性**（漏报一个真实的中文字面量）。如需彻底排除，
+ * 得换成真正的词法扫描；当前收益不值这个复杂度，故保留此简单实现并在此标注。
+ */
 function stripComments(src: string): string {
   return src
     .replace(/<!--[\s\S]*?-->/g, '')
