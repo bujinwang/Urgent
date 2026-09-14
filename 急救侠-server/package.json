@@ -11,6 +11,8 @@
     "seed": "tsx src/seed.ts",
     "admin:narrow": "tsx src/scripts/narrow-platform-admins.ts",
     "aliyun:keepalive": "tsx src/scripts/aliyun-keepalive.ts",
+    "sos:report": "tsx src/scripts/sos-report.ts",
+    "sos:purge": "tsx src/scripts/sos-purge.ts",
     "type-check": "tsc --noEmit",
     "test": "vitest run"
   },

@@ -4,6 +4,7 @@ import db, { get, all } from '../db'
 import { success, error } from '../types'
 import * as config from '../config'
 import { parseSmsReports, handleSmsReport, MAX_REPORTS_PER_REQUEST } from '../services/smsReportService'
+import { optionalAuth, AuthPayload } from '../middleware/auth'
 import type {
   UserRow, UserTrailRow, PublicCertificateRow, PublicTrainingRow, PublicExternalCertRow,
 } from '../types/rows'
@@ -89,6 +90,67 @@ publicRouter.post('/aliyun-sms-report', async (req, res) => {
     // 仅真正的内部异常返回 500（让阿里云重推；重复推送由幂等兜底，安全）
     console.error(`[SMSReport] 处理异常: ${e instanceof Error ? e.message : String(e)}`)
     res.status(500).json({ code: -1, message: 'internal error' })
+  }
+})
+
+/** `client_event_id` 长度上限（客户端提供时截断；不合法则由服务端生成）。 */
+const SOS_CLIENT_EVENT_ID_MAX = 64
+/** `client_platform` 长度上限（仅用于聚类，不参与判定）。 */
+const SOS_CLIENT_PLATFORM_MAX = 32
+
+/**
+ * 严格白名单归一化 `is_drill` ⇒ 0/1。
+ *
+ * ⚠️ **不可写成 `!!v`**：`!!'false' === true`、`!!'0' === true`。若客户端某次把布尔值
+ * 序列化成了字符串，`!!` 会把**真实 SOS 标成演习**，让它从反滥用计数里**静默消失**
+ * （正好是 KPI「演习污染率」的反面）。故只认以下四种真值，其余一律为真实。
+ */
+function normalizeIsDrill(v: unknown): number {
+  return v === true || v === 1 || v === '1' || v === 'true' ? 1 : 0
+}
+
+/**
+ * 归一化 `client_event_id`。客户端未提供 / 为空 / 类型不对 ⇒ **服务端生成**，不拒绝。
+ * 理由：埋点是旁路，**因格式问题丢弃一条 SOS 记录，比丢失幂等性糟得多**。
+ */
+function normalizeClientEventId(v: unknown): string {
+  const s = typeof v === 'string' ? v.trim().slice(0, SOS_CLIENT_EVENT_ID_MAX) : ''
+  return s || `srv_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`
+}
+
+/**
+ * SOS 触发留痕上报（旁路埋点 → 兑现建议书 §10「恶意虚假呼救可追溯」）。
+ *
+ * 设计见 `deliverables/software-company/sos-telemetry-design.md`。三条不可动摇的约束：
+ *
+ * 1. **身份只从 token 派生，绝不读 `req.body.userId`。** 否则任何人都能把伪造的 SOS
+ *    记到**别人名下**——那比"没有记录"更糟：会污染反滥用台账，甚至被用来构陷特定账号。
+ * 2. **不落任何位置**（D1）：可追溯需要的是身份 + 时间，不是位置。表里没有位置列。
+ * 3. **不阻塞、不报错**：急救场景下每延误 1 分钟存活率降 7–10%，埋点永远是旁路。
+ *    因此本端点**不设业务错误响应**：校验失败一律降级处理（生成 id / 归一化为真实），
+ *    只有真正的内部异常才 500。⚠️ 取舍声明：畸形的 `isDrill` 会被当作**真实**事件，
+ *    这是**有意选择**——宁可多留痕，不可漏留痕。
+ */
+publicRouter.post('/sos-event', optionalAuth, (req, res) => {
+  try {
+    const auth = (req as { auth?: AuthPayload }).auth
+    const userId = (auth && (auth.userId || auth.openid)) || null
+    const body = (req.body || {}) as Record<string, unknown>
+    const clientEventId = normalizeClientEventId(body.clientEventId)
+    const clientPlatform = typeof body.platform === 'string' ? body.platform.slice(0, SOS_CLIENT_PLATFORM_MAX) : ''
+    const isDrill = normalizeIsDrill(body.isDrill)
+    const nowMs = Date.now()
+
+    // 唯一索引 + OR IGNORE ⇒ 同一 clientEventId 重复提交只落一行（传输层幂等）。
+    // 注意：DEFAULT 不能用于 created_at_ms（非事务时间，必须显式写入调用方已取的时间）。
+    const info = db.prepare(
+      'INSERT OR IGNORE INTO sos_events (id, client_event_id, user_id, is_drill, client_platform, created_at_ms) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(`sos_${nowMs}_${crypto.randomBytes(6).toString('hex')}`, clientEventId, userId, isDrill, clientPlatform, nowMs)
+
+    // changes === 0 ⇒ 唯一索引命中，属重复提交（幂等语义），**不是错误**。
+    res.json(success({ duplicate: info.changes === 0 }))
+  } catch (e: any) {
+    res.status(500).json(error(e.message || '服务器错误'))
   }
 })
 

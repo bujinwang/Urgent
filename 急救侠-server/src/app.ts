@@ -136,8 +136,17 @@ export function createHourlyIpLimiter(envKey: string, def: number, force = false
   })
 }
 
-/** 阈值缺省值（导出以便单测断言）。 */
-export const ANON_LIMITS = { mediaUpload: 10, inquire: 5 } as const
+/**
+ * 阈值缺省值（导出以便单测断言）。
+ *
+ * `sosEvent` = 120 次/小时/IP，明显高于其它匿名端点，是**唯一的"故意放宽"**，理由（详见设计文档 §4）：
+ * 1. 本端点**无任何外部调用**（不发短信、不推送、不写盘）⇒ **无放大效应**，滥用风险有界在磁盘增长。
+ * 2. 上报是旁路且失败静默 ⇒ 撞限流的代价是"丢一条记录"，而阈值定低损失的是**最需要留痕**的那部分
+ *    （共享出口 IP 的医院/学校/企业 NAT，以及网络抖动）。
+ * 3. 与 `inquire`（5 次/小时）不同，合法调用频率**不由客户端控制**：一次真实急救 = 一次用户主动触发，
+ *    而同一出口 IP 背后可能站着成百上千人。
+ */
+export const ANON_LIMITS = { mediaUpload: 10, inquire: 5, sosEvent: 120 } as const
 
 // Routes
 app.use('/api/auth', authLimiter, authRouter)
@@ -160,6 +169,8 @@ app.use('/api/org', orgRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/public/aliyun-sms-report', smsReportLimiter)
 app.use('/api/public/inquire', createHourlyIpLimiter('INQUIRE_HOURLY_LIMIT', ANON_LIMITS.inquire))
+// 必须在 `app.use('/api/public', publicRouter)` **之前**挂载，否则限流不会生效。
+app.use('/api/public/sos-event', createHourlyIpLimiter('SOS_EVENT_HOURLY_LIMIT', ANON_LIMITS.sosEvent))
 app.use('/api/public', publicRouter)
 app.use('/api/video', videoRouter)
 app.use('/api/replay', replayRouter)

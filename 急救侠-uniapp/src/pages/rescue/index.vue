@@ -209,7 +209,7 @@
           </view>
         </view>
         <view class="confirm-body-text">
-          {{ isDrill ? '您即将进入 CPR 心肺复苏流程演习。系统将模拟呼叫 120、通知附近志愿者等操作，帮助您熟悉真实急救场景下的每一步。' : '您即将启动真实紧急救援流程。系统将自动呼叫 120、通知附近志愿者、记录您的 GPS 位置。' }}
+          {{ isDrill ? '您即将进入 CPR 心肺复苏流程演习。系统将模拟呼叫 120、通知附近志愿者等操作，帮助您熟悉真实急救场景下的每一步。' : '您即将启动真实紧急救援流程。系统将自动呼叫 120、通知附近志愿者，并记录本次触发的时间与账号用于反滥用（不记录精确位置）。' }}
         </view>
         <view class="confirm-check" @click="confirmed = !confirmed">
           <view class="confirm-checkbox" :class="{ checked: confirmed }">{{ confirmed ? '✓' : '' }}</view>
@@ -229,6 +229,7 @@ import Metronome from '@/components/Metronome/index.vue'
 import BottomSheet from '@/components/BottomSheet/index.vue'
 import { voice } from '@/utils/voice'
 import { playClick } from '@/utils/audio'
+import { reportSosEvent, newSosEventId } from '@/api/sos'
 
 // --- 模式检测 ---
 const pages = getCurrentPages()
@@ -286,7 +287,23 @@ const aedPhaseSeconds = computed(() => aedPhase.value===0?10:aedPhase.value===1?
 function stepPillClass(s: number) { const n = typeof cprStep.value==='number'?cprStep.value:5; return { active:s===n, done:s<n && n>0 } }
 
 function showConfirm() { confirmVisible.value = true; confirmed.value = false }
-function startCpr() { if(!confirmed.value) return; confirmVisible.value = false; stage.value = 'cpr'; cprStep.value = 1; startTotalTimer() }
+
+/**
+ * 启动 CPR 指引。
+ *
+ * 流程推进**必须发生在埋点之前**：上报是旁路（D4），即使它同步抛错，本地急救流程也已就绪。
+ * 上报点刻意放在这里而不是 `watch(cprStep)` 里 —— 那个 watch 会在 `loop → 4 → 5 → loop`
+ * 中反复重入，挂在那里会产生**多条记录**，直接污染反滥用计数。
+ */
+function startCpr() {
+  if(!confirmed.value) return
+  confirmVisible.value = false
+  stage.value = 'cpr'
+  cprStep.value = 1
+  startTotalTimer()
+  // 旁路埋点：不 await、失败静默、绝不回滚上面的流程状态。见 @/api/sos。
+  void reportSosEvent({ clientEventId: newSosEventId(), isDrill: isDrill.value })
+}
 function backToDecision() { stopVoice(); stage.value = 'decision'; stopAll() }
 function goBack() { const p = getCurrentPages(); if(p.length>1) uni.navigateBack(); else uni.switchTab({ url:'/pages/home/index' }) }
 function abort(reason: string) { stopAll(); uni.showToast({ title:(isDrill.value?'演习暂停':'已暂停')+`：${reason}`, icon:'none' }); stage.value = 'decision' }

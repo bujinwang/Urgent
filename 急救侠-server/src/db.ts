@@ -770,6 +770,35 @@ export function initDb(options: { silent?: boolean } = {}) {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_gov_viewers_username ON gov_viewers(username);
   `)
 
+  /**
+   * SOS 触发留痕（F3 / 建议书 §10「恶意虚假呼救可追溯」）。
+   *
+   * ⚠️ **本表刻意不含任何位置字段**（D1）。这不是"暂时没加"：列不存在，"不采位置"就由 schema 强制，
+   * 任何后续代码都写不进来。改动此表前请先读 `deliverables/software-company/sos-telemetry-design.md` §2.1。
+   *
+   * - `user_id` 可空，NULL = 匿名呼救（建议书 §04「无需注册」）。
+   *   **绝不从请求体取**，只由 `optionalAuth` 从 token 派生 —— 否则可把伪造 SOS 记到他人名下。
+   * - `created_at_ms` 是**范围查询的唯一依据**。刻意不依赖 `strftime('%s', created_at)`：
+   *   该函数对 `'T...Z'` / `' ... '` / `'+08:00'` 一律按 UTC 解析且忽略时区后缀，非法值返回 null，
+   *   本项目已因此出过一次事故（见 `signatureKeepAlive.ts`）。`created_at` 仅供人读。
+   * - `is_drill` 是**客户端声明、服务端不可验证的提示，不是安全边界**，详见设计文档 §8。
+   * - `client_event_id` 唯一索引 = 传输层重复提交的幂等键（`INSERT OR IGNORE`）。
+   */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sos_events (
+      id               TEXT PRIMARY KEY,
+      client_event_id  TEXT NOT NULL,
+      user_id          TEXT,
+      is_drill         INTEGER NOT NULL DEFAULT 0,
+      client_platform  TEXT NOT NULL DEFAULT '',
+      created_at_ms    INTEGER NOT NULL,
+      created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_sos_events_client ON sos_events(client_event_id);
+    CREATE INDEX IF NOT EXISTS idx_sos_events_user ON sos_events(user_id, created_at_ms);
+    CREATE INDEX IF NOT EXISTS idx_sos_events_real ON sos_events(is_drill, created_at_ms);
+  `)
+
   // ---- Tracked migrations ----
   db.exec(`CREATE TABLE IF NOT EXISTS _migrations (
     id TEXT PRIMARY KEY,
@@ -935,6 +964,24 @@ export function initDb(options: { silent?: boolean } = {}) {
       );
       CREATE INDEX IF NOT EXISTS idx_sms_dispatches_biz ON aed_sms_dispatches(biz_id);`,
     },
+    {
+      id: '040_add_sos_events',
+      description: 'create sos_events (SOS traceability for anti-abuse; NO location columns)',
+      // 幂等建表 + 建索引：既有库补建；全新库 canonical 已建同一张表 ⇒ 本迁移为 no-op，仍记入 `_migrations`。
+      // 与 canonical schema 中的定义**必须逐字一致**（两处都跑不冲突）。
+      sql: `CREATE TABLE IF NOT EXISTS sos_events (
+        id               TEXT PRIMARY KEY,
+        client_event_id  TEXT NOT NULL,
+        user_id          TEXT,
+        is_drill         INTEGER NOT NULL DEFAULT 0,
+        client_platform  TEXT NOT NULL DEFAULT '',
+        created_at_ms    INTEGER NOT NULL,
+        created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_sos_events_client ON sos_events(client_event_id);
+      CREATE INDEX IF NOT EXISTS idx_sos_events_user ON sos_events(user_id, created_at_ms);
+      CREATE INDEX IF NOT EXISTS idx_sos_events_real ON sos_events(is_drill, created_at_ms);`,
+    },
   ]
 
   const applied = new Set(
@@ -1011,7 +1058,7 @@ export function setMeta(key: string, value: string): void {
 export function clearAll() {
   // Disable FK constraints so DELETE order doesn't matter
   db.pragma('foreign_keys = OFF')
-  db.exec("DELETE FROM _migrations; DELETE FROM app_meta; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_custodian_alerts; DELETE FROM aed_sms_dispatches; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards; DELETE FROM gov_viewers;")
+  db.exec("DELETE FROM _migrations; DELETE FROM app_meta; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_custodian_alerts; DELETE FROM aed_sms_dispatches; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards; DELETE FROM gov_viewers; DELETE FROM sos_events;")
   db.pragma('foreign_keys = ON')
 }
 

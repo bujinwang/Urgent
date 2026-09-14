@@ -838,3 +838,27 @@ export interface AedCustodianAlertRow {
   created_at: number
   updated_at: number
 }
+
+// ---- SOS telemetry (F3) ----
+
+/**
+ * `sos_events` row — 每次 SOS 触发在服务端留下的最小可追溯记录
+ * （兑现建议书 §10「恶意虚假呼救可追溯」）。
+ *
+ * ⚠️ **本表无任何位置字段**（设计决策 D1）：保留位置既扩大隐私采集面，
+ * 又与建议书 §10「任务结束后自动删除」冲突。可追溯需要的是**身份 + 时间**，不是位置。
+ * 若将来要加位置列，必须先定保留与删除机制，并同步修正对外文档口径。
+ */
+export interface SosEventRow {
+  id: string
+  /** 幂等键：唯一索引 + `INSERT OR IGNORE`，防传输层重复提交。 */
+  client_event_id: string
+  /** `null` = 匿名呼救（建议书 §04「无需注册」）。只由 token 派生，**绝不从请求体取**。 */
+  user_id: string | null
+  /** 客户端声明、服务端**不可验证**的提示，**不是安全边界**（设计文档 §8）。 */
+  is_drill: number
+  client_platform: string
+  /** 范围查询的**唯一依据**（刻意不用 `strftime`，见设计文档 §2.3）。 */
+  created_at_ms: number
+  created_at: string
+}
