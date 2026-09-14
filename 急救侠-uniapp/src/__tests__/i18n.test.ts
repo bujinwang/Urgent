@@ -155,6 +155,9 @@ describe('静态扫描：范围清单内不得出现未定义 / 裸 key', () => 
     'src/components/Metronome/index.vue',
     'src/components/BottomSheet/index.vue',
     'src/components/VoiceManager/index.vue',
+    // voice.ts 当前**零** t()/tm()/rt() 调用 —— 加进来是无行为的预防：
+    // 防止日后有人在语音层写 t('...') 却无人扫描（语音文本本地化是本期 KPI 之一）。
+    'src/utils/voice.ts',
   ]
 
   it('★ 每个代码里用到的键，在两个 locale 中都必须能解析出非空值且 ≠ 键名', () => {
@@ -180,7 +183,9 @@ describe('静态扫描：范围清单内不得出现未定义 / 裸 key', () => 
       }
     }
 
-    expect(scannedKeys, '扫描到的键数为 0 —— 请检查范围清单 / 扫描器是否失效').toBeGreaterThanOrEqual(0)
+    // ⚠️ 必须 `> 0`（原为 `>= 0`，对任何计数恒真 ⇒ 这条"扫描器是否失效"的守卫永不红）。
+    // 静态扫描是「裸 key 泄漏 = 0」KPI 的**唯一真守卫**（见文件头/设计 §5.1），守卫自己也要被守住。
+    expect(scannedKeys, '扫描到的键数为 0 —— 请检查范围清单 / 扫描器是否失效').toBeGreaterThan(0)
     expect(problems, problems.join('\n')).toEqual([])
   })
 })
