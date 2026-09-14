@@ -1,4 +1,42 @@
 import { vi } from 'vitest'
+import { config } from '@vue/test-utils'
+import { i18n } from '@/i18n'
+
+/**
+ * F2 P0-3 测试基建（设计 §10.1）。
+ *
+ * vue-i18n v9 下，页面模板里的 `$t(...)` 与 `<script setup>` 的 `useI18n()`
+ * **都要求 i18n 已通过 `app.use(i18n)` 安装**，否则 `useI18n()` 直接抛
+ * `Need to install with 'app.use' function`。`main.ts` 里是 `app.use(i18n)`，
+ * 但 `@vue/test-utils` 的 `mount()` 默认**不会**带上它 ⇒ 所有页面测试会当场崩。
+ *
+ * 这里把 `i18n` 注册到 VTU 的**全局配置**上，等价于给每个测试 app 装一次插件。
+ * `i18n.ts` 已开 `globalInjection: true`，因此模板里的 `$t(...)` 可直接使用。
+ */
+config.global.plugins = [i18n]
+
+/**
+ * ⚠️ 必读：为什么要在测试里把 `i18n.dispose` 置为空操作。
+ *
+ * vue-i18n v9 的 `install()` 会**改写 `app.unmount`**（见 vue-i18n 源码
+ * `dist/vue-i18n.mjs` 的 `install()`）：
+ * ```js
+ * const unmountApp = app.unmount
+ * app.unmount = () => { globalReleaseHandler?.(); i18n.dispose(); unmountApp() }
+ * ```
+ * 而 `dispose()` 会 `globalScope.stop()` —— 而**整个 composer 就是在
+ * `globalScope.run(() => createComposer(...))` 里创建的**（同文件 `createGlobal()`）。
+ *
+ * 于是：VTU 的 `config.global.plugins` 让**每个用例**的 mount 都 `app.use(i18n)`，
+ * 而第一个用例 `wrapper.unmount()` 就会 `i18n.dispose()`，把**共享单例**的
+ * `globalScope` 停掉 ⇒ `composer.locale`（一个 computed）从此冻结在旧值，
+ * 后续用例里 `setLocale()` 不再响应式生效（实测：`voiceLang` 永远停在首次语言）。
+ *
+ * 测试里 mount/unmount 了大量 app 却共用一个 i18n 单例，"卸载其一就销毁全局" 是错误的语义；
+ * 生产环境只 `app.use(i18n)` 一次、App 从不卸载，**不受此影响**。故此处仅把测试期的
+ * `dispose` 降级为空操作（`injectGlobalFields` 的 release 仍照常清理该 app 自身的 `$t`）。
+ */
+;(i18n as unknown as { dispose?: () => void }).dispose = () => {}
 
 // Mock SpeechSynthesisUtterance
 class MockSpeechSynthesisUtterance {
