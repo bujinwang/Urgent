@@ -14,7 +14,7 @@ import { server as testServer } from './setup'
  * **全新 app**（`vi.resetModules()` 后重新加载），并**显式绑定 127.0.0.1**（沿用 setup.ts 约定）。
  */
 const TMP = path.join(os.tmpdir(), `jiujiaxia-tp-${process.pid}-${Date.now()}.db`)
-const ENV_KEYS = ['DB_PATH', 'NODE_ENV', 'TRUST_PROXY_HOPS', 'INQUIRE_HOURLY_LIMIT', 'JWT_SECRET', 'GOV_JWT_SECRET'] as const
+const ENV_KEYS = ['DB_PATH', 'NODE_ENV', 'TRUST_PROXY_HOPS', 'INQUIRE_HOURLY_LIMIT', 'SOS_EVENT_HOURLY_LIMIT', 'JWT_SECRET', 'GOV_JWT_SECRET'] as const
 const ORIG: Record<string, string | undefined> = {}
 for (const k of ENV_KEYS) ORIG[k] = process.env[k]
 
@@ -25,7 +25,7 @@ async function loadRealApp(env: Record<string, string>): Promise<Express> {
   process.env.NODE_ENV = 'development' // 非 test ⇒ isTestMode=false
   process.env.JWT_SECRET = 'tp-test-secret'
   process.env.GOV_JWT_SECRET = 'tp-test-gov-secret'
-  for (const k of ['TRUST_PROXY_HOPS', 'INQUIRE_HOURLY_LIMIT']) delete process.env[k]
+  for (const k of ['TRUST_PROXY_HOPS', 'INQUIRE_HOURLY_LIMIT', 'SOS_EVENT_HOURLY_LIMIT']) delete process.env[k]
   for (const [k, v] of Object.entries(env)) process.env[k] = v
   vi.resetModules()
   const appMod = await import('../app')
@@ -78,5 +78,24 @@ describe('trust proxy（真实反代下的客户端 IP）', () => {
   it('回归：测试环境（isTestMode）匿名限流豁免，不设 XFF 行为不变', async () => {
     const res = await request(testServer).post('/api/public/inquire').send({ message: 'hi' })
     expect(res.status).toBe(200)
+  })
+
+  /**
+   * SOS 埋点端点的**真实挂载**验证（F3）。
+   *
+   * 这条用例防的是一个**静默失效**：`app.ts` 里限流器必须挂在
+   * `app.use('/api/public', publicRouter)` **之前**，否则限流器落在不匹配的路径上、
+   * 永远不生效，而单元测试会全绿（因为单测用的是 `createHourlyIpLimiter(force=true)` 自建 app）。
+   * 把挂载顺序写反 ⇒ 本用例的第 3 次请求会得到 200 而非 429 ⇒ 精确变红。
+   */
+  it('★ 真实挂载：/api/public/sos-event 连续超限 ⇒ 429（证明限流器挂在公共路由之前）', async () => {
+    const app = await loadRealApp({ TRUST_PROXY_HOPS: '1', SOS_EVENT_HOURLY_LIMIT: '2' })
+    const srv = serve(app)
+    const hit = () =>
+      request(srv).post('/api/public/sos-event').send({ clientEventId: 'mount-' + Math.random().toString(36).slice(2) })
+
+    expect((await hit()).status).toBe(200)
+    expect((await hit()).status).toBe(200)
+    expect((await hit()).status).toBe(429)
   })
 })
