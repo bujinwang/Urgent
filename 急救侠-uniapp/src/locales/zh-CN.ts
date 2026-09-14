@@ -33,5 +33,10 @@ export default {
    */
   voice: {
     cprNumbers: ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'],
+    /**
+     * 人工呼吸计数的**起手念法**（逐位念"一零零一"）。
+     * `startBreathCount()` 第一声用它，随后 `String(1000 + n)` 直接交给 TTS 念数字。
+     */
+    breathStart: '一零零一',
   },
 }

@@ -65,7 +65,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { voice } from '@/utils/voice'
+import { voice, type VoiceLang } from '@/utils/voice'
+import { i18n } from '@/i18n'
 
 interface Step { title: string; detail: string; icon: string; warn?: boolean }
 interface GuideData { title: string; emoji: string; steps: Step[]; warnings: string[] }
@@ -143,6 +144,9 @@ const guides: Record<string, GuideData> = {
 const current = ref(0)
 const showWarn = ref(false)
 
+/** 当前语音语言（随 i18n 语言切换响应式变化）；范围外页面不用它，走 voice 的默认 zh-CN。 */
+const voiceLang = computed<VoiceLang>(() => (i18n.global.locale.value === 'en-US' ? 'en-US' : 'zh-CN'))
+
 
 const guideImages: Record<string, string> = {
   bleeding: '/static/bleeding.png',
@@ -188,7 +192,7 @@ function prevStep() {
 // 语音播报当前步骤
 watch(current, (val) => {
   const s = guide.value.steps[val]
-  if (s) setTimeout(() => voice.command(s.title + "，" + s.detail), 300)
+  if (s) setTimeout(() => voice.command(s.title + "，" + s.detail, voiceLang.value), 300)
 })
 
 function goBack() {

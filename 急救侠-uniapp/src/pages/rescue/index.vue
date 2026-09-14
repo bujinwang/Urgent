@@ -227,7 +227,8 @@ import SosButton from '@/components/SosButton/index.vue'
 import StepTimer from '@/components/StepTimer/index.vue'
 import Metronome from '@/components/Metronome/index.vue'
 import BottomSheet from '@/components/BottomSheet/index.vue'
-import { voice } from '@/utils/voice'
+import { voice, type VoiceLang } from '@/utils/voice'
+import { i18n } from '@/i18n'
 import { playClick } from '@/utils/audio'
 import { reportSosEvent, newSosEventId } from '@/api/sos'
 
@@ -255,6 +256,29 @@ const breathCounter = ref('1001')
 const ventRound = ref(1)
 const aedPhase = ref(0)
 let breathTimer: number | null = null
+
+// --- 语音本地化（设计 §4）---
+/**
+ * 全局组合式 i18n 实例。`i18n.global` 的类型是「legacy / composition」联合，
+ * 这里收窄成组合式形态（`locale` 为 ref、含 `t` / `tm`），以便在 `computed` 里安全取值。
+ */
+const i18nGlobal = i18n.global as unknown as {
+  locale: { value: string }
+  t: (key: string) => unknown
+  tm: (key: string) => unknown
+}
+/** 当前语音语言（随 i18n 语言切换响应式变化）。范围外页面不走这里 —— 它们用 voice 的默认 zh-CN。 */
+const voiceLang = computed<VoiceLang>(() => (i18nGlobal.locale.value === 'en-US' ? 'en-US' : 'zh-CN'))
+/**
+ * CPR 计数词，按当前语言从 i18n 取（`voice.cprNumbers`：zh `['零'…'十']`，en `['zero'…'ten']`）。
+ * ⚠️ 必须包在 `computed` 里：顶层取值会**冻结语言**，切到 en-US 后仍念中文。
+ */
+const cprNumbers = computed<string[]>(() => {
+  const v = i18nGlobal.tm('voice.cprNumbers')
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+})
+/** 人工呼吸计数起手念法（zh `一零零一` / en `one zero zero one`）。 */
+const breathStart = computed<string>(() => String(i18nGlobal.t('voice.breathStart')))
 
 // --- 常量 ---
 const stepLabels = ['呼救', '判断', '呼吸', '按压', '人工呼吸']
@@ -326,12 +350,12 @@ function startTotalTimer() {
   totalTimer = setInterval(() => { totalSeconds.value++; const m=Math.floor(totalSeconds.value/60).toString().padStart(2,'0'); const s=(totalSeconds.value%60).toString().padStart(2,'0'); elapsed.value=`${m}:${s}` }, 1000) as unknown as number
 }
 function resetCount() { stopPress(); pressCount.value=0; pressNumDisplay.value='0'; pressLabel.value='已重置'; setTimeout(()=>{ pressLabel.value='跟屏幕数字按压'; startPress() }, 1500) }
-function wordForCpr(n:number):string { if(n<=10) return ['零','一','二','三','四','五','六','七','八','九','十'][n]; return String(n) }
+function wordForCpr(n:number):string { if(n<=10) return cprNumbers.value[n] ?? String(n); return String(n) }
 function startPress() {
   stopPress(); pressCount.value=0; pressNumDisplay.value='0'
   const tick = () => {
     pressCount.value++; pressNumDisplay.value = pressCount.value<10?'0'+pressCount.value:String(pressCount.value)
-    voice.speak(wordForCpr(pressCount.value),{rate:1.7,volume:1.0,priority:'URGENT'}); uni.vibrateShort({type:"light"}); playClick()
+    voice.speak(wordForCpr(pressCount.value),{rate:1.7,volume:1.0,priority:'URGENT',lang:voiceLang.value}); uni.vibrateShort({type:"light"}); playClick()
     if(pressCount.value>=30) { stopPress(); cprStep.value=5; ventRound.value=1 }
   }
   tick(); pressTimer = setInterval(tick,545) as unknown as number
@@ -359,12 +383,12 @@ watch([cprStep, aedPhase], ([step, phase]) => {
   }, 50)
 })
 
-function speakGuide(t:string) { voice.guide(t) }
-function speakCommand(t:string) { voice.command(t) }
-function speakUrgent(t:string) { voice.speak(t,{rate:1.2,pitch:1.05,priority:'URGENT'}) }
+function speakGuide(t:string) { voice.guide(t, voiceLang.value) }
+function speakCommand(t:string) { voice.command(t, voiceLang.value) }
+function speakUrgent(t:string) { voice.speak(t,{rate:1.2,pitch:1.05,priority:'URGENT',lang:voiceLang.value}) }
 
 function stopAll() { stopPress(); stopBreathCount(); stopVoice(); if(totalTimer){clearInterval(totalTimer);totalTimer=null} }
-function startBreathCount() { stopBreathCount(); breathCounter.value='1001'; voice.count('一零零一'); let count=1; breathTimer=setInterval(()=>{count++;breathCounter.value=String(1000+count);voice.count(String(1000+count));if(count>=7)stopBreathCount()},1000) as unknown as number }
+function startBreathCount() { stopBreathCount(); breathCounter.value='1001'; voice.count(breathStart.value, voiceLang.value); let count=1; breathTimer=setInterval(()=>{count++;breathCounter.value=String(1000+count);voice.count(String(1000+count), voiceLang.value);if(count>=7)stopBreathCount()},1000) as unknown as number }
 function stopBreathCount() { if(breathTimer){clearInterval(breathTimer);breathTimer=null} }
 
 onUnmounted(()=>stopAll())

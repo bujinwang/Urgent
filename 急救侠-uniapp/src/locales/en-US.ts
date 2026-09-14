@@ -22,5 +22,7 @@ export default {
 
   voice: {
     cprNumbers: ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'],
+    /** Human-rescue breath count, first utterance (zh counterpart: '一零零一'). */
+    breathStart: 'one zero zero one',
   },
 }
