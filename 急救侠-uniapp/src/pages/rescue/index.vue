@@ -265,6 +265,16 @@ const pressLabel = computed<string>(() => t(`rescue.cpr.pressLabel.${pressLabelS
 const totalSeconds = ref(0)
 let totalTimer: number | null = null
 let pressTimer: number | null = null
+/**
+ * `watch([cprStep, aedPhase])` 里"延后 50ms 播报本步语音"的句柄。
+ *
+ * ⚠️ **必须存句柄并在 `stopAll()` 里清理**：否则卸载（或 `backToDecision()`）之后该回调仍会触发。
+ * 它的内容由硬编码中文改成了 `t(...)`（i18n）后，卸载后触发会去碰 i18n 运行时
+ * （测试环境已拆除 ⇒ `ReferenceError: window is not defined`；生产则是"已经退出去还在说话"）。
+ */
+let voiceScheduleTimer: number | null = null
+/** `resetCount()` 里"1.5s 后恢复为可按压"的句柄（同类泄漏：不清会重新起按压定时器）。 */
+let resetHintTimer: number | null = null
 
 const breathCounter = ref('1001')
 const ventRound = ref(1)
@@ -392,7 +402,10 @@ function startTotalTimer() {
   if (totalTimer) return
   totalTimer = setInterval(() => { totalSeconds.value++; const m = Math.floor(totalSeconds.value / 60).toString().padStart(2, '0'); const s = (totalSeconds.value % 60).toString().padStart(2, '0'); elapsed.value = `${m}:${s}` }, 1000) as unknown as number
 }
-function resetCount() { stopPress(); pressCount.value = 0; pressNumStarted.value = true; pressNumValue.value = '0'; pressLabelState.value = 'reset'; setTimeout(() => { pressLabelState.value = 'hint'; startPress() }, 1500) }
+function resetCount() {
+  stopPress(); pressCount.value = 0; pressNumStarted.value = true; pressNumValue.value = '0'; pressLabelState.value = 'reset'
+  resetHintTimer = setTimeout(() => { resetHintTimer = null; pressLabelState.value = 'hint'; startPress() }, 1500) as unknown as number
+}
 function wordForCpr(n: number): string { if (n <= 10) return cprNumbers.value[n] ?? String(n); return String(n) }
 function startPress() {
   stopPress(); pressCount.value = 0; pressNumStarted.value = true; pressNumValue.value = '0'
@@ -414,7 +427,9 @@ function stopVoice() { voice.stop() }
 
 watch([cprStep, aedPhase], ([step, phase]) => {
   voice.stop()
-  setTimeout(() => {
+  // ⚠️ 句柄存起来交给 `stopAll()` 清理：否则卸载后仍会触发（见 `voiceScheduleTimer` 注释）。
+  voiceScheduleTimer = setTimeout(() => {
+    voiceScheduleTimer = null
     if (step === 1) speakCommand(isDrill.value ? t('rescue.voice.step1Drill') : t('rescue.voice.step1'))
     else if (step === 2) speakGuide(t('rescue.voice.step2'))
     else if (step === 3) startBreathCount()
@@ -423,14 +438,20 @@ watch([cprStep, aedPhase], ([step, phase]) => {
     if (step === 'aed') { if (phase === 0) speakUrgent(t('rescue.voice.aed0')); else if (phase === 1) speakUrgent(t('rescue.voice.aed1')) }
     else if (step === 5) speakGuide(t('rescue.voice.step5'))
     else if (step === 'loop') speakCommand(t('rescue.voice.loop'))
-  }, 50)
+  }, 50) as unknown as number
 })
 
 function speakGuide(t2: string) { voice.guide(t2, voiceLang.value) }
 function speakCommand(t2: string) { voice.command(t2, voiceLang.value) }
 function speakUrgent(t2: string) { voice.speak(t2, { rate: 1.2, pitch: 1.05, priority: 'URGENT', lang: voiceLang.value }) }
 
-function stopAll() { stopPress(); stopBreathCount(); stopVoice(); if (totalTimer) { clearInterval(totalTimer); totalTimer = null } }
+function stopAll() {
+  stopPress(); stopBreathCount(); stopVoice()
+  // 清掉两个"延后回调"：否则卸载后仍会触发（见 voiceScheduleTimer 注释）。
+  if (voiceScheduleTimer) { clearTimeout(voiceScheduleTimer); voiceScheduleTimer = null }
+  if (resetHintTimer) { clearTimeout(resetHintTimer); resetHintTimer = null }
+  if (totalTimer) { clearInterval(totalTimer); totalTimer = null }
+}
 function startBreathCount() { stopBreathCount(); breathCounter.value = '1001'; voice.count(breathStart.value, voiceLang.value); let count = 1; breathTimer = setInterval(() => { count++; breathCounter.value = String(1000 + count); voice.count(String(1000 + count), voiceLang.value); if (count >= 7) stopBreathCount() }, 1000) as unknown as number }
 function stopBreathCount() { if (breathTimer) { clearInterval(breathTimer); breathTimer = null } }
 
