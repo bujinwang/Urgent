@@ -40,9 +40,9 @@ export default {
 
     decision: {
       tag: { drill: 'DRILL · Learn the CPR flow', real: 'EMERGENCY · The golden 4 minutes' },
-      main: 'Someone collapsed and unresponsive?',
+      main: 'Someone has collapsed and is unresponsive?',
       sub: 'Breathe. You are not alone in this.',
-      start: { drill: 'Start CPR Drill', real: 'Start CPR Now' },
+      start: { drill: 'Start CPR drill', real: 'Start CPR Now' },
       startSub: { drill: 'Full walkthrough · Simulated AED team dispatch', real: 'Auto-calls 120 + dispatches the AED team' },
       autoLabel: { drill: 'Drill mode · The system will simulate:', real: 'Within 5 seconds of tapping, the system will:' },
       other: 'Other emergencies',
@@ -94,8 +94,8 @@ export default {
       taskTeamSub: 'Compressor 240m · AED 100m · Recorder 310m',
       taskHelper: 'Tap here · get a bystander to scan and help',
       detail: {
-        drill: '<strong style="color:#FF8B5B;">This is a drill — no real resources will be dispatched</strong> Follow the voice prompts to practice the full CPR sequence.<br>Put your phone down and get ready to start compressions with the voice guidance.',
-        real: '<strong style="color:#FF8B5B;">You do not need to find an AED yourself</strong> The system has dispatched the compressor, AED and recorder roles in sync.<br>Put your phone down and get ready to start compressions with the voice guidance.',
+        drill: '<strong style="color:#FF8B5B;">This is a drill — no real resources will be dispatched</strong>. Follow the voice prompts to practice the full CPR sequence.<br>Put your phone down and get ready to start compressions with the voice guidance.',
+        real: '<strong style="color:#FF8B5B;">You do not need to find an AED yourself</strong>. The system has dispatched the compressor, AED and recorder roles in sync.<br>Put your phone down and get ready to start compressions with the voice guidance.',
       },
       start: 'Called for help · Start now',
     },
@@ -162,7 +162,7 @@ export default {
     confirm: {
       title: { drill: '⚠️ Drill mode · Disclaimer', real: '⚠️ Liability & consent' },
       drillTitle: 'This is a drill — 120 will not actually be called',
-      drillDesc: 'Relax and follow the voice prompts to practise the full flow',
+      drillDesc: 'Relax and follow the voice prompts to practice the full flow',
       body: {
         drill: 'You are about to enter a CPR practice drill. The system will simulate calling 120 and notifying nearby volunteers to help you learn every step of a real emergency.',
         real: 'You are about to start a real emergency rescue. The system will automatically call 120, notify nearby volunteers, and record the time and account of this trigger for anti-abuse purposes (your exact location is not recorded).',
@@ -194,7 +194,7 @@ export default {
       aed0: 'Everyone stand clear. The AED is analyzing the heart rhythm.',
       aed1: 'Stand clear. Press the shock button.',
       step5: 'Tilt the head back and lift the chin to open the airway. Check the mouth and clear any visible obstruction. Pinch the nose, seal your mouth over theirs, and give one breath.',
-      loop: 'Keep going — thirty compressions, then two rescue breaths. Do not stop.',
+      loop: 'Keep going. Thirty compressions, then two rescue breaths. Do not stop.',
     },
   },
 }
