@@ -160,17 +160,39 @@ export function resolveInitialLocale(): Locale {
 
 ### 4.1 `voice.ts` 改造点
 
+> ⚠️ **本节 v1.1 修正（原方案错了，实现前必读）**：原设计提的是模块级 `setLocale(locale)` —— **不可用**。
+> 实测：`utils/voice.ts` 是**跨范围单例**，除 F2 范围内的 `rescue`/`guide` 外，还被
+> **范围外**页面直接 import：`pages/home/index.vue`（2 处）、`pages/mission/running.vue`（4 处）、
+> `pages/mission/arrived.vue`（speakSequence）。
+> 那些页面**并不会被本次改成双语**，文案仍是硬编码中文。
+> ⇒ 若用全局 `setLocale`，切到 en-US 后它们会**用英文音色去念中文**，比改之前更差。
+>
+> **正确做法：语言是「每次调用的显式参数」，默认 `zh-CN`。**
+
 ```ts
-// 由 i18n 提供「当前该用什么语言/音色」
-setLocale(locale: 'zh-CN' | 'en-US'): void   // 由 i18n 的 locale 变化时调用
+interface VoiceOptions {
+  rate?: number; pitch?: number; volume?: number; priority?: 'NORMAL' | 'URGENT'
+  /** 合成语言。**默认 'zh-CN'** ⇒ 范围外调用方行为**逐字不变**（这是默认值存在的唯一理由）。 */
+  lang?: 'zh-CN' | 'en-US'
+}
 ```
+
+**为什么默认值是 `zh-CN`（而不是"跟随全局 locale"）**：默认值决定了**范围外调用方的行为**。
+必须让「不传 lang」等价于改动前的行为，否则就是**在范围外引入回归**。
+范围内调用方（`rescue`/`guide`）**显式**传入当前 locale。
 
 | 改造 | 原来 | 改为 |
 |---|---|---|
-| `speak` / `count` 的 `u.lang` | 写死 `'zh-CN'` | `this.locale` |
-| `pickVoice` 匹配器 | 硬编码中文音色优先级 | **按 `this.locale` 选匹配器**（en ⇒ `lang === 'en-US'` / `Google.*US English` / `Samantha` 等） |
-| `!` → `，` | 无条件替换 | **仅 `zh-CN` 时**做该替换（英文保留 `!`） |
+| `speak` / `count` 的 `u.lang` | 写死 `'zh-CN'` | `opts.lang ?? 'zh-CN'`（**每调用**决定） |
+| `pickVoice` | 无参、硬编码中文音色优先级 | `pickVoice(lang)`，按 `lang` 选匹配器（en ⇒ `lang==='en-US'` / `Google.*US English` / `Samantha` 等） |
+| `!` → `，` | 无条件替换 | **仅当 `lang === 'zh-CN'`** 才替换（英文保留 `!`） |
 | `AED` / `CPR` 规整 | 保留 | 保留（两种语言下读字母都对） |
+| `command`/`guide`/`comfort`/`speakSequence` | 直接转发 | **透传 `lang`**（不传 ⇒ `zh-CN`，范围外不变） |
+
+**`components/VoiceManager/index.vue`**：实测它是个**纯转发壳**（lazy `import('@/utils/voice')`，微信端降级为 `console.log`），
+且**没有任何页面以组件方式使用它**（只在 `pages.json` 有条 easycom 规则 `^voice-mgr`，无实际引用）。
+⇒ 只需给它的各方法**加可选 `lang` 透传**以保持 API 一致，**不要**为此重写它。
+
 
 ### 4.2 CPR 计数词
 
@@ -184,6 +206,17 @@ setLocale(locale: 'zh-CN' | 'en-US'): void   // 由 i18n 的 locale 变化时调
 
 > 实现选择：计数词**走 i18n 的 `voice.cprNumbers` 数组**（而非在 `rescue/index.vue` 里写死两份数组）。
 > 理由：这样「漏译」会被 §5.1 的 key 完整性测试**自动覆盖**，不需要为语音单独写一套覆盖率检查。
+
+**⚠️ 补充（v1.1 实测新发现）：还有第二处硬编码中文数字**
+
+`pages/rescue/index.vue:367` 的 `startBreathCount()` 里写死了 `voice.count('一零零一')`，
+并把 `String(1000+count)`（如 `"1002"`）交给 `voice.count()` —— 后者在当前实现下**明确按 `lang='zh-CN'` 合成**。
+⇒ 英文 locale 下用户会听到**中文数字报数**。这一处 PRD 与设计 v1.0 **都没有捕获**。
+
+处理：`'一零零一'` 是"人工呼吸计数"的**中文念法**（逐位念"一零零一"），英文对应 `'one zero zero one'`。
+⇒ 归入 `voice.*` 的 i18n 键（与 `cprNumbers` 同一处理），并由 `startBreathCount` 按当前 locale 取值 + 传入 `lang`。
+`String(1000+count)` 在英文下直接念数字即可（TTS 会读成 "one thousand two"）—— **保持现状形态，不要额外造词表**。
+
 
 ---
 
@@ -265,8 +298,123 @@ PRD §9 说"把 `fallbackLocale` 改成 `'en-US'` ⇒ 必须红"。**补充精�
 
 | 风险 | 对策 |
 |---|---|
+| ⚠️ **改 `voice.ts` 会波及范围外页面**（它是跨范围单例，`home`/`mission/*` 都在用，且它们仍是中文） | **语言作为每次调用的显式参数、默认 `zh-CN`**（§4.1）。默认值保证"不传参 ⇒ 行为与改动前逐字一致"。**禁止**用模块级 `setLocale`。加一条断言：**不传 lang 时 `u.lang === 'zh-CN'`**（突变：把默认值改成 en ⇒ 必红） |
+| 范围外的 `home`/`mission/*` 在 en-US 下仍说中文（体验不一致） | **本项不做**（PRD §8 范围纪律）。已记录为已知限制，不顺手扩大；若日后要覆盖，另开 PRD |
 | vue-i18n 9.14 在 uni-app H5 的 message compiler 行为与纯 Vue 不同 | **P0-2 之前先做 5 分钟冒烟**：在 vitest 里 `createI18n` + `t()` 跑通再动手 |
 | 批量抽 key 引入"文案错位"（把 A 的文案接到 B 的键） | 抽完**逐页 diff 视觉复核**；键名语义化（§3.3）降低错位概率 |
 | 双语后**中文用户**体验被改变（PRD §2.2 用户故事 2） | `zh-CN` 为默认 + 兜底；**纯中文路径必须与改动前逐字一致**（列一条"中文文案快照"断言） |
 | 改 `rescue/index.vue` 触发 F3 埋点回归 | F3 已有 `pages/rescue.test.ts`（5 条）；本项**必须保持其全绿** |
 | 一次性改 5 个页面难以定位回归 | §6 分期，每期独立过门禁 |
+
+---
+
+## 9. ✅ P0-2 实现与独立验证记录（2026-09-14）
+
+**门禁**：`vue-tsc --noEmit` **0 错误**；vitest **43 文件 / 261 用例**（P0-1 后基线 41/237 ⇒ +2 文件 +24 用例，零回退）；
+**F3 的 `pages/rescue.test.ts` 5 条保持全绿**。
+
+**分工**：工程师（寇豆码）实现 + 自证；**QA（严过关）另起实例独立复核**（新眼睛），源码与测试双查。
+
+### 9.1 QA 独立突变矩阵（作者自证之外的第二次验证）
+
+| 突变 | 结果 | 关键变红用例 |
+|---|---|---|
+| M1 `speak` 忽略 `options.lang`，写死 `zh-CN` | RED (7) | `传 lang en-US⇒u.lang`、`pickVoice 按语言选`、`缓存隔离`… |
+| M2 音色缓存退化为单一固定键 | RED (2) | `音色缓存按语言隔离`、`缓存隔离双向` |
+| M3 去掉 `!`→`，` 的 locale 条件 | RED (1) | `标点：zh "!"→"，"；en 保留 "!"` |
+| M4 `wordForCpr` 改回硬编码中文 | RED (2) | `en-US 按压词不含中文`、`响应式切语言` |
+| M5 **默认语言 `zh-CN` → `en-US`** | RED (9) | `不传 lang⇒zh`、`不传 lang 选中文音色`、`标点`、各类默认值… |
+| M6（QA 自选）`guide` 调用点漏传 lang | RED (2) | `zh⇒lang=zh-CN`、`en⇒lang=en-US` |
+| M7（QA 自选）en `cprNumbers` 错位（zero/one 对调） | RED (1) | `en-US 按压词不含中文`（**精确有序序列**抓到；仅长度断言抓不到错位） |
+| M10（QA 自选）呼吸计数 interval 漏传 lang | RED (1) | `呼吸数字分支带 lang=en-US` |
+| M11（QA 自选）**VoiceManager 组件剥掉 lang 透传** | ⚠️ **SURVIVED**（复跑确认） | 无 ⇒ **缺口 2** |
+| M8（QA 自选）清空 `SCOPE_FILES` | ⚠️ **SURVIVED**（复跑确认） | 无 ⇒ **缺口 1** |
+
+### 9.2 QA 抓出的两个测试缺口（作者自证时漏掉，均已修复）
+
+| # | 缺口 | 为什么要紧 | 修法 |
+|---|---|---|---|
+| 1 | `i18n.test.ts` 的"扫描器失效"自检写成 `toBeGreaterThanOrEqual(0)` —— **对计数恒真** | 静态扫描是「裸 key 泄漏 = 0」KPI 的**唯一真守卫**（§5.1 已论证 `fallbackLocale` 防不住它），**而守卫自己失效时不报红** | 改 `toBeGreaterThan(0)`；并把 `utils/voice.ts` 加入 `SCOPE_FILES`（当前零 `t()` 调用，属预防） |
+| 2 | `VoiceManager` 组件的 lang 透传**无任何测试** | M11 证明剥掉透传仍全绿 | 补 mock + `flushPromises` 的用例，断言下游收到 `en-US` |
+
+> **教训（已写入手册）**：**"扫描器是否失效"这一类自检，本身也必须能被突变咬住。**
+> `toBeGreaterThanOrEqual(0)` / `toBeTruthy()` 这类**弱断言**会让守卫变成装饰品 ——
+> 断言必须写成"**该数字应该是多少**"，而不是"它是个数字"。
+
+### 9.3 发现的一条既存缺陷（**非本次回归，不在本期范围**）
+
+`utils/voice.ts` 的 `speak()` 只解构 `rate/pitch/volume/priority`，**从不读取 `options.onend`**
+⇒ `speakSequence()` 在末句包装的回调**实际上从不触发**（改动前后一致，且无测试断言其触发）。
+使用方为范围外的 `pages/mission/running.vue`、`pages/mission/arrived.vue`。
+**本期不修**（超出 F2 范围）；已记入台账，若产品依赖该回调需另立任务。
+
+### 9.4 ✅ 缺口修复的**二次验证**（team-lead 独立复跑，不是作者自证）
+
+两个缺口修完后，由 team-lead 在干净工作树上重跑突变 —— **只证明"测试通过"不算数，必须证明"守卫会红"**：
+
+| 复验突变 | 改法 | 结果 | 精确变红位置 |
+|---|---|---|---|
+| **A**（缺口 1 的真正价值） | 清空 `SCOPE_FILES`（断言保持 `> 0`） | **RED**，1 条 | `i18n.test.ts:188` → `expected 0 to be greater than 0` |
+| **A′**（对照组，同突变、只回退断言） | 同样清空 `SCOPE_FILES`，但断言退回 `>= 0` | **GREEN，19/19 全过** | 无 ⇒ **完整复现 QA 当初的 M8 SURVIVED** |
+| **B**（缺口 2） | `VoiceManager` 里 `vm.voice.command(text, lang)` → `vm.voice.command(text)` | **RED**，1 条 | `VoiceManager.test.ts:96` → `toHaveBeenCalledWith('x', 'en-US')` |
+
+> **A 与 A′ 只差一个断言符号，结果从"溜过"变成"咬住"** —— 这就是缺口 1 的完整证明。
+
+#### 9.4.1 一个必须写清楚的边界（第一版结论写错了，此处更正）
+
+最初想用"**把扫描正则改坏**"来证明 `> 0` 的价值，实测**不成立**：
+把正则改成永不匹配后，即使断言还是 `>= 0`，仍有 **2 条**用例变红 ——
+来自独立的 `describe('静态扫描器自检')` 块（直接调 `extractUsedKeys` 断言返回非空），
+它们与 `> 0` 无关。
+
+⇒ 结论要收窄为：**`> 0` 这条守卫的唯一价值边界，是"范围清单本身失效"** ——
+`SCOPE_FILES` 被清空 / 路径写错 / 某个文件被重命名后 `existsSync` 分支只 push 进 `problems`
+而 `problems` 恰好为空、或循环压根不执行。这个失效模式下**其它守卫全部沉默**，
+只有 `> 0` 会红。QA 选中 M8 正是一击命中该边界，而 `>= 0` 放过了它。
+
+> **教训（已写入手册）**：**"扫描器是否失效"这一类自检，本身也必须能被突变咬住。**
+> `toBeGreaterThanOrEqual(0)` / `toBeTruthy()` 这类**弱断言**会让守卫变成装饰品 ——
+> 断言必须写成"**该数字应该是多少**"，而不是"它是个数字"。
+> 另一半教训是**验证方法本身**：说"某守卫有价值"之前，先弄清**还有谁会咬住这个突变**，
+> 否则证明的是别人的功劳。（本次第一版结论就是因为没做这一步而写错。）
+
+突变一律 `cp` 备份 + `shasum -a256 -c` 还原，还原后校验字节一致（`RESTORED_OK`），
+再跑全量确认 **261 passed** 才提交 —— 工作树里不留任何突变残留。
+
+### 9.5 提交记录
+
+| 提交 | 内容 |
+|---|---|
+| `3ddc1b2` | `feat(i18n)`: 语音层本地化（`voice.ts` + `VoiceManager` + rescue/guide + 两个 locale） |
+| `75115b9` | `test(i18n)`: 22 + 6 + 2 用例 + 两处守卫加固 |
+
+---
+
+## 10. ⚠️ 交接给 P0-3 的前置条件（开工前必读）
+
+### 10.1 🔴 **测试基建必须先装 i18n 插件**（否则 P0-3 一定崩）
+
+P0-2 实测发现：现有页面测试 `mount(page.default)` **没有安装 i18n 插件**
+（`vitest.config.mts` 与 `src/__tests__/setup.ts` 里都没有 `app.use(i18n)`），
+而 vue-i18n v9 在未安装时 `useI18n()` **直接抛** `Need to install with 'app.use' function`。
+
+P0-2 绕开了它（改用全局组合式实例 `i18n.global`，响应式实测有效）。
+**但 P0-3 一旦在模板里写 `$t(...)`，页面测试会当场崩。**
+
+⇒ **P0-3 第一步**：给 `@vue/test-utils` 配 `config.global.plugins = [i18n]`，再动页面文案。
+（这是 **P0-1 未做、P0-2 绕开、P0-3 必然踩到**的基建缺口。）
+
+### 10.2 🟡 P0-2 只本地化了"计数词"，**语音句子仍是中文**
+
+`rescue` 的 `speakGuide` / `speakCommand` / `speakUrgent` 传入的整句文案**仍是硬编码中文**，
+却已经带了 `lang=en-US` ⇒ 当前英文用户会听到"**英文音色念中文句**"。
+**只有计数词（一→one…）与呼吸计数已本地化。**
+
+⇒ PRD §5 的「**语音语言一致**」KPI 目前**仅部分达成**，由 P0-3（页面文案抽 key）收口。
+**这是分期的已知中间态，不是 bug**；但**不要在 P0-2 交付时对外宣称语音已全英文化**。
+
+### 10.3 🟢 范围外页面的隔离已被证明
+
+`pages/home/index.vue`、`pages/mission/running.vue`、`pages/mission/arrived.vue`
+**未被本次改动触及**（`git status` 确认），其调用点全部不传 `lang`；M5 已证明"默认值守卫"有效（9 条变红）。
+
