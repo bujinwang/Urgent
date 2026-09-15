@@ -197,4 +197,104 @@ export default {
       loop: 'Keep going. Thirty compressions, then two rescue breaths. Do not stop.',
     },
   },
+
+  /** `pages/guide/index.vue` — the step-by-step first-aid guide page (see zh-CN for the `rescue.guides` note). */
+  guide: {
+    stepTag: 'Step {n}',
+    navPrev: '← Back',
+    navNext: 'Next →',
+    navDone: '✓ Done',
+    warnToggle: '⚠️ Warnings',
+    call: 'Call 120',
+    legal: '🛡 Good Samaritan protection · Civil Code, Art. 184',
+    toastCalling: 'Demo mode: calling 120...',
+    /** Spoken whole sentence: zh joins with「，」, en with ', ' — never concatenate in code. */
+    voice: {
+      step: '{title}, {detail}',
+    },
+    guides: {
+      bleeding: {
+        title: 'Severe bleeding',
+        steps: {
+          s1: { title: 'Apply direct pressure', detail: 'Press hard on the wound with clean gauze or a towel' },
+          s2: { title: 'Elevate the injured part', detail: 'Raise the bleeding area above heart level' },
+          s3: { title: 'Bandage under pressure', detail: 'Wrap firmly with a bandage, but not too tight' },
+          s4: { title: "Don't remove soaked dressings", detail: 'Add new layers on top; do not peel off the old ones' },
+          s5: { title: 'Tourniquet (last resort)', detail: 'Apply 5-7cm above the wound on the heart side and note the time' },
+        },
+        warnings: ['Wear gloves or plastic bags; avoid direct contact with blood', 'If an object is embedded, do not pull it out — pad around it and immobilize', 'Watch face color and breathing closely; tell 120 about any signs of shock'],
+      },
+      heimlich: {
+        title: 'Choking',
+        steps: {
+          s1: { title: 'Confirm choking', detail: 'They cannot speak, clutch their throat, and their face turns blue' },
+          s2: { title: 'Stand behind and wrap your arms', detail: 'Make a fist with one hand and place it two fingers above the navel' },
+          s3: { title: 'Thrust upward into the abdomen', detail: 'Grab your fist with the other hand and thrust quickly in and up ×5' },
+          s4: { title: 'Check the mouth', detail: 'After each thrust, look in the mouth and remove any object' },
+          s5: { title: 'Alternate and repeat', detail: '5 thrusts + a mouth check, repeat until the object is expelled' },
+          s6: { title: 'Unconscious → CPR', detail: 'Lay them flat, start chest compressions immediately and call 120' },
+        },
+        warnings: ['For pregnant or obese casualties, use chest thrusts (fist on the mid-sternum)', 'Infants: alternate 5 back slaps + 5 chest thrusts', 'If they can cough, encourage coughing — do not intervene'],
+      },
+      fracture: {
+        title: 'Fracture / trauma',
+        steps: {
+          s1: { title: 'Do not move the casualty', detail: 'Keep them still unless there is immediate danger at the scene' },
+          s2: { title: 'Splint it', detail: 'Use a board or magazine to splint the joints above and below the fracture' },
+          s3: { title: 'Pad for cushioning', detail: 'Pad between the splint and the body with clothing to avoid pressure' },
+          s4: { title: 'Sling the upper limb', detail: 'For an arm fracture, sling it with a triangular bandage and keep it level' },
+          s5: { title: 'Cool to reduce swelling', detail: 'Apply an ice pack around the injury, 15-20 minutes at a time' },
+        },
+        warnings: ['Suspected spinal injury: never move them! Keep head, neck and torso in a straight line', 'Open fracture: do not try to push the bone back in', 'Do not give food or drink (surgery may be needed)'],
+      },
+      transport: {
+        title: 'Moving a casualty',
+        steps: {
+          s1: { title: 'Assess scene safety', detail: 'Make sure you are safe first; only move them when necessary' },
+          s2: { title: 'Immobilize head and neck', detail: 'One person cups the ears with both hands, keeping head, neck and torso aligned' },
+          s3: { title: 'Roll together', detail: 'One person calls the count; everyone rolls the casualty as a unit along the axis' },
+          s4: { title: 'Transfer onto a rigid board', detail: 'Place a door or tabletop against one side and roll them onto it along the axis' },
+          s5: { title: 'Secure the whole body', detail: 'Strap forehead → chest → pelvis → thighs → lower legs' },
+        },
+        warnings: ['With a spinal injury, never: sit them up, lift them, or raise the head and legs', 'Keep the move smooth and avoid jolting', 'Watch breathing and consciousness closely and be ready for CPR'],
+      },
+      psychological: {
+        title: 'Emergency psychological care',
+        steps: {
+          s1: { title: 'Make them safe', detail: 'Move them away from danger and meet basic needs (water, warmth)' },
+          s2: { title: 'Approach gently', detail: 'Use a calm tone, introduce yourself, crouch to their eye level' },
+          s3: { title: 'Listen without interrupting', detail: 'Allow all emotions; do not say "stop crying" or "be strong"' },
+          s4: { title: 'Give certain information', detail: 'Tell them what is happening, who is helping, and what comes next' },
+          s5: { title: 'Redirect attention', detail: 'Deep breaths → clench and release fists → name 3 things you can see' },
+        },
+        warnings: ['Do not force them to recall traumatic details', 'Do not make promises you cannot keep', 'If severe psychiatric symptoms appear, protect yourself and get help'],
+      },
+      seizure: {
+        title: 'Seizure first aid',
+        steps: {
+          s1: { title: 'Stay calm and time it', detail: 'Note when the seizure starts. If it lasts over 5 minutes, call 120' },
+          s2: { title: 'Clear dangerous objects', detail: 'Move away sharp or hard objects and pad under the head' },
+          s3: { title: 'Do not restrain them', detail: 'Do not hold the limbs, do not stop the convulsions, do not put anything in the mouth' },
+          s4: { title: 'Recovery position', detail: 'Once the convulsions stop, turn them on their side to let secretions drain' },
+          s5: { title: 'Stay beside them', detail: 'They may be confused afterward — reassure them calmly' },
+        },
+        warnings: ['Never put anything in their mouth', 'Do not force water or medicine', 'Over 5 minutes / repeated seizures / in water / pregnant / first-ever → 120'],
+      },
+    },
+  },
+
+  /** `pages/aed/index.vue` — the standalone AED explorer map page (distinct from the inline `rescue.aed` phase). */
+  aed: {
+    drillBanner: 'Drill mode · Explore AEDs and pick one up anytime',
+    home: 'Home',
+    explorerTier: 'Explorer',
+    tier: { gold: 'Gold', silver: 'Silver', bronze: 'Bronze', diamond: 'Diamond' },
+    progress: '{discovered} / {total} discovered',
+    nearby: '{count} AED nearby',
+    radarTitle: '🔭 Nearby radar',
+    status: { available: 'Available', maintenance: 'Maintenance' },
+    viewDetail: 'View details',
+    checkIn: '📸 Check in',
+    outdoor: 'Outdoor',
+  },
 }

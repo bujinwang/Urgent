@@ -4,11 +4,11 @@
     <view class="aed-drill-banner">
       <view class="aed-drill-left">
         <text class="aed-drill-icon">⚠️</text>
-        <text class="aed-drill-text">演习模式 · 探索 AED 随时可取</text>
+        <text class="aed-drill-text">{{ $t('aed.drillBanner') }}</text>
       </view>
       <view class="aed-home-btn" @click="goHome">
         <text class="aed-home-icon">🏠</text>
-        <text class="aed-home-label">首页</text>
+        <text class="aed-home-label">{{ $t('aed.home') }}</text>
       </view>
     </view>
 
@@ -19,7 +19,7 @@
           <text class="aed-explorer-icon">🗺️</text>
           <view>
             <text class="aed-explorer-name">{{ user.profile.name }}</text>
-            <text class="aed-explorer-tier">{{ user.tierLabel }} 探索者</text>
+            <text class="aed-explorer-tier">{{ tierLabel }} {{ $t('aed.explorerTier') }}</text>
           </view>
         </view>
         <view class="aed-points-pill">
@@ -34,7 +34,7 @@
           <view class="aed-progress-fill" :style="{ width: aedStore.discoveryProgress + '%' }" />
           <view class="aed-progress-glow" :style="{ left: aedStore.discoveryProgress + '%' }" />
         </view>
-        <text class="aed-progress-text">{{ aedStore.discoveredCount }} / {{ aedStore.totalCount }} 台已发现</text>
+        <text class="aed-progress-text">{{ $t('aed.progress', { discovered: aedStore.discoveredCount, total: aedStore.totalCount }) }}</text>
       </view>
     </view>
 
@@ -67,14 +67,14 @@
       <view class="aed-map-overlay">
         <view class="aed-radar-label">
           <view class="aed-radar-dot" />
-          <text>{{ aedStore.nearbyAeds.length }} 台 AED 在附近</text>
+          <text>{{ $t('aed.nearby', { count: aedStore.nearbyAeds.length }) }}</text>
         </view>
       </view>
     </view>
 
     <!-- 附近雷达 -->
     <view class="aed-radar-section">
-      <text class="aed-section-title">🔭 附近雷达</text>
+      <text class="aed-section-title">{{ $t('aed.radarTitle') }}</text>
       <view class="aed-radar-list">
         <view
           v-for="aed in aedStore.nearbyAeds"
@@ -93,7 +93,7 @@
             <text class="aed-radar-addr">{{ aed.address }}</text>
           </view>
           <view class="aed-radar-status" :class="aed.status">
-            <text>{{ aed.status === 'available' ? '可用' : '维护中' }}</text>
+            <text>{{ statusLabel(aed.status) }}</text>
           </view>
         </view>
       </view>
@@ -105,22 +105,22 @@
         <view class="aed-preview-handle" />
         <view class="aed-preview-photo">
           <image :src="previewAed.photo" mode="aspectFill" class="aed-preview-photo-img" />
-          <view class="aed-preview-photo-badge" :class="previewAed.status">{{ previewAed.status === 'available' ? '可用' : '维护中' }}</view>
+          <view class="aed-preview-photo-badge" :class="previewAed.status">{{ statusLabel(previewAed.status) }}</view>
         </view>
         <text class="aed-preview-name">{{ previewAed.name }}</text>
         <text class="aed-preview-addr">{{ previewAed.address }}</text>
         <view class="aed-preview-meta">
           <text>📏 {{ previewAed.distance }}m</text>
-          <text>🏢 {{ previewAed.indoor ? previewAed.floor : '户外' }}</text>
+          <text>🏢 {{ previewAed.indoor ? previewAed.floor : $t('aed.outdoor') }}</text>
           <text>🕐 {{ previewAed.openHours }}</text>
         </view>
         <view class="aed-preview-actions">
           <view class="aed-preview-btn primary" @click="goDetail(previewAed)">
-            <text>查看详情</text>
+            <text>{{ $t('aed.viewDetail') }}</text>
             <text class="aed-preview-btn-arrow">→</text>
           </view>
           <view class="aed-preview-btn secondary" @click="quickCheckIn(previewAed)">
-            <text>📸 打卡</text>
+            <text>{{ $t('aed.checkIn') }}</text>
           </view>
         </view>
       </view>
@@ -132,11 +132,47 @@
 import { ref, computed } from 'vue'
 import { useAedStore } from '@/stores/aed'
 import { useUserStore } from '@/stores/user'
+import { i18n } from '@/i18n'
 import type { AedDevice } from '@/api/aed'
 
+/**
+ * 页面文案已**全部抽到 i18n**（`aed.*`）。本文件只保留图钉 emoji 等**不翻译**的字形
+ * （emoji 不在 CJK 区间，不会被 `@/__tests__/i18n-scope` 的裸 CJK 守卫误伤）。
+ *
+ * ⚠️ 本页是**独立 AED 探索地图页**，与 `rescue.aed.*`（SOS 流程内联的 AED 阶段）无关。
+ */
 const aedStore = useAedStore()
 const user = useUserStore()
 const previewAed = ref<AedDevice | null>(null)
+
+// --- i18n ---
+/**
+ * 全局组合式 i18n 实例（收窄为组合式形态以便在 `computed` / 函数体内安全取值）。
+ * ⚠️ `t` 只能在 `computed` / 函数体里调用：顶层取值会**冻结语言**（切 en-US 后仍显示中文）。
+ */
+const i18nGlobal = i18n.global as unknown as {
+  locale: { value: string }
+  t: (key: string, named?: Record<string, unknown>) => string
+}
+function t(key: string, named?: Record<string, unknown>): string {
+  return i18nGlobal.t(key, named)
+}
+
+/** 等级名（本地渲染；未在表内的 tier 渲染空串，与原 `tierLabel` 行为一致）。 */
+const tierLabel = computed<string>(() => {
+  const labels: Record<string, string> = {
+    gold: t('aed.tier.gold'),
+    silver: t('aed.tier.silver'),
+    bronze: t('aed.tier.bronze'),
+    diamond: t('aed.tier.diamond'),
+  }
+  return labels[user.profile.tier] || ''
+})
+
+/** AED 状态标签：仅 `available` 显示"可用"，其余（maintenance / in_use）沿用原逻辑显示"维护中"。 */
+function statusLabel(status: AedDevice['status']): string {
+  return status === 'available' ? t('aed.status.available') : t('aed.status.maintenance')
+}
 
 /** 计算 AED Pin 在地图上的位置（基于简单坐标系模拟） */
 const pinMap = new Map<string, { x: number; y: number }>([

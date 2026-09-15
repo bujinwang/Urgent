@@ -2,18 +2,18 @@
   <view class="page-guide">
     <view class="guide-appbar">
       <text class="guide-back" @click="goBack">‹</text>
-      <text class="guide-title">{{ guide.title }}</text>
-      <text class="guide-step-indicator">{{ current + 1 }} / {{ guide.steps.length }}</text>
+      <text class="guide-title">{{ guideTitle }}</text>
+      <text class="guide-step-indicator">{{ current + 1 }} / {{ stepCount }}</text>
     </view>
 
     <!-- 场景图 -->
     <view class="guide-scene">
       <view class="scene-icon-wrap" :class="sceneAnim">
-        <text class="scene-emoji">{{ guide.steps[current].icon }}</text>
+        <text class="scene-emoji">{{ currentIcon }}</text>
       </view>
       <!-- 连接线 -->
       <view class="scene-connectors">
-        <view v-for="i in guide.steps.length - 1" :key="i" class="scene-dot" :class="{ done: i <= current, current: i === current + 1 }" />
+        <view v-for="i in stepCount - 1" :key="i" class="scene-dot" :class="{ done: i <= current, current: i === current + 1 }" />
       </view>
     </view>
 
@@ -28,125 +28,87 @@
 
     <!-- 当前步骤（大卡片） -->
     <view class="guide-card" :key="current">
-      <view class="card-step-tag" :class="{ warn: guide.steps[current].warn }">
-        <text>第 {{ current + 1 }} 步</text>
+      <view class="card-step-tag" :class="{ warn: currentWarn }">
+        <text>{{ $t('guide.stepTag', { n: current + 1 }) }}</text>
       </view>
-      <text class="card-title">{{ guide.steps[current].title }}</text>
-      <text class="card-detail">{{ guide.steps[current].detail }}</text>
+      <text class="card-title">{{ currentTitle }}</text>
+      <text class="card-detail">{{ currentDetail }}</text>
     </view>
 
     <!-- 操作 -->
     <view class="guide-nav">
-      <view v-if="current > 0" class="nav-btn prev" @click="prevStep">← 上一步</view>
+      <view v-if="current > 0" class="nav-btn prev" @click="prevStep">{{ $t('guide.navPrev') }}</view>
       <view class="nav-spacer" />
-      <view v-if="current < guide.steps.length - 1" class="nav-btn next" @click="nextStep">下一步 →</view>
-      <view v-else class="nav-btn done" @click="goBack">✓ 完成</view>
+      <view v-if="current < stepCount - 1" class="nav-btn next" @click="nextStep">{{ $t('guide.navNext') }}</view>
+      <view v-else class="nav-btn done" @click="goBack">{{ $t('guide.navDone') }}</view>
     </view>
 
     <!-- 注意事项（折叠） -->
     <view class="guide-warn-toggle" @click="showWarn = !showWarn">
-      <text>⚠️ 注意事项</text>
+      <text>{{ $t('guide.warnToggle') }}</text>
       <text class="warn-arrow" :class="{ open: showWarn }">▾</text>
     </view>
     <view v-if="showWarn" class="guide-warning">
-      <text v-for="(w, i) in guide.warnings" :key="i" class="guide-warning-item">{{ w }}</text>
+      <text v-for="(w, i) in warnings" :key="i" class="guide-warning-item">{{ w }}</text>
     </view>
 
     <!-- 底部 -->
     <view class="guide-footer">
       <view class="guide-call-btn" @click="call120">
         <text class="guide-call-icon">📞</text>
-        <text>呼叫 120</text>
+        <text>{{ $t('guide.call') }}</text>
       </view>
-      <text class="guide-legal">🛡 善意救助免责 · 《民法典》184 条</text>
+      <text class="guide-legal">{{ $t('guide.legal') }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { voice, type VoiceLang } from '@/utils/voice'
 import { i18n } from '@/i18n'
 
-interface Step { title: string; detail: string; icon: string; warn?: boolean }
-interface GuideData { title: string; emoji: string; steps: Step[]; warnings: string[] }
+/**
+ * 页面文案已**全部抽到 i18n**（`guide.*`）。本文件只保留**不翻译**的结构元数据
+ * （图标 / 警示标记 / 图片路径）；任何中文字面量都会触发
+ * `@/__tests__/i18n-scope` 的「裸 CJK 源码守卫」而报红。
+ */
+interface GuideStepText { title: string; detail: string }
+/** 每一步的**非文本**元数据：图标 + 是否警示步。 */
+interface StepMeta { icon: string; warn?: boolean }
 
-const guides: Record<string, GuideData> = {
+/**
+ * 6 类指引的**结构元数据**（不含可翻译文本）。
+ *
+ * ⚠️ 步骤**数量**以 i18n 的 `guide.guides.<type>.steps` 数组为准；这里的 `steps` 仅按
+ * **位置**提供图标/警示标记。二者长度不一致时，多出的步骤渲染空图标（有守卫测试兜底）。
+ */
+const guideMeta: Record<string, { emoji: string; steps: StepMeta[] }> = {
   bleeding: {
-    title: '大出血', emoji: '🩸',
-    steps: [
-      { title: '直接压迫止血', detail: '用干净纱布或毛巾用力按压伤口', icon: '✋' },
-      { title: '抬高受伤部位', detail: '将出血部位抬高至心脏水平以上', icon: '⬆️' },
-      { title: '加压包扎固定', detail: '用绷带紧紧缠绕，但不要过紧', icon: '🩹' },
-      { title: '勿移除浸透敷料', detail: '在上面叠加新的，不要揭开旧的', icon: '📚' },
-      { title: '止血带（最后手段）', detail: '扎在伤口近心端 5-7cm 处，记录时间', icon: '⏱️', warn: true },
-    ],
-    warnings: ['戴手套或塑料袋隔离，勿直接接触血液', '异物刺入体内不要拔除，周围垫高固定', '密切观察面色呼吸，休克迹象告知 120'],
+    emoji: '🩸',
+    steps: [{ icon: '✋' }, { icon: '⬆️' }, { icon: '🩹' }, { icon: '📚' }, { icon: '⏱️', warn: true }],
   },
   heimlich: {
-    title: '异物窒息', emoji: '🫁',
-    steps: [
-      { title: '确认窒息', detail: '患者无法说话、双手抓喉、面色发紫', icon: '👀' },
-      { title: '站到背后环抱', detail: '一只手握拳，置于肚脐上方两指处', icon: '🧍' },
-      { title: '向上冲击腹部', detail: '另一只手抓拳，快速向内向上冲击 ×5 次', icon: '👊' },
-      { title: '检查口腔', detail: '每次冲击后查看口腔，有异物则取出', icon: '👄' },
-      { title: '交替循环', detail: '5 次冲击 + 检查口腔，重复至异物排出', icon: '🔁' },
-      { title: '失去意识 → CPR', detail: '平放患者，立即胸外按压并呼叫 120', icon: '❤️', warn: true },
-    ],
-    warnings: ['孕妇/肥胖者改为胸部冲击（握拳置胸骨中段）', '婴儿：5 次拍背 + 5 次压胸交替', '能咳嗽的患者鼓励继续咳，不要干预'],
+    emoji: '🫁',
+    steps: [{ icon: '👀' }, { icon: '🧍' }, { icon: '👊' }, { icon: '👄' }, { icon: '🔁' }, { icon: '❤️', warn: true }],
   },
   fracture: {
-    title: '骨折外伤', emoji: '🦴',
-    steps: [
-      { title: '不要移动患者', detail: '除非现场有立即危险，保持原位不动', icon: '🛑' },
-      { title: '夹板固定', detail: '用木板/杂志固定骨折处上下两个关节', icon: '📏' },
-      { title: '垫软物缓冲', detail: '夹板与身体间用衣物垫好，避免压迫', icon: '🧻' },
-      { title: '悬吊固定上肢', detail: '手臂骨折用三角巾做悬吊，保持水平', icon: '🔺' },
-      { title: '冷敷消肿', detail: '冰袋敷伤处周围，每次 15-20 分钟', icon: '🧊' },
-    ],
-    warnings: ['疑似脊柱损伤：严禁移动！保持头颈躯干直线', '开放性骨折：不要试图推回骨头', '不要给患者进食饮水（可能需急诊手术）'],
+    emoji: '🦴',
+    steps: [{ icon: '🛑' }, { icon: '📏' }, { icon: '🧻' }, { icon: '🔺' }, { icon: '🧊' }],
   },
   transport: {
-    title: '伤员搬运', emoji: '🚑',
-    steps: [
-      { title: '评估现场安全', detail: '确保自身安全后再接近，仅必要时移动', icon: '👁️' },
-      { title: '固定头颈', detail: '一人双手夹住耳朵，保持头颈躯干直线', icon: '🤲' },
-      { title: '多人同步翻身', detail: '一人喊口令，所有人整体轴向翻动', icon: '👥' },
-      { title: '硬板转移', detail: '用门板/桌面贴紧一侧，轴向滚到板上', icon: '🪵' },
-      { title: '全身固定', detail: '绷带固定额头→胸部→骨盆→大腿→小腿', icon: '🔗' },
-    ],
-    warnings: ['脊柱损伤绝对禁止：扶起、抱起、抬头抬脚', '搬运途中保持平稳避免颠簸', '密切观察呼吸意识，随时准备 CPR'],
+    emoji: '🚑',
+    steps: [{ icon: '👁️' }, { icon: '🤲' }, { icon: '👥' }, { icon: '🪵' }, { icon: '🔗' }],
   },
   psychological: {
-    title: '紧急心理干预', emoji: '🧠',
-    steps: [
-      { title: '确保安全', detail: '带离危险环境，保障基本需求（水、保暖）', icon: '🏠' },
-      { title: '温柔接触', detail: '平静语调，自报身份，蹲下同高度', icon: '🤝' },
-      { title: '倾听不打断', detail: '允许所有情绪，不说"别哭""坚强点"', icon: '👂' },
-      { title: '提供确定信息', detail: '告知现状/谁在帮忙/接下来如何', icon: '📋' },
-      { title: '转移注意力', detail: '深呼吸 → 握拳放松 → 说出 3 样看到的东西', icon: '🌿' },
-    ],
-    warnings: ['不要强迫回忆创伤细节', '不做无法兑现的承诺', '出现严重精神症状时保护自身安全并求助'],
+    emoji: '🧠',
+    steps: [{ icon: '🏠' }, { icon: '🤝' }, { icon: '👂' }, { icon: '📋' }, { icon: '🌿' }],
   },
   seizure: {
-    title: '癫痫急救', emoji: '🧠',
-    steps: [
-      { title: '保持冷静计时', detail: '记录发作开始时间。超过 5 分钟呼叫 120', icon: '⏱️' },
-      { title: '清除危险物', detail: '移开尖锐硬物，头部下方垫软物', icon: '🧹' },
-      { title: '不要按住患者', detail: '不压四肢不阻止抽搐，不往嘴里塞东西', icon: '✋' },
-      { title: '侧卧位恢复', detail: '抽搐停止后转侧卧位，便于排出分泌物', icon: '🔄' },
-      { title: '守在旁边', detail: '发作后可能意识模糊，温和安抚告知', icon: '💚' },
-    ],
-    warnings: ['绝对不要往嘴里塞任何东西', '不要强行喂水喂药', '超过 5 分钟/连续发作/水中/孕妇/首次 → 120'],
+    emoji: '🧠',
+    steps: [{ icon: '⏱️' }, { icon: '🧹' }, { icon: '✋' }, { icon: '🔄' }, { icon: '💚' }],
   },
 }
-
-const current = ref(0)
-const showWarn = ref(false)
-
-/** 当前语音语言（随 i18n 语言切换响应式变化）；范围外页面不用它，走 voice 的默认 zh-CN。 */
-const voiceLang = computed<VoiceLang>(() => (i18n.global.locale.value === 'en-US' ? 'en-US' : 'zh-CN'))
-
 
 const guideImages: Record<string, string> = {
   bleeding: '/static/bleeding.png',
@@ -156,24 +118,84 @@ const guideImages: Record<string, string> = {
   psychological: '/static/psychological.png',
   seizure: '/static/psychological.png',
 }
-const guideImage = computed(() => guideImages[type.value] || '')
 
 const type = ref('bleeding')
-const guide = computed(() => guides[type.value] || guides.bleeding)
+const current = ref(0)
+const showWarn = ref(false)
+const sceneAnim = ref('pulse-in')
 
 const pages = getCurrentPages()
 const options = (pages[pages.length - 1] as any).$page?.options
 if (options?.type) type.value = options.type
 
-const sceneAnim = ref('pulse-in')
+// --- i18n（设计 §4）---
+/**
+ * 全局组合式 i18n 实例。`i18n.global` 的类型是「legacy / composition」联合，
+ * 这里收窄成组合式形态（`locale` 为 ref、含 `t` / `tm`），以便在 `computed` 里安全取值。
+ */
+const i18nGlobal = i18n.global as unknown as {
+  locale: { value: string }
+  t: (key: string, named?: Record<string, unknown>) => string
+  tm: (key: string) => unknown
+}
+/**
+ * 脚本内翻译。
+ *
+ * ⚠️ **只能在 `computed` / 函数体里调用**（不能在 `<script setup>` 顶层把结果赋给 `const`）：
+ * `t` 内部读 `locale`，顶层取值会**冻结语言**，切到 en-US 后仍显示中文。
+ */
+function t(key: string, named?: Record<string, unknown>): string {
+  return i18nGlobal.t(key, named)
+}
+/** 当前语音语言（随 i18n 语言切换响应式变化）；范围外页面不用它，走 voice 的默认 zh-CN。 */
+const voiceLang = computed<VoiceLang>(() => (i18nGlobal.locale.value === 'en-US' ? 'en-US' : 'zh-CN'))
+
+/** 当前指引标题。 */
+const guideTitle = computed(() => t(`guide.guides.${type.value}.title`))
+/**
+ * 当前指引的步骤数组：把 locale 里的**索引键**（`s1`..`sN`）组装成有序数组再渲染
+ * （照 P0-3 `ventSteps` 模式）。
+ *
+ * ⚠️ 数量取自组件侧图标元数据（与 locale 键一一对应）；若二者错位，渲染数量会与
+ * locale 键数不一致，被 `guide-aed-i18n.test.ts` 的内容完整性守卫直接抓住。
+ */
+const steps = computed<GuideStepText[]>(() => {
+  const icons = guideMeta[type.value]?.steps ?? []
+  const prefix = `guide.guides.${type.value}.steps`
+  return icons.map((_meta, i) => ({
+    title: t(`${prefix}.s${i + 1}.title`),
+    detail: t(`${prefix}.s${i + 1}.detail`),
+  }))
+})
+/** 注意事项（字符串数组，`tm` 取当前语言）。 */
+const warnings = computed<string[]>(() => {
+  const v = i18nGlobal.tm(`guide.guides.${type.value}.warnings`)
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+})
+const stepCount = computed(() => steps.value.length)
+const currentIcon = computed(() => guideMeta[type.value]?.steps[current.value]?.icon ?? '')
+const currentWarn = computed(() => !!guideMeta[type.value]?.steps[current.value]?.warn)
+const currentTitle = computed(() => steps.value[current.value]?.title ?? '')
+const currentDetail = computed(() => steps.value[current.value]?.detail ?? '')
+
+const guideImage = computed(() => guideImages[type.value] || '')
+
+// --- 定时器句柄（必须在 unmount 时清理，否则卸载后回调仍会触发）---
+let voiceTimer: number | null = null
+const animTimers: number[] = []
+
+function scheduleAnim(cb: () => void, ms: number) {
+  const id = setTimeout(cb, ms) as unknown as number
+  animTimers.push(id)
+}
 
 function nextStep() {
-  if (current.value < guide.value.steps.length - 1) {
+  if (current.value < stepCount.value - 1) {
     sceneAnim.value = 'slide-out'
-    setTimeout(() => {
+    scheduleAnim(() => {
       current.value++
       sceneAnim.value = 'slide-in'
-      setTimeout(() => sceneAnim.value = 'pulse-in', 300)
+      scheduleAnim(() => { sceneAnim.value = 'pulse-in' }, 300)
     }, 200)
   }
 }
@@ -181,18 +203,29 @@ function nextStep() {
 function prevStep() {
   if (current.value > 0) {
     sceneAnim.value = 'slide-out'
-    setTimeout(() => {
+    scheduleAnim(() => {
       current.value--
       sceneAnim.value = 'slide-in'
-      setTimeout(() => sceneAnim.value = 'pulse-in', 300)
+      scheduleAnim(() => { sceneAnim.value = 'pulse-in' }, 300)
     }, 200)
   }
 }
 
-// 语音播报当前步骤
+/**
+ * 语音播报当前步骤。
+ *
+ * ⚠️ 文本用**整句 key + 具名插值**（`guide.voice.step`），**禁止** `title + '，' + detail` 拼装（§3.3）。
+ * ⚠️ 文本/语言都在回调**触发时**才取：保证「运行中切语言」能立即改语言（防"'冻结语言'"）。
+ * ⚠️ 句柄必须存下来并在 `onUnmounted` 清理：否则离开页面后仍会说话（P0-3 同类泄漏）。
+ */
 watch(current, (val) => {
-  const s = guide.value.steps[val]
-  if (s) setTimeout(() => voice.command(s.title + "，" + s.detail, voiceLang.value), 300)
+  if (voiceTimer) { clearTimeout(voiceTimer); voiceTimer = null }
+  voiceTimer = setTimeout(() => {
+    voiceTimer = null
+    const s = steps.value[val]
+    if (!s) return
+    voice.command(t('guide.voice.step', { title: s.title, detail: s.detail }), voiceLang.value)
+  }, 300) as unknown as number
 })
 
 function goBack() {
@@ -202,9 +235,19 @@ function goBack() {
 }
 function call120() {
   uni.makePhoneCall({ phoneNumber: '120' }).catch(() => {
-    uni.showToast({ title: '演示模式：正在呼叫 120...', icon: 'none' })
+    uni.showToast({ title: t('guide.toastCalling'), icon: 'none' })
   })
 }
+
+/** 卸载清理：清掉所有延后回调，并停止播报（否则退出后仍会说话）。 */
+onUnmounted(() => {
+  if (voiceTimer) { clearTimeout(voiceTimer); voiceTimer = null }
+  while (animTimers.length) {
+    const id = animTimers.pop()
+    if (id) clearTimeout(id)
+  }
+  voice.stop()
+})
 </script>
 
 <style lang="scss" scoped>
