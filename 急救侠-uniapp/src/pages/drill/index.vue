@@ -1,10 +1,10 @@
 <template>
   <view class="page-drill">
-    <view class="drill-header"><text class="drill-title">急救演习</text></view>
+    <view class="drill-header"><text class="drill-title">{{ $t('drill.title') }}</text></view>
     <view class="drill-tabs">
-      <view class="drill-tab" :class="{active:tab==='upcoming'}" @click="tab='upcoming'">即将开始</view>
-      <view class="drill-tab" :class="{active:tab==='completed'}" @click="tab='completed'">已完成</view>
-      <view class="drill-tab" :class="{active:tab==='records'}" @click="tab='records';loadRecords()">训练记录</view>
+      <view class="drill-tab" :class="{active:tab==='upcoming'}" @click="tab='upcoming'">{{ $t('drill.tab.upcoming') }}</view>
+      <view class="drill-tab" :class="{active:tab==='completed'}" @click="tab='completed'">{{ $t('drill.tab.completed') }}</view>
+      <view class="drill-tab" :class="{active:tab==='records'}" @click="tab='records';loadRecords()">{{ $t('drill.tab.records') }}</view>
     </view>
     <view class="drill-list" v-if="tab!=='records'">
       <view v-for="d in drills" :key="d.id" class="drill-card">
@@ -15,64 +15,96 @@
         </view>
         <text class="drill-card-desc">{{d.description}}</text>
         <view class="drill-card-meta">
-          <text>📅 {{d.date}}</text><text>📍 {{d.location}}</text><text>👤 {{d.organizerName}}</text><text>{{d.currentParticipants}}/{{d.maxParticipants}}人</text><text>🎁 +{{d.pointsReward}}分</text>
+          <text>📅 {{d.date}}</text><text>📍 {{d.location}}</text><text>👤 {{d.organizerName}}</text><text>{{ $t('drill.participants', { current: d.currentParticipants, max: d.maxParticipants }) }}</text><text>{{ $t('drill.pointsReward', { points: d.pointsReward }) }}</text>
         </view>
         <view class="drill-card-actions">
-          <view v-if="d.status==='upcoming'" class="drill-btn" @click="join(d)">🤝 报名</view>
-          <view v-if="d.status==='upcoming' && d.organizerId===userStore.profile.id" class="drill-btn complete" @click="complete(d)">✅ 完成演习</view>
+          <view v-if="d.status==='upcoming'" class="drill-btn" @click="join(d)">{{ $t('drill.join') }}</view>
+          <view v-if="d.status==='upcoming' && d.organizerId===userStore.profile.id" class="drill-btn complete" @click="complete(d)">{{ $t('drill.complete') }}</view>
         </view>
       </view>
-      <view v-if="displayDrills.length===0" class="drill-empty">{{tab==='completed'?'暂无已完成演习':'暂无演习'}}</view>
+      <view v-if="displayDrills.length===0" class="drill-empty">{{ tab==='completed' ? $t('drill.empty.completed') : $t('drill.empty.upcoming') }}</view>
     </view>
     <!-- Training Records -->
     <view v-if="tab==='records'" class="drill-list">
       <view v-for="r in records" :key="r.id" class="drill-card">
         <view class="drill-card-top">
           <view class="drill-status-dot" style="background:#34D277"></view>
-          <view class="drill-card-body"><text class="drill-card-title">{{scenarioLabel(r.scenario)}}</text><text class="drill-card-scenario">组织者: {{r.organizerName}}</text></view>
-          <text class="drill-card-status">已训练</text>
+          <view class="drill-card-body"><text class="drill-card-title">{{scenarioLabel(r.scenario)}}</text><text class="drill-card-scenario">{{ $t('drill.organizerLine', { name: r.organizerName }) }}</text></view>
+          <text class="drill-card-status">{{ $t('drill.recordTrained') }}</text>
         </view>
         <text class="drill-card-desc">{{r.notes}}</text>
         <view class="drill-card-meta"><text>📅 {{r.date}}</text></view>
       </view>
-      <view v-if="records.length===0" class="drill-empty">暂无训练记录</view>
+      <view v-if="records.length===0" class="drill-empty">{{ $t('drill.empty.records') }}</view>
     </view>
     <view class="drill-fab" @click="showCreate=true">📋</view>
 
     <div v-if="showCreate" class="modal-overlay" @click.self="showCreate=false">
-    <div class="modal"><h3>发起演习</h3>
-      <label>标题</label><input v-model="form.title">
-      <label>描述</label><textarea v-model="form.description"></textarea>
-      <label>场景</label><select v-model="form.scenario"><option value="cpr">CPR 心肺复苏</option><option value="aed">AED 使用</option><option value="trauma">创伤急救</option><option value="choking">异物窒息</option><option value="mass">群体伤</option></select>
-      <label>日期</label><input type="datetime-local" v-model="form.date">
-      <label>地点</label><input v-model="form.location">
-      <label>人数上限</label><input type="number" v-model="form.maxParticipants">
-      <div class="modal-actions"><button class="btn btn-g" @click="showCreate=false">取消</button><button class="btn btn-p" @click="create">发起</button></div></div></div>
+    <div class="modal"><h3>{{ $t('drill.form.title') }}</h3>
+      <label>{{ $t('drill.form.label.title') }}</label><input v-model="form.title">
+      <label>{{ $t('drill.form.label.description') }}</label><textarea v-model="form.description"></textarea>
+      <label>{{ $t('drill.form.label.scenario') }}</label><select v-model="form.scenario"><option value="cpr">{{ $t('drill.scenario.cpr') }}</option><option value="aed">{{ $t('drill.scenario.aed') }}</option><option value="trauma">{{ $t('drill.scenario.trauma') }}</option><option value="choking">{{ $t('drill.scenario.choking') }}</option><option value="mass">{{ $t('drill.scenario.mass') }}</option></select>
+      <label>{{ $t('drill.form.label.date') }}</label><input type="datetime-local" v-model="form.date">
+      <label>{{ $t('drill.form.label.location') }}</label><input v-model="form.location">
+      <label>{{ $t('drill.form.label.maxParticipants') }}</label><input type="number" v-model="form.maxParticipants">
+      <div class="modal-actions"><button class="btn btn-g" @click="showCreate=false">{{ $t('common.cancel') }}</button><button class="btn btn-p" @click="create">{{ $t('drill.form.submit') }}</button></div></div></div>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { i18n } from '@/i18n'
 
 const API = '/api/drill'
 const userStore = useUserStore()
+
+/**
+ * 全局组合式 i18n 实例（`t` **只能**在 computed / 函数体 / 回调里调用；
+ * 顶层取值会冻结语言，见设计 §11.1）。
+ */
+const i18nGlobal = i18n.global as unknown as {
+  locale: { value: string }
+  t: (key: string, named?: Record<string, unknown>) => string
+}
+function t(key: string, named?: Record<string, unknown>): string {
+  return i18nGlobal.t(key, named)
+}
+
 const tab = ref<'upcoming'|'completed'|'records'>('upcoming')
 const drills = ref<any[]>([])
 const records = ref<any[]>([])
 const showCreate = ref(false)
-const form = ref({ title:'', description:'', scenario:'cpr', date:'', location:'深圳湾公园', maxParticipants:15 })
+// ⚠️ `location` 为**前端默认输入值**（D5）：setup 期求值一次 ⇒ 仅作初始值。
+//    字段可被用户编辑，故**不**随语言切换覆盖已输入内容（此处的"冻结"是期望行为）。
+const form = ref({ title:'', description:'', scenario:'cpr', date:'', location: t('drill.form.defaultLocation'), maxParticipants:15 })
 
 const displayDrills = computed(() => drills.value.filter(d => d.status === tab.value))
 
 async function load() { try{const r=await fetch(`${API}/events`).then(r=>r.json());drills.value=r.data||[]}catch(e){} }
 async function loadRecords() { try{const r=await fetch(`/api/user/training-records?userId=${userStore.profile.id}`).then(r=>r.json());records.value=r.data||[]}catch(e){} }
-async function join(d: any) { await fetch(`${API}/events/${d.id}/join`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:userStore.profile.id,userName:userStore.profile.name})}); uni.showToast({title:'已报名',icon:'none'});load() }
-async function complete(d: any) { await fetch(`${API}/events/${d.id}/complete`, {method:'PUT'}); uni.showToast({title:'积分已发放',icon:'none'});load() }
-async function create() { const f=form.value; await fetch(`${API}/events`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...f,organizerId:userStore.profile.id,organizerName:userStore.profile.name,lat:22.517,lng:113.947})}); showCreate.value=false;uni.showToast({title:'已创建',icon:'none'});load() }
+async function join(d: any) { await fetch(`${API}/events/${d.id}/join`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:userStore.profile.id,userName:userStore.profile.name})}); uni.showToast({title:t('drill.toast.joined'),icon:'none'});load() }
+async function complete(d: any) { await fetch(`${API}/events/${d.id}/complete`, {method:'PUT'}); uni.showToast({title:t('drill.toast.pointsAwarded'),icon:'none'});load() }
+async function create() { const f=form.value; await fetch(`${API}/events`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...f,organizerId:userStore.profile.id,organizerName:userStore.profile.name,lat:22.517,lng:113.947})}); showCreate.value=false;uni.showToast({title:t('drill.toast.created'),icon:'none'});load() }
 function statusColor(s:string) { return {upcoming:'#4A90E2',completed:'#8E8E8E'}[s]||'#6B7280' }
-function statusLabel(s:string) { return {upcoming:'即将开始',completed:'已完成'}[s]||s }
-function scenarioLabel(s:string) { return {cpr:'CPR 心肺复苏',aed:'AED 使用',trauma:'创伤急救',choking:'异物窒息',mass:'群体伤'}[s]||s }
+/**
+ * 状态 / 场景标签是**函数**（每次渲染求值）⇒ 内部调 `t()` 即可随语言切换响应。
+ * ⚠️ **禁止**把映射表提到模块级：模块级对象只在 setup 期求值一次 ⇒ 语言冻结（设计 §11.1）。
+ */
+function statusLabel(s:string) {
+  const labels: Record<string, string> = { upcoming: t('drill.status.upcoming'), completed: t('drill.status.completed') }
+  return labels[s] || s
+}
+function scenarioLabel(s:string) {
+  const labels: Record<string, string> = {
+    cpr: t('drill.scenario.cpr'),
+    aed: t('drill.scenario.aed'),
+    trauma: t('drill.scenario.trauma'),
+    choking: t('drill.scenario.choking'),
+    mass: t('drill.scenario.mass'),
+  }
+  return labels[s] || s
+}
 onMounted(load)
 </script>
 

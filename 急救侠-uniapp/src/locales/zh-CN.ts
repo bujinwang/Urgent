@@ -377,5 +377,169 @@ export default {
     checkIn: '📸 打卡',
     /** 地点标签：`indoor` 为 false 时显示。 */
     outdoor: '户外',
+
+    /**
+     * `pages/aed/detail.vue` —— AED **设备详情页**（与地图页 `pages/aed/index.vue` 同域不同页）。
+     *
+     * ⚠️ 后端返回的**展示数据**（`aed.name` / `address` / `model` / `findingInstructions` /
+     * 打卡记录 `ci.userName` / `ci.comment` / 责任人 `custodian.*`）**不在本期范围**，
+     * 见设计 §13 D6 / §13.1。本域只覆盖**前端静态文案**。
+     * ⚠️ 写进后端的**审计 payload**（取用 `notes` / 打卡 `comment`）刻意**不在**本域，
+     * 见 `src/constants/audit-notes.ts`（设计 §13 D3）。
+     */
+    detail: {
+      /** `indoor` 为 false 时的地点标签。 */
+      outdoor: '户外',
+      nav: '导航前往',
+      checkin: '打卡验证',
+      retake: '重拍',
+      checkinFormTitle: '📋 填写打卡信息',
+      checkinPhotoTitle: '📸 正在拍照…',
+      statusOk: '✅ 设备完好',
+      statusIssue: '⚠️ 有问题',
+      tipLabel: '💡 找设备提示（帮助其他人快速定位）',
+      tipPlaceholder: '例如：从南门进，保安亭左侧绿色箱子…',
+      submit: '提交打卡',
+      howToFind: '🔍 如何找到',
+      deviceInfo: '🔬 设备信息',
+      /** 设备信息网格的字段名。 */
+      label: {
+        model: '型号',
+        serial: '编号',
+        batteryExpiry: '电池有效期',
+        electrodeExpiry: '电极片有效期',
+        lastMaintenance: '最近维护',
+        lastCheck: '最近打卡',
+      },
+      /** 责任人卡片（含前端自写兜底文案，见设计 §13 D4）。 */
+      custodian: {
+        title: '👤 设备责任人',
+        /** 头像占位字符（无 custodian 快照时）。 */
+        avatarFallback: '侠',
+        nameFallback: '平台登记责任人',
+        roleFallback: '联系方式经确认授权后可见',
+        notify: '📞 通知责任人',
+      },
+      /** 责任人联动状态卡。 */
+      link: {
+        title: '📣 责任人联动',
+        pickup: '登记取用（先取用后留痕）',
+        statusLabel: '状态',
+        countdownLabel: '倒计时',
+        confirmPickup: '确认取用',
+        withdraw: '撤回信息共享',
+        note: '「确认授权」仅表示责任人已知晓并同意取用，不会远程改变设备状态。',
+        noCustodian: '该设备暂无责任人，可直接取用并留痕。',
+      },
+      /** 打卡时间线（`{n}` = 记录条数）。 */
+      timeline: {
+        title: '📋 打卡记录（{n}）',
+        ok: '✅ 完好',
+        issue: '⚠️ 有问题',
+        emptyTitle: '📋 打卡记录',
+      },
+      empty: {
+        title: '尚无打卡记录',
+        sub: '成为第一个打卡验证的急救侠！',
+      },
+      /** 顶部状态徽标（`statusLabel`）。 */
+      status: {
+        maintenance: '🔧 维护中',
+        verified: '✅ 已验证',
+        discovered: '📍 已发现',
+        available: '⚡ 可用',
+      },
+      /** 责任人联动**状态文本**（`caStatusText`，与 store `status` 取值对应）。 */
+      ca: {
+        sent: '已通知责任人，等待确认授权',
+        pending: '正在通知责任人…',
+        unreachable: '未能触达责任人（待其主动确认）',
+        acknowledged: '责任人已确认授权，请取用 AED',
+        rejected: '责任人已拒绝，可直接取用并留痕',
+        expired: '责任人未在时限内响应，可直接取用并留痕',
+        timeout: '已超时',
+      },
+      /** PIPL 信息共享同意弹窗（`uni.showModal` 的 title/content/confirmText）。 */
+      consent: {
+        title: '信息共享同意',
+        content: '为帮助现场急救联络，将把你的姓名与位置共享给该 AED 责任人。你可随时在求助详情中撤回。是否同意？',
+        confirm: '同意',
+      },
+      /** 设备未找到页。 */
+      notFound: {
+        title: '设备未找到',
+        sub: '该 AED 设备可能已被移除或链接无效',
+        back: '返回 AED 地图',
+      },
+      /** `uni.showToast` 文案。 */
+      toast: {
+        cameraDenied: '相机权限未开启',
+        checkinOk: '✅ 打卡成功 +30⭐',
+        checkinIssue: '⚠️ 已上报问题 +15⭐',
+        consentCancelled: '已取消，可直接取用 AED',
+        notified: '已通知责任人',
+        consentRequired: '需先同意信息共享',
+        /**
+         * D1（设计 §13）：**后端** `res.message` 为空或非 zh-CN 时的本地化通用兜底。
+         * ⚠️ 后端 message 恒为中文（`未登录` / `请求过于频繁`…），en-US 下必须走本文案。
+         */
+        notifyFailed: '通知失败',
+        pickupOk: '已登记取用，请尽快取用设备',
+        pickupFailed: '取用登记失败，请直接取用设备',
+        withdrawOk: '已撤回信息共享',
+        withdrawFailed: '撤回失败',
+      },
+    },
+  },
+
+  /**
+   * `pages/drill/index.vue` —— 急救演习列表页（即将开始 / 已完成 / 训练记录）。
+   *
+   * ⚠️ 后端 / 用户数据（演习 `title` / `description` / `location` / `organizerName`、
+   * 训练记录 `notes`、组织者名）**不在本期范围**，见设计 §13 D6 / §13.1。
+   * 本域只覆盖前端静态文案 + 前端自写的表单默认值（D5）。
+   */
+  drill: {
+    title: '急救演习',
+    /** 顶部分类页签。 */
+    tab: { upcoming: '即将开始', completed: '已完成', records: '训练记录' },
+    join: '🤝 报名',
+    complete: '✅ 完成演习',
+    /** 演习状态标签（`statusLabel`，与 `d.status` 取值对应）。 */
+    status: { upcoming: '即将开始', completed: '已完成' },
+    /** 场景标签（`scenarioLabel`，与 `d.scenario` 取值对应）。 */
+    scenario: {
+      cpr: 'CPR 心肺复苏',
+      aed: 'AED 使用',
+      trauma: '创伤急救',
+      choking: '异物窒息',
+      mass: '群体伤',
+    },
+    /** 人数：`{current}/{max} 人`（整句一个 key，禁止拼装）。 */
+    participants: '{current}/{max} 人',
+    /** 积分奖励：`🎁 +{points} 分`。 */
+    pointsReward: '🎁 +{points} 分',
+    /** 训练记录卡片的状态标签。 */
+    recordTrained: '已训练',
+    /** 训练记录组织者行：`组织者: {name}`（`{name}` 为后端数据）。 */
+    organizerLine: '组织者: {name}',
+    /** 空列表文案。 */
+    empty: { completed: '暂无已完成演习', upcoming: '暂无演习', records: '暂无训练记录' },
+    /** 发起演习弹窗（D5：`defaultLocation` 是前端默认输入值，为过裸 CJK 守卫而抽 key）。 */
+    form: {
+      title: '发起演习',
+      label: {
+        title: '标题',
+        description: '描述',
+        scenario: '场景',
+        date: '日期',
+        location: '地点',
+        maxParticipants: '人数上限',
+      },
+      defaultLocation: '深圳湾公园',
+      submit: '发起',
+    },
+    /** `uni.showToast` 文案。 */
+    toast: { joined: '已报名', pointsAwarded: '积分已发放', created: '已创建' },
   },
 }

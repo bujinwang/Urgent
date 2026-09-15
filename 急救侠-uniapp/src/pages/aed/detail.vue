@@ -10,9 +10,9 @@
     </view>
     <view class="not-found-body">
       <view class="not-found-icon">🫀</view>
-      <text class="not-found-title">设备未找到</text>
-      <text class="not-found-sub">该 AED 设备可能已被移除或链接无效</text>
-      <view class="not-found-btn" @click="goBack">返回 AED 地图</view>
+      <text class="not-found-title">{{ $t('aed.detail.notFound.title') }}</text>
+      <text class="not-found-sub">{{ $t('aed.detail.notFound.sub') }}</text>
+      <view class="not-found-btn" @click="goBack">{{ $t('aed.detail.notFound.back') }}</view>
     </view>
   </view>
 
@@ -32,7 +32,7 @@
       <text class="detail-addr">📍 {{ aed.address }}</text>
       <view class="detail-meta-row">
         <view class="detail-meta-tag">📏 {{ aed.distance }}m</view>
-        <view class="detail-meta-tag">🏢 {{ aed.indoor ? aed.floor : '户外' }}</view>
+        <view class="detail-meta-tag">🏢 {{ aed.indoor ? aed.floor : $t('aed.detail.outdoor') }}</view>
         <view class="detail-meta-tag">🕐 {{ aed.openHours }}</view>
       </view>
     </view>
@@ -41,23 +41,23 @@
     <view class="detail-actions-row">
       <view class="detail-action-nav" @click="startNavigate">
         <text class="detail-action-nav-icon">🧭</text>
-        <text>导航前往</text>
+        <text>{{ $t('aed.detail.nav') }}</text>
       </view>
       <view class="detail-action-checkin" @click="startCheckIn">
         <text class="detail-action-nav-icon">📸</text>
-        <text>打卡验证</text>
+        <text>{{ $t('aed.detail.checkin') }}</text>
         <text class="detail-action-checkin-badge">+30⭐</text>
       </view>
     </view>
 
     <!-- === 打卡表单（拍照后展开） === -->
     <view v-if="checkinState !== 'idle'" class="detail-card detail-checkin-card">
-      <text class="detail-card-title">{{ checkinState === 'photo_done' ? '📋 填写打卡信息' : '📸 正在拍照…' }}</text>
+      <text class="detail-card-title">{{ checkinState === 'photo_done' ? $t('aed.detail.checkinFormTitle') : $t('aed.detail.checkinPhotoTitle') }}</text>
 
       <!-- 已拍预览 -->
       <view v-if="checkinPhoto" class="checkin-preview">
         <image :src="checkinPhoto" mode="aspectFill" class="checkin-preview-img" />
-        <view class="checkin-preview-retake" @click="startCheckIn">重拍</view>
+        <view class="checkin-preview-retake" @click="startCheckIn">{{ $t('aed.detail.retake') }}</view>
       </view>
 
       <!-- 状态选择 -->
@@ -67,24 +67,24 @@
           :class="{ active: checkinStatus === 'ok' }"
           @click="checkinStatus = 'ok'"
         >
-          <text>✅ 设备完好</text>
+          <text>{{ $t('aed.detail.statusOk') }}</text>
         </view>
         <view
           class="checkin-status-btn"
           :class="{ active: checkinStatus === 'issue' }"
           @click="checkinStatus = 'issue'"
         >
-          <text>⚠️ 有问题</text>
+          <text>{{ $t('aed.detail.statusIssue') }}</text>
         </view>
       </view>
 
       <!-- 找设备提示输入 -->
       <view v-if="checkinState === 'photo_done'" class="checkin-tip-input-wrap">
-        <text class="checkin-tip-label">💡 找设备提示（帮助其他人快速定位）</text>
+        <text class="checkin-tip-label">{{ $t('aed.detail.tipLabel') }}</text>
         <textarea
           v-model="checkinTip"
           class="checkin-tip-textarea"
-          placeholder="例如：从南门进，保安亭左侧绿色箱子…"
+          :placeholder="$t('aed.detail.tipPlaceholder')"
           :maxlength="200"
           auto-height
         />
@@ -93,43 +93,43 @@
 
       <!-- 提交 -->
       <view v-if="checkinState === 'photo_done'" class="checkin-submit-row">
-        <view class="checkin-btn-cancel" @click="resetCheckIn">取消</view>
-        <view class="checkin-btn-submit" @click="submitCheckIn">提交打卡</view>
+        <view class="checkin-btn-cancel" @click="resetCheckIn">{{ $t('common.cancel') }}</view>
+        <view class="checkin-btn-submit" @click="submitCheckIn">{{ $t('aed.detail.submit') }}</view>
       </view>
     </view>
 
     <!-- 找设备指引 -->
     <view class="detail-card">
-      <text class="detail-card-title">🔍 如何找到</text>
+      <text class="detail-card-title">{{ $t('aed.detail.howToFind') }}</text>
       <text class="detail-finding-text">{{ aed.findingInstructions }}</text>
     </view>
 
     <!-- 设备信息卡片 -->
     <view class="detail-card">
-      <text class="detail-card-title">🔬 设备信息</text>
+      <text class="detail-card-title">{{ $t('aed.detail.deviceInfo') }}</text>
       <view class="detail-card-grid">
         <view class="detail-card-item">
-          <text class="detail-card-label">型号</text>
+          <text class="detail-card-label">{{ $t('aed.detail.label.model') }}</text>
           <text class="detail-card-value">{{ aed.model }}</text>
         </view>
         <view class="detail-card-item">
-          <text class="detail-card-label">编号</text>
+          <text class="detail-card-label">{{ $t('aed.detail.label.serial') }}</text>
           <text class="detail-card-value">{{ aed.serialNumber }}</text>
         </view>
         <view class="detail-card-item">
-          <text class="detail-card-label">电池有效期</text>
+          <text class="detail-card-label">{{ $t('aed.detail.label.batteryExpiry') }}</text>
           <text class="detail-card-value" :class="{ expiring: isExpiring(aed.batteryExpiry) }">{{ aed.batteryExpiry }}</text>
         </view>
         <view class="detail-card-item">
-          <text class="detail-card-label">电极片有效期</text>
+          <text class="detail-card-label">{{ $t('aed.detail.label.electrodeExpiry') }}</text>
           <text class="detail-card-value" :class="{ expiring: isExpiring(aed.electrodeExpiry) }">{{ aed.electrodeExpiry }}</text>
         </view>
         <view class="detail-card-item">
-          <text class="detail-card-label">最近维护</text>
+          <text class="detail-card-label">{{ $t('aed.detail.label.lastMaintenance') }}</text>
           <text class="detail-card-value">{{ aed.lastMaintenance }}</text>
         </view>
         <view class="detail-card-item">
-          <text class="detail-card-label">最近打卡</text>
+          <text class="detail-card-label">{{ $t('aed.detail.label.lastCheck') }}</text>
           <text class="detail-card-value">{{ aed.lastCheck }}</text>
         </view>
       </view>
@@ -137,48 +137,48 @@
 
     <!-- 责任人卡片（责任人身份以 aed_managers 为准，快照仅作展示；无快照时仍可发起通知） -->
     <view v-if="aed" class="detail-card">
-      <text class="detail-card-title">👤 设备责任人</text>
+      <text class="detail-card-title">{{ $t('aed.detail.custodian.title') }}</text>
       <view class="detail-custodian">
-        <view class="detail-custodian-avatar">{{ aed.custodian?.avatar || '侠' }}</view>
+        <view class="detail-custodian-avatar">{{ aed.custodian?.avatar || $t('aed.detail.custodian.avatarFallback') }}</view>
         <view class="detail-custodian-info">
-          <text class="detail-custodian-name">{{ aed.custodian?.name || '平台登记责任人' }}</text>
-          <text class="detail-custodian-role">{{ aed.custodian?.role || '联系方式经确认授权后可见' }}</text>
+          <text class="detail-custodian-name">{{ aed.custodian?.name || $t('aed.detail.custodian.nameFallback') }}</text>
+          <text class="detail-custodian-role">{{ aed.custodian?.role || $t('aed.detail.custodian.roleFallback') }}</text>
         </view>
         <view class="detail-custodian-contact" @click="notifyOwner">
-          <text>📞 通知责任人</text>
+          <text>{{ $t('aed.detail.custodian.notify') }}</text>
         </view>
       </view>
     </view>
 
     <!-- 责任人联动状态（通知 / 确认授权） -->
     <view v-if="caStore.activeAlertId || caState.showFallback" class="detail-card detail-custodian-link">
-      <text class="detail-card-title">📣 责任人联动</text>
+      <text class="detail-card-title">{{ $t('aed.detail.link.title') }}</text>
 
       <view v-if="caState.showFallback" class="ca-fallback">
-        <text class="ca-fallback-text">{{ caState.fallbackText }}</text>
-        <view class="ca-fallback-btn" @click="doPickup">登记取用（先取用后留痕）</view>
+        <text class="ca-fallback-text">{{ $t('aed.detail.link.noCustodian') }}</text>
+        <view class="ca-fallback-btn" @click="doPickup">{{ $t('aed.detail.link.pickup') }}</view>
       </view>
 
       <template v-else>
         <view class="ca-line">
-          <text class="ca-line-label">状态</text>
+          <text class="ca-line-label">{{ $t('aed.detail.link.statusLabel') }}</text>
           <text class="ca-line-value">{{ caStatusText }}</text>
         </view>
         <view v-if="caPending" class="ca-line">
-          <text class="ca-line-label">倒计时</text>
+          <text class="ca-line-label">{{ $t('aed.detail.link.countdownLabel') }}</text>
           <text class="ca-line-value ca-count">{{ caCountdown }}</text>
         </view>
         <view class="ca-actions">
-          <view v-if="caAcknowledged" class="ca-btn ca-btn-ok" @click="doPickup">确认取用</view>
-          <view v-if="caStore.consentGranted" class="ca-btn ca-btn-ghost" @click="withdrawConsent">撤回信息共享</view>
+          <view v-if="caAcknowledged" class="ca-btn ca-btn-ok" @click="doPickup">{{ $t('aed.detail.link.confirmPickup') }}</view>
+          <view v-if="caStore.consentGranted" class="ca-btn ca-btn-ghost" @click="withdrawConsent">{{ $t('aed.detail.link.withdraw') }}</view>
         </view>
-        <text class="ca-note">「确认授权」仅表示责任人已知晓并同意取用，不会远程改变设备状态。</text>
+        <text class="ca-note">{{ $t('aed.detail.link.note') }}</text>
       </template>
     </view>
 
     <!-- 打卡时间线 -->
     <view class="detail-card" v-if="aed.checkIns.length > 0">
-      <text class="detail-card-title">📋 打卡记录（{{ aed.checkIns.length }}）</text>
+      <text class="detail-card-title">{{ $t('aed.detail.timeline.title', { n: aed.checkIns.length }) }}</text>
       <view class="detail-timeline">
         <view v-for="(ci, idx) in aed.checkIns" :key="ci.id" class="detail-timeline-item" :class="{ last: idx === aed.checkIns.length - 1 }">
           <view class="detail-timeline-dot" :class="{ issue: ci.status === 'issue' }" />
@@ -188,7 +188,7 @@
               <image :src="ci.photo" mode="aspectFill" class="detail-timeline-img" />
             </view>
             <view class="detail-timeline-body">
-              <text class="detail-timeline-user">{{ ci.userName }} · {{ ci.status === 'ok' ? '✅ 完好' : '⚠️ 有问题' }}</text>
+              <text class="detail-timeline-user">{{ ci.userName }} · {{ ci.status === 'ok' ? $t('aed.detail.timeline.ok') : $t('aed.detail.timeline.issue') }}</text>
               <text class="detail-timeline-comment">{{ ci.comment }}</text>
               <text v-if="ci.findingTip" class="detail-timeline-tip">💡 {{ ci.findingTip }}</text>
               <text class="detail-timeline-date">{{ ci.date }}</text>
@@ -200,11 +200,11 @@
 
     <!-- 空打卡 -->
     <view v-else class="detail-card">
-      <text class="detail-card-title">📋 打卡记录</text>
+      <text class="detail-card-title">{{ $t('aed.detail.timeline.emptyTitle') }}</text>
       <view class="detail-empty-checkin">
         <text class="detail-empty-icon">📸</text>
-        <text class="detail-empty-text">尚无打卡记录</text>
-        <text class="detail-empty-sub">成为第一个打卡验证的急救侠！</text>
+        <text class="detail-empty-text">{{ $t('aed.detail.empty.title') }}</text>
+        <text class="detail-empty-sub">{{ $t('aed.detail.empty.sub') }}</text>
       </view>
     </view>
 
@@ -220,10 +220,25 @@ import type { AedDevice } from '@/api/aed'
 import { AlertCode } from '@/api/aed-custodian'
 import { useCustodianAlertStore } from '@/stores/custodian-alert'
 import { useUserStore } from '@/stores/user'
+import { i18n, getLocale } from '@/i18n'
+import { PICKUP_FALLBACK_NOTE, auditCheckinComment } from '@/constants/audit-notes'
 
 const aedStore = useAedStore()
 const caStore = useCustodianAlertStore()
 const userStore = useUserStore()
+
+/**
+ * 全局组合式 i18n 实例（收窄为组合式形态，便可在 `computed` / 函数体 / 回调里安全取值）。
+ * ⚠️ `t` **只能**在 `computed` / 函数体 / 回调里调用：顶层取值会**冻结语言**
+ * （切 en-US 后仍显示中文，见设计 §11.1）。
+ */
+const i18nGlobal = i18n.global as unknown as {
+  locale: { value: string }
+  t: (key: string, named?: Record<string, unknown>) => string
+}
+function t(key: string, named?: Record<string, unknown>): string {
+  return i18nGlobal.t(key, named)
+}
 
 const aed = ref<AedDevice | null>(null)
 const loading = ref(true)
@@ -233,15 +248,19 @@ const checkinPhoto = ref('')
 const checkinStatus = ref<'ok' | 'issue'>('ok')
 const checkinTip = ref('')
 
-// 责任人联动本地 UI 态
-const caState = ref<{ showFallback: boolean; fallbackText: string }>({ showFallback: false, fallbackText: '' })
+// 责任人联动本地 UI 态（只存**状态**不存文本：文案由模板按当前语言渲染，避免"文本冻结"）
+const caState = ref<{ showFallback: boolean }>({ showFallback: false })
 const caNow = ref(Date.now())
 let caTicker: ReturnType<typeof setInterval> | null = null
+/** 进页自动打卡的延后句柄（**必须**在 unmount 清理，否则 500ms 内离开页面仍会拉起相机）。 */
+let checkinTimer: ReturnType<typeof setTimeout> | null = null
 
 const statusLabel = computed(() => {
   if (!aed.value) return ''
-  if (aed.value.status === 'maintenance') return '🔧 维护中'
-  return aed.value.verified ? '✅ 已验证' : aed.value.discovered ? '📍 已发现' : '⚡ 可用'
+  if (aed.value.status === 'maintenance') return t('aed.detail.status.maintenance')
+  return aed.value.verified
+    ? t('aed.detail.status.verified')
+    : aed.value.discovered ? t('aed.detail.status.discovered') : t('aed.detail.status.available')
 })
 
 const caPending = computed(() =>
@@ -250,19 +269,19 @@ const caPending = computed(() =>
 const caAcknowledged = computed(() => caStore.status === 'acknowledged')
 const caStatusText = computed(() => {
   switch (caStore.status) {
-    case 'sent': return '已通知责任人，等待确认授权'
-    case 'pending': return '正在通知责任人…'
-    case 'unreachable': return '未能触达责任人（待其主动确认）'
-    case 'acknowledged': return '责任人已确认授权，请取用 AED'
-    case 'rejected': return '责任人已拒绝，可直接取用并留痕'
-    case 'expired': return '责任人未在时限内响应，可直接取用并留痕'
+    case 'sent': return t('aed.detail.ca.sent')
+    case 'pending': return t('aed.detail.ca.pending')
+    case 'unreachable': return t('aed.detail.ca.unreachable')
+    case 'acknowledged': return t('aed.detail.ca.acknowledged')
+    case 'rejected': return t('aed.detail.ca.rejected')
+    case 'expired': return t('aed.detail.ca.expired')
     default: return ''
   }
 })
 const caCountdown = computed(() => {
   const left = Math.max(0, caStore.slaDeadlineMs - caNow.value)
   const sec = Math.ceil(left / 1000)
-  return sec > 0 ? sec + 's' : '已超时'
+  return sec > 0 ? sec + 's' : t('aed.detail.ca.timeout')
 })
 
 /** 真实接口取设备；失败即视为未找到（不再回退 mock，避免把假数据当真实结果）。 */
@@ -294,12 +313,14 @@ onMounted(async () => {
   caTicker = setInterval(() => { caNow.value = Date.now() }, 1000)
 
   if (action === 'checkin' && id && aed.value) {
-    setTimeout(() => startCheckIn(), 500)
+    // ⚠️ 句柄必须存下并在 onUnmounted 清理（P0-3 §11.3 同类泄漏）：否则 500ms 内离开页面仍会拉起相机。
+    checkinTimer = setTimeout(() => { checkinTimer = null; startCheckIn() }, 500)
   }
 })
 
 onUnmounted(() => {
   if (caTicker) { clearInterval(caTicker); caTicker = null }
+  if (checkinTimer) { clearTimeout(checkinTimer); checkinTimer = null }
   caStore.stopPolling()
 })
 
@@ -331,7 +352,7 @@ function startCheckIn() {
     },
     fail: () => {
       checkinState.value = 'idle'
-      uni.showToast({ title: '相机权限未开启', icon: 'none' })
+      uni.showToast({ title: t('aed.detail.toast.cameraDenied'), icon: 'none' })
     },
   })
 }
@@ -344,11 +365,12 @@ function resetCheckIn() {
 
 function submitCheckIn() {
   if (!checkinPhoto.value || !aed.value) return
-  const comment = checkinStatus.value === 'ok' ? '设备完好，功能正常' : '设备存在问题，需要维护'
+  // ⚠️ `comment` 是**写进后端**的审计数据 ⇒ 恒 zh-CN、不本地化（设计 §13 D3，见 constants/audit-notes）。
+  const comment = auditCheckinComment(checkinStatus.value)
   const id = aed.value.id
   aedStore.checkInAed(id, checkinPhoto.value, checkinStatus.value, comment, checkinTip.value || undefined)
   uni.showToast({
-    title: checkinStatus.value === 'ok' ? '✅ 打卡成功 +30⭐' : '⚠️ 已上报问题 +15⭐',
+    title: checkinStatus.value === 'ok' ? t('aed.detail.toast.checkinOk') : t('aed.detail.toast.checkinIssue'),
     icon: 'none',
     duration: 2000,
   })
@@ -361,10 +383,10 @@ function submitCheckIn() {
 function requestConsent(): Promise<boolean> {
   return new Promise((resolve) => {
     uni.showModal({
-      title: '信息共享同意',
-      content: '为帮助现场急救联络，将把你的姓名与位置共享给该 AED 责任人。你可随时在求助详情中撤回。是否同意？',
-      confirmText: '同意',
-      cancelText: '取消',
+      title: t('aed.detail.consent.title'),
+      content: t('aed.detail.consent.content'),
+      confirmText: t('aed.detail.consent.confirm'),
+      cancelText: t('common.cancel'),
       success: (r) => resolve(!!r.confirm),
       fail: () => resolve(false),
     })
@@ -377,20 +399,24 @@ async function notifyOwner() {
   caState.value.showFallback = false
   const agreed = await requestConsent()
   if (!agreed) {
-    uni.showToast({ title: '已取消，可直接取用 AED', icon: 'none' })
+    uni.showToast({ title: t('aed.detail.toast.consentCancelled'), icon: 'none' })
     return
   }
   const res = await caStore.notify(aed.value.id)
   if (res.code === 0) {
     caStore.startPolling()
-    uni.showToast({ title: '已通知责任人', icon: 'none' })
+    uni.showToast({ title: t('aed.detail.toast.notified'), icon: 'none' })
   } else if (res.code === AlertCode.NO_CUSTODIAN) {
+    // 兜底文案由模板按当前语言渲染（`aed.detail.link.noCustodian`），此处只切状态，避免"文本冻结"。
     caState.value.showFallback = true
-    caState.value.fallbackText = '该设备暂无责任人，可直接取用并留痕。'
   } else if (res.code === AlertCode.CONSENT_REQUIRED) {
-    uni.showToast({ title: '需先同意信息共享', icon: 'none' })
+    uni.showToast({ title: t('aed.detail.toast.consentRequired'), icon: 'none' })
   } else {
-    uni.showToast({ title: res.message || '通知失败', icon: 'none' })
+    // D1（设计 §13）：后端 `message` 恒中文。zh-CN 保留后端原文；en-US 走本地化通用兜底，
+    // **绝不**把中文塞进英文界面。
+    const fallback = t('aed.detail.toast.notifyFailed')
+    const title = getLocale() === 'zh-CN' ? (res.message || fallback) : fallback
+    uni.showToast({ title, icon: 'none' })
   }
 }
 
@@ -401,11 +427,12 @@ async function doPickup() {
     await createAedPickup(aed.value.id, {
       userId: userStore.profile.id,
       userName: userStore.profile.name,
-      notes: '现场取用（责任人联动兜底）',
+      // ⚠️ `notes` 是**写进后端**的审计数据 ⇒ 恒 zh-CN、不本地化（设计 §13 D3）。
+      notes: PICKUP_FALLBACK_NOTE,
     })
-    uni.showToast({ title: '已登记取用，请尽快取用设备', icon: 'none' })
+    uni.showToast({ title: t('aed.detail.toast.pickupOk'), icon: 'none' })
   } catch {
-    uni.showToast({ title: '取用登记失败，请直接取用设备', icon: 'none' })
+    uni.showToast({ title: t('aed.detail.toast.pickupFailed'), icon: 'none' })
   }
 }
 
@@ -413,7 +440,7 @@ async function doPickup() {
 async function withdrawConsent() {
   if (!aed.value || !caStore.activeAlertId) return
   const ok = await caStore.revoke(aed.value.id, caStore.activeAlertId, 'user-initiated')
-  uni.showToast({ title: ok ? '已撤回信息共享' : '撤回失败', icon: 'none' })
+  uni.showToast({ title: ok ? t('aed.detail.toast.withdrawOk') : t('aed.detail.toast.withdrawFailed'), icon: 'none' })
 }
 </script>
 
