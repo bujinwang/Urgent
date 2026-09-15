@@ -7,7 +7,7 @@
       <view class="drill-tab" :class="{active:tab==='records'}" @click="tab='records';loadRecords()">{{ $t('drill.tab.records') }}</view>
     </view>
     <view class="drill-list" v-if="tab!=='records'">
-      <view v-for="d in drills" :key="d.id" class="drill-card">
+      <view v-for="d in displayDrills" :key="d.id" class="drill-card">
         <view class="drill-card-top">
           <view class="drill-status-dot" :style="{background:statusColor(d.status)}"></view>
           <view class="drill-card-body"><text class="drill-card-title">{{d.title}}</text><text class="drill-card-scenario">{{scenarioLabel(d.scenario)}}</text></view>

@@ -281,29 +281,51 @@ describe('P0-4b：aed/detail + drill 文案本地化', () => {
         expect(wrapper.findAll('.drill-tab').map(n => n.text()))
           .toEqual([dr.tab.upcoming, dr.tab.completed, dr.tab.records])
 
-        // ⚠️ KNOWN-BUG（既存缺陷，非本次引入）：本页 `v-for` 直接迭代 `drills`（**未**按 tab 过滤；
-        // `displayDrills` 只用于空态判断）⇒ 切"已完成"页签**不改变列表内容**。
-        // 此处按**实际行为**断言，以继续为"卡片文案已本地化"提供覆盖。
-        // ❗ 因此这条断言**锁定的是错误行为**：修 bug（`drills` → `displayDrills`）会让它变红，
-        //    修复时**必须同步**把下面的期望从 `events` 改为 `events.filter(e => e.status === tab)`。
-        //    检索标记：`KNOWN-BUG`（另有设计文档 §13.2 与 backlog 记账）。
-        expect(wrapper.findAll('.drill-card').length, '演习卡数量（KNOWN-BUG：当前为未过滤的全部演习）').toBe(events.length)
-        expect(wrapper.findAll('.drill-card-title').map(n => n.text())).toEqual(events.map(e => e.title))
+        // 列表已**按当前页签过滤**（`v-for="d in displayDrills"`）：默认 tab='upcoming' ⇒ 只剩 upcoming 两条。
+        expect(wrapper.findAll('.drill-card').length, '演习卡数量').toBe(upcoming.length)
+        expect(wrapper.findAll('.drill-card-title').map(n => n.text())).toEqual(upcoming.map(e => e.title))
         expect(wrapper.findAll('.drill-card-scenario').map(n => n.text()))
-          .toEqual(events.map(e => dr.scenario[e.scenario as keyof typeof dr.scenario]))
+          .toEqual(upcoming.map(e => dr.scenario[e.scenario as keyof typeof dr.scenario]))
         expect(wrapper.findAll('.drill-card-status').map(n => n.text()))
-          .toEqual(events.map(e => (e.status === 'upcoming' ? dr.status.upcoming : dr.status.completed)))
+          .toEqual(upcoming.map(() => dr.status.upcoming))
 
         // 人数 / 积分 = 整句插值（锚 locale 模板 + 后端数值）
         const meta = wrapper.find('.drill-card-meta').text()
-        expect(meta).toContain(interp(dr.participants, { current: events[0].currentParticipants, max: events[0].maxParticipants }))
-        expect(meta).toContain(interp(dr.pointsReward, { points: events[0].pointsReward }))
+        expect(meta).toContain(interp(dr.participants, { current: upcoming[0].currentParticipants, max: upcoming[0].maxParticipants }))
+        expect(meta).toContain(interp(dr.pointsReward, { points: upcoming[0].pointsReward }))
 
-        // 报名按钮只出现在 upcoming 卡；"完成演习"仅本人（organizerId===u1）的一张
+        // 报名按钮只出现在 upcoming 卡（过滤后全部是 upcoming ⇒ upcoming.length 个）；
+        // "完成演习"仅本人（organizerId===u1）的一张。
         expect(wrapper.findAll('.drill-btn').filter(n => !n.classes().includes('complete')).map(n => n.text()))
           .toEqual(upcoming.map(() => dr.join))
         expect(wrapper.findAll('.drill-btn.complete').length, '完成演习按钮数量').toBe(1)
         expect(wrapper.find('.drill-btn.complete').text()).toBe(dr.complete)
+      })
+
+      it(`★ [${loc}] drill：切页签**真的**过滤列表（既有缺陷回归）`, async () => {
+        setLocale(loc)
+        wrapper = await mountDrill()
+        const dr = messages[loc].drill
+        const events = drillFixtures.events()
+        const upcoming = events.filter(e => e.status === 'upcoming')
+        const completed = events.filter(e => e.status === 'completed')
+
+        // 默认 tab='upcoming' ⇒ 只显示 upcoming
+        expect(wrapper.findAll('.drill-card').length, 'upcoming 卡数量').toBe(upcoming.length)
+
+        // 切"已完成" ⇒ 只显示 completed（夹具 1 条），且 completed 卡不渲染报名/完成按钮
+        await wrapper.findAll('.drill-tab')[1].trigger('click')
+        await nextTick()
+        expect(wrapper.findAll('.drill-card').length, 'completed 卡数量').toBe(completed.length)
+        expect(wrapper.findAll('.drill-card-title').map(n => n.text())).toEqual(completed.map(e => e.title))
+        expect(wrapper.findAll('.drill-card-status').map(n => n.text()))
+          .toEqual(completed.map(() => dr.status.completed))
+        expect(wrapper.findAll('.drill-btn').length, '已完成卡不应有报名/完成按钮').toBe(0)
+
+        // 切回"即将开始" ⇒ 恢复 upcoming
+        await wrapper.findAll('.drill-tab')[0].trigger('click')
+        await nextTick()
+        expect(wrapper.findAll('.drill-card').length, '切回后 upcoming 卡数量').toBe(upcoming.length)
       })
 
       it(`★ [${loc}] drill 空态：切到无数据的 tab ⇒ empty 文案 === locale 值`, async () => {
