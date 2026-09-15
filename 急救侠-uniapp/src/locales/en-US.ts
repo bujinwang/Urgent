@@ -201,7 +201,7 @@ export default {
   /** `pages/guide/index.vue` — the step-by-step first-aid guide page (see zh-CN for the `rescue.guides` note). */
   guide: {
     stepTag: 'Step {n}',
-    navPrev: '← Back',
+    navPrev: '← Previous step',
     navNext: 'Next →',
     navDone: '✓ Done',
     warnToggle: '⚠️ Warnings',
