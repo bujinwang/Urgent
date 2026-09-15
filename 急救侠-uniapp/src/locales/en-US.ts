@@ -324,7 +324,7 @@ export default {
         title: '👤 Device custodian',
         avatarFallback: 'R',
         nameFallback: 'Registered custodian',
-        roleFallback: 'Contact visible after authorization is confirmed',
+        roleFallback: 'Contact shown after authorization',
         notify: '📞 Notify custodian',
       },
       link: {
