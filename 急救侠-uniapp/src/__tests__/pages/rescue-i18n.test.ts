@@ -2,8 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
-import fs from 'node:fs'
-import path from 'node:path'
+import { SCOPE_FILES, RE_CJK, hasCjk, stripComments, findNakedCjkLines } from '@/__tests__/i18n-scope'
 
 /**
  * F2 P0-3 —— 核心 SOS 页（`pages/rescue/index.vue`）文案本地化的**独立守卫**。
@@ -51,9 +50,9 @@ import StepTimer from '@/components/StepTimer/index.vue'
 import { i18n, setLocale } from '@/i18n'
 import { messages } from '@/locales'
 
-/** 中文字符（CJK 统一表意文字）。 */
-const RE_CJK = /[\u4e00-\u9fa5]/
-const hasCjk = (s: string) => RE_CJK.test(s)
+// 「中文字符」判定（`hasCjk`）与源码扫描工具（`stripComments` / `findNakedCjkLines`）
+// 统一由 `@/__tests__/i18n-scope` 提供，以便与 `guide-aed-i18n.test.ts` 共用**同一份扫描范围**
+// （清单漂移是本类守卫最常见的失效方式：新页面只被其中一边覆盖 ⇒ 另一边形同虚设）。
 
 // ---------------------------------------------------------------------------
 // 页面驱动工具（真实走 UI：`.sos-button → .confirm-check → .confirm-btn → 步骤推进`）
@@ -578,41 +577,29 @@ describe('rescue 页：P0-3 文案本地化', () => {
 })
 
 // ---------------------------------------------------------------------------
-// 6) ★ 裸 CJK 源码守卫：剥离注释后，rescue/index.vue 不得残留中文字面量
+// 6) ★ 裸 CJK 源码守卫：剥离注释后，**范围内**已本地化页面不得残留中文字面量
 //    （这是"中文都抽齐了"的唯一守卫；静态扫描只证明"抽走的都对"）
+//
+// P0-4a 起，扫描范围扩到 `SCOPE_FILES`（rescue + guide + aed），共享清单见
+// `@/__tests__/i18n-scope`。`stripComments` 的**已知理论边界**（字符串内 `//` 的假阴性）
+// 随实现一并移入该模块并已注释；此处不再重复。范围外的 `aed/detail.vue` / `drill/index.vue`
+// 待 P0-4b 本地化后再入清单（现在加入会对既存中文误报红）。
 // ---------------------------------------------------------------------------
 
-/**
- * 剥离 HTML / 块 / 行注释。行注释仅在 `//` 前是空白或行首时剥离，避免误伤字符串里的 `//`。
- *
- * ⚠️ **已知理论边界**（当前代码无此形态 ⇒ 非现网问题，如需改动此正则请留意）：
- * 若某个**字符串字面量内部**含「空格 + `//` + 中文」（如 `const x = 'a // 中文'`），
- * 该行会被误剥成空 ⇒ 可能造成**假阴性**（漏报一个真实的中文字面量）。如需彻底排除，
- * 得换成真正的词法扫描；当前收益不值这个复杂度，故保留此简单实现并在此标注。
- */
-function stripComments(src: string): string {
-  return src
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .map((line) => line.replace(/(^|\s)\/\/.*$/, '$1'))
-    .join('\n')
-}
-
-describe('源码守卫：rescue/index.vue 无裸中文字面量', () => {
-  const REL = 'src/pages/rescue/index.vue'
-
+describe('源码守卫：已本地化页面（SCOPE_FILES）无裸中文字面量', () => {
   it('★ 扫描器自检：注释里的中文被忽略、字面量里的中文被抓住', () => {
     expect(hasCjk(stripComments("// 中文注释\n/* 块注释中文 */\n<!-- 模板中文 -->\nconst a = 'ok'"))).toBe(false)
     expect(hasCjk(stripComments("const a = '中文'"))).toBe(true)
   })
 
-  it('★ 剥离注释后不含任何中文字面量（抽漏 = 红）', () => {
-    const src = fs.readFileSync(path.resolve(process.cwd(), REL), 'utf8')
-    const offenders = stripComments(src)
-      .split('\n')
-      .map((line, i) => ({ line: line.trim(), n: i + 1 }))
-      .filter((x) => hasCjk(x.line))
-    expect(offenders.map((o) => `${o.n}: ${o.line}`), '发现未抽取的中文字面量').toEqual([])
+  it('★ 扫描范围非空（防清单被清空 ⇒ 下面的循环守卫退化成恒真）', () => {
+    // 与 `i18n.test.ts` 的 `scannedKeys > 0` 同理：守卫自己也要被守住。
+    expect(SCOPE_FILES.length).toBeGreaterThan(0)
   })
+
+  for (const rel of SCOPE_FILES) {
+    it(`★ ${rel} 剥离注释后不含任何中文字面量（抽漏 = 红）`, () => {
+      expect(findNakedCjkLines(rel), `${rel} 发现未抽取的中文字面量`).toEqual([])
+    })
+  }
 })
