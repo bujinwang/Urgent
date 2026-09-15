@@ -281,9 +281,13 @@ describe('P0-4b：aed/detail + drill 文案本地化', () => {
         expect(wrapper.findAll('.drill-tab').map(n => n.text()))
           .toEqual([dr.tab.upcoming, dr.tab.completed, dr.tab.records])
 
-        // ⚠️ 本页 `v-for` 直接迭代 `drills`（**未**按 tab 过滤；`displayDrills` 只用于空态判断）
-        // ⇒ 列表始终是全部演习。此处按**实际行为**断言，**不**改页面逻辑（既存行为，见任务书"不改"范围）。
-        expect(wrapper.findAll('.drill-card').length, '演习卡数量').toBe(events.length)
+        // ⚠️ KNOWN-BUG（既存缺陷，非本次引入）：本页 `v-for` 直接迭代 `drills`（**未**按 tab 过滤；
+        // `displayDrills` 只用于空态判断）⇒ 切"已完成"页签**不改变列表内容**。
+        // 此处按**实际行为**断言，以继续为"卡片文案已本地化"提供覆盖。
+        // ❗ 因此这条断言**锁定的是错误行为**：修 bug（`drills` → `displayDrills`）会让它变红，
+        //    修复时**必须同步**把下面的期望从 `events` 改为 `events.filter(e => e.status === tab)`。
+        //    检索标记：`KNOWN-BUG`（另有设计文档 §13.2 与 backlog 记账）。
+        expect(wrapper.findAll('.drill-card').length, '演习卡数量（KNOWN-BUG：当前为未过滤的全部演习）').toBe(events.length)
         expect(wrapper.findAll('.drill-card-title').map(n => n.text())).toEqual(events.map(e => e.title))
         expect(wrapper.findAll('.drill-card-scenario').map(n => n.text()))
           .toEqual(events.map(e => dr.scenario[e.scenario as keyof typeof dr.scenario]))
