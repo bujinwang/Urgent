@@ -15,8 +15,8 @@ import { SCOPE_FILES, hasCjk } from '@/__tests__/i18n-scope'
  *   ① **运行时 reactivity 契约**（切语言 ⇒ 页面/语音立即改语言，不能"冻结"）
  *   ② **en-US 渲染快照**（`wrapper.text()` 不含中文 —— 覆盖"运行时才拼出来的字符串"）
  *   ③ **内容完整性**（渲染值 === locale 值，数量 === locale 条目数；**v-for 列表优先**）
- * 裸 CJK **源码**守卫在 `rescue-i18n.test.ts` 里按共享的 `SCOPE_FILES` 覆盖这三个页面，
- * 此处另附一条「清单边界」断言（P0-4b 待办）。
+ * 裸 CJK **源码**守卫在 `rescue-i18n.test.ts` 里按共享的 `SCOPE_FILES` 覆盖全部已本地化页面，
+ * 此处另附一条「清单边界」断言（P0-4b 已扩围到 5 页：rescue/guide/aed-index/aed-detail/drill）。
  *
  * ⚠️ **测试隔离**（P0-2/P0-3 同一类坑）：`i18n` 与 Pinia store 都是**模块级单例**。
  * - `i18n`：每个用例前后 `setLocale('zh-CN')` 复位；
@@ -345,13 +345,13 @@ describe('P0-4a：guide + aed/index 文案本地化', () => {
 //    （守卫本体在 `rescue-i18n.test.ts`，按同一份 SCOPE_FILES 逐文件扫描）
 // ---------------------------------------------------------------------------
 describe('裸 CJK 源码守卫范围清单（共享 SCOPE_FILES）', () => {
-  it('★ 覆盖 rescue + guide + aed；**刻意不含**待办的 detail/drill（P0-4b 待加）', () => {
+  it('★ 覆盖 rescue + guide + aed/index + aed/detail + drill（P0-4b 已扩围）', () => {
     const list = [...SCOPE_FILES]
     expect(list).toContain('src/pages/rescue/index.vue')
     expect(list).toContain('src/pages/guide/index.vue')
     expect(list).toContain('src/pages/aed/index.vue')
-    // P0-4b 待加：这两页文案仍为硬编码中文，现在纳入会让守卫对既存中文误报红
-    expect(list).not.toContain('src/pages/aed/detail.vue')
-    expect(list).not.toContain('src/pages/drill/index.vue')
+    // P0-4b 已完成双语化 ⇒ 必须纳入扫描（否则这两页的"中文抽漏"不会被任何守卫发现）
+    expect(list).toContain('src/pages/aed/detail.vue')
+    expect(list).toContain('src/pages/drill/index.vue')
   })
 })

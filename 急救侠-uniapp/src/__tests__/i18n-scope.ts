@@ -19,13 +19,15 @@ import path from 'node:path'
  * - 某页面**完成**文案双语化后，**必须**加到这里，否则它的「中文抽漏」不会被任何守卫发现。
  * - 页面**尚未**本地化时**不得**加入：守卫会对既存中文误报红。
  *
- * P0-4b 待加：`src/pages/aed/detail.vue`、`src/pages/drill/index.vue`
- * （二者文案仍为硬编码中文，加入即红，故本轮**刻意暂不纳入**）。
+ * P0-4b 已补：`src/pages/aed/detail.vue`、`src/pages/drill/index.vue`
+ * （二者文案已双语化 ⇒ 必须纳入，否则它们的「中文抽漏」不会被任何守卫发现）。
  */
 export const SCOPE_FILES = [
   'src/pages/rescue/index.vue',
   'src/pages/guide/index.vue',
   'src/pages/aed/index.vue',
+  'src/pages/aed/detail.vue',
+  'src/pages/drill/index.vue',
 ] as const
 
 /** 中文字符（CJK 统一表意文字）。 */
