@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
+import { createI18n } from 'vue-i18n'
 import { i18n, resolveInitialLocale, setLocale, getLocale } from '@/i18n'
 import { messages, SUPPORTED_LOCALES, FALLBACK_LOCALE, LOCALE_STORAGE_KEY } from '@/locales'
 import zhCN from '@/locales/zh-CN'
@@ -94,17 +95,37 @@ describe('翻译完整性：en-US ⊇ zh-CN', () => {
 describe('fallbackLocale 兜底：缺 key ⇒ 中文，绝不裸 key', () => {
   it('★ 只在 zh-CN 存在的键，在 en-US 下必须解析出**中文**（而非裸 key）', () => {
     const KEY = '__test_only_zh.msg'
-    i18n.global.mergeLocaleMessage('zh-CN', { __test_only_zh: { msg: '仅中文存在的兜底文案' } })
 
-    const prev = getLocale()
-    setLocale('en-US')
+    // ⚠️ 为什么用「沙箱实例」而不是 `i18n.global.mergeLocaleMessage`（曾踩的坑，勿回退）：
+    // `createI18n({ messages })` **不克隆** messages ⇒ 其内部 zh-CN 消息树与
+    // `src/locales/index.ts` 的 `messages['zh-CN']`、进而与导入的 `zhCN` 模块对象**是同一个引用**。
+    // 于是 `mergeLocaleMessage` 会把这个临时键**永久写到 `zhCN` 上**，被「en-US ⊇ zh-CN」
+    // 完整性用例读到 —— 同一文件内顺序固定时看不出来，但整仓乱序（`--sequence.shuffle`）下
+    // 该用例排到本用例之后即报 `en-US 缺少这些键：__test_only_zh.msg`。
+    // 深拷贝把注入关进沙箱：从**结构上**杜绝泄漏，不依赖"记得清理"。
+    const sandbox = createI18n({
+      legacy: false,
+      locale: 'en-US',
+      // 兜底语言取自生产常量（其与生产单例的一致性由下面第 2 条契约用例锁定）
+      fallbackLocale: FALLBACK_LOCALE,
+      messages: JSON.parse(JSON.stringify(messages)) as typeof messages,
+      missingWarn: false,
+      fallbackWarn: false,
+    })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const got = (i18n.global as any).t(KEY)
-    setLocale(prev)
+    ;(sandbox.global as any).mergeLocaleMessage('zh-CN', { __test_only_zh: { msg: '仅中文存在的兜底文案' } })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const got = (sandbox.global as any).t(KEY)
 
     expect(got).toBe('仅中文存在的兜底文案')
     // 裸 key 的签名：渲染结果 === 键名本身
     expect(got).not.toBe(KEY)
+
+    // 反向自证：沙箱注入**不得**外溢到共享的 zh-CN 模块对象。
+    // 断言与"产生污染的那行"放在一起 ⇒ 一旦有人改回全局 merge，这里立刻红且信息明确
+    // （否则只会在别的文件里以"en-US 缺少键"这种看不懂原因的形式炸掉）。
+    expect(collectKeyPaths(zhCN)).not.toContain(KEY)
   })
 
   it('★ 契约：FALLBACK_LOCALE 必须是 zh-CN（改成 en-US 会让英文用户看到裸 key）', () => {
