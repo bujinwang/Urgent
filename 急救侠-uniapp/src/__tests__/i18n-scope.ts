@@ -21,6 +21,7 @@ import path from 'node:path'
  *
  * P0-4b 已补：`src/pages/aed/detail.vue`、`src/pages/drill/index.vue`
  * （二者文案已双语化 ⇒ 必须纳入，否则它们的「中文抽漏」不会被任何守卫发现）。
+ * P1a 已补：`src/pages/cert/index.vue`（「我的」页文案已双语化 + 语言切换入口）。
  */
 export const SCOPE_FILES = [
   'src/pages/rescue/index.vue',
@@ -28,6 +29,7 @@ export const SCOPE_FILES = [
   'src/pages/aed/index.vue',
   'src/pages/aed/detail.vue',
   'src/pages/drill/index.vue',
+  'src/pages/cert/index.vue',
 ] as const
 
 /** 中文字符（CJK 统一表意文字）。 */

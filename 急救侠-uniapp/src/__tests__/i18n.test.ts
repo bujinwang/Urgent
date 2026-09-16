@@ -179,6 +179,9 @@ describe('静态扫描：范围清单内不得出现未定义 / 裸 key', () => 
     // voice.ts 当前**零** t()/tm()/rt() 调用 —— 加进来是无行为的预防：
     // 防止日后有人在语音层写 t('...') 却无人扫描（语音文本本地化是本期 KPI 之一）。
     'src/utils/voice.ts',
+    // P1a：tabbar-locale.ts 的 `t(...)` 现阶段是**动态键**（`t(item.textKey)`）⇒ 静态扫描取不到，
+    // 加进来同样是无行为的预防；`tabbar.*` 键的存在性由 `tabbar-locale.test.ts` 显式枚举守护。
+    'src/utils/tabbar-locale.ts',
   ]
 
   it('★ 每个代码里用到的键，在两个 locale 中都必须能解析出非空值且 ≠ 键名', () => {
