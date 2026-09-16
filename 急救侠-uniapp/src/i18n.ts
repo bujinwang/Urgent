@@ -14,6 +14,8 @@ import {
   isSupportedLocale, matchSystemLocale,
   type Locale,
 } from './locales'
+// ⚠️ 单向依赖：`tabbar-locale` **不** import 本模块 ⇒ 无循环依赖（见该文件头「硬约束 1」）。
+import { applyTabBarLocale } from './utils/tabbar-locale'
 
 const isDev = (() => {
   try {
@@ -87,7 +89,15 @@ export const i18n = createI18n({
 })
 
 /**
- * 切换语言并持久化。
+ * 组合式 i18n 实例的**最小脸谱**（`legacy:false` ⇒ `t` 直接返回 `string`）。
+ *
+ * 用于把翻译函数**注入** `tabbar-locale`（避免其反向 import 本模块造成循环依赖）。
+ * 与 `pages/drill/index.vue`、`pages/rescue/index.vue` 的 cast 范式一致。
+ */
+const i18nGlobal = i18n.global as unknown as { t: (key: string) => string }
+
+/**
+ * 切换语言并持久化，**并同步原生 tabBar 文案**。
  *
  * ⚠️ 调用方（设置页）负责**不得**把它接进 SOS 主流程；
  * 且切换后**不要**重新 `createI18n` —— 直接改 `global.locale` 触发响应式更新。
@@ -97,6 +107,9 @@ export function setLocale(locale: Locale): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(i18n.global.locale as unknown as { value: Locale }).value = locale
   safeSetStorage(LOCALE_STORAGE_KEY, locale)
+  // tabBar 不在 Vue 响应式树内（`pages.json` 静态声明）⇒ 必须显式同步，否则切了语言 tab 仍是旧文案。
+  // 用**注入式 `t`** 而非 import，避免 `i18n.ts ↔ tabbar-locale.ts` 循环依赖。
+  applyTabBarLocale((key) => i18nGlobal.t(key))
 }
 
 /** 当前语言。 */

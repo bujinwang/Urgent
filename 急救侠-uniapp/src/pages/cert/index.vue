@@ -5,51 +5,61 @@
       <text class="profile-name">{{ user.profile.name }}</text>
       <text v-if="user.profile.volunteerId" class="profile-id">{{ user.profile.volunteerId }}</text>
       <view class="profile-stats">
-        <view class="profile-stat"><text class="profile-stat-num">{{ user.profile.rescueCount }}</text><text class="profile-stat-label">参与救援</text></view>
-        <view class="profile-stat"><text class="profile-stat-num">{{ user.profile.points.toLocaleString() }}</text><text class="profile-stat-label">积分</text></view>
-        <view class="profile-stat"><text class="profile-stat-num">{{ user.profile.certifications.length }}</text><text class="profile-stat-label">认证</text></view>
+        <view class="profile-stat"><text class="profile-stat-num">{{ user.profile.rescueCount }}</text><text class="profile-stat-label">{{ $t('mine.statRescues') }}</text></view>
+        <view class="profile-stat"><text class="profile-stat-num">{{ user.profile.points.toLocaleString() }}</text><text class="profile-stat-label">{{ $t('mine.statPoints') }}</text></view>
+        <view class="profile-stat"><text class="profile-stat-num">{{ user.profile.certifications.length }}</text><text class="profile-stat-label">{{ $t('mine.statCerts') }}</text></view>
       </view>
     </view>
 
     <template v-if="user.profile.id">
     <view v-if="user.profile.certifications.length>0" class="cert-card">
-      <view class="cert-tier">{{ tierLabel }} 急救侠</view>
-      <text class="cert-name">{{ user.profile.certifications[0]||'急救认证' }}</text>
-      <text class="cert-issuer">急救侠平台认证</text>
-      <view class="cert-meta"><view class="cert-meta-item">持有证书<text class="cert-meta-value">{{ user.profile.certifications.length }} 项</text></view><view class="cert-meta-item">等级<text class="cert-meta-value">{{ tierLabel }}</text></view></view>
+      <view class="cert-tier">{{ $t('mine.certTier', { tier: tierLabel }) }}</view>
+      <text class="cert-name">{{ user.profile.certifications[0] || $t('mine.certFallbackName') }}</text>
+      <text class="cert-issuer">{{ $t('mine.issuer') }}</text>
+      <view class="cert-meta"><view class="cert-meta-item">{{ $t('mine.certsHeld') }}<text class="cert-meta-value">{{ $t('mine.certCountValue', { n: user.profile.certifications.length }) }}</text></view><view class="cert-meta-item">{{ $t('mine.level') }}<text class="cert-meta-value">{{ tierLabel }}</text></view></view>
     </view>
-    <view v-else class="cert-card"><view class="cert-tier">新人</view><text class="cert-name">暂无认证</text><text class="cert-issuer">完成培训即可获得认证</text></view>
-    <view class="cert-qr"><view class="qr-box"/><view class="qr-info"><text class="qr-info-title">电子证书验证</text><text class="qr-info-desc">扫码可在线验证证书真伪及志愿者资质</text></view></view>
+    <view v-else class="cert-card"><view class="cert-tier">{{ $t('mine.newcomer') }}</view><text class="cert-name">{{ $t('mine.noCert') }}</text><text class="cert-issuer">{{ $t('mine.noCertHint') }}</text></view>
+    <view class="cert-qr"><view class="qr-box"/><view class="qr-info"><text class="qr-info-title">{{ $t('mine.qrTitle') }}</text><text class="qr-info-desc">{{ $t('mine.qrDesc') }}</text></view></view>
     <view class="cert-actions">
-      <view class="cert-action" @click="showCerts"><text class="cert-action-icon">📋</text><text class="cert-action-label">认证记录</text><text class="cert-action-sub">{{ user.profile.certifications.length }} 项</text></view>
-      <view class="cert-action" @click="showRescueStats"><text class="cert-action-icon">📊</text><text class="cert-action-label">救援统计</text><text class="cert-action-sub">{{ user.profile.rescueCount }} 次</text></view>
-      <view class="cert-action" @click="goVolunteer"><text class="cert-action-icon">🏆</text><text class="cert-action-label">排行榜</text><text class="cert-action-sub">{{ tierLabel }}</text></view>
-      <view class="cert-action" @click="goAtlas"><text class="cert-action-icon">📖</text><text class="cert-action-label">急救手册</text><text class="cert-action-sub">6 种急症</text></view>
-      <view class="cert-action" @click="goInterests"><text class="cert-action-icon">🎯</text><text class="cert-action-label">兴趣方向</text><text class="cert-action-sub">选择你的模块</text></view>
-      <view class="cert-action" @click="goUpload"><text class="cert-action-icon">📜</text><text class="cert-action-label">登记证书</text><text class="cert-action-sub">上传已有认证</text></view>
-      <view class="cert-action" @click="goPushSettings"><text class="cert-action-icon">🔔</text><text class="cert-action-label">通知设置</text><text class="cert-action-sub">推送订阅管理</text></view>
-      <view v-if="user.isOrgManager" class="cert-action cert-action-mgr" @click="goOrg"><text class="cert-action-icon">🏢</text><text class="cert-action-label">机构管理</text><text class="cert-action-sub">{{ user.orgRoles[0]?.orgName }}</text></view>
+      <view class="cert-action" @click="showCerts"><text class="cert-action-icon">📋</text><text class="cert-action-label">{{ $t('mine.actions.certs') }}</text><text class="cert-action-sub">{{ $t('mine.certCountValue', { n: user.profile.certifications.length }) }}</text></view>
+      <view class="cert-action" @click="showRescueStats"><text class="cert-action-icon">📊</text><text class="cert-action-label">{{ $t('mine.actions.rescueStats') }}</text><text class="cert-action-sub">{{ $t('mine.countTimes', { n: user.profile.rescueCount }) }}</text></view>
+      <view class="cert-action" @click="goVolunteer"><text class="cert-action-icon">🏆</text><text class="cert-action-label">{{ $t('mine.actions.leaderboard') }}</text><text class="cert-action-sub">{{ tierLabel }}</text></view>
+      <view class="cert-action" @click="goAtlas"><text class="cert-action-icon">📖</text><text class="cert-action-label">{{ $t('mine.actions.manual') }}</text><text class="cert-action-sub">{{ $t('mine.manualSub') }}</text></view>
+      <view class="cert-action" @click="goInterests"><text class="cert-action-icon">🎯</text><text class="cert-action-label">{{ $t('mine.actions.interests') }}</text><text class="cert-action-sub">{{ $t('mine.interestsSub') }}</text></view>
+      <view class="cert-action" @click="goUpload"><text class="cert-action-icon">📜</text><text class="cert-action-label">{{ $t('mine.actions.uploadCert') }}</text><text class="cert-action-sub">{{ $t('mine.uploadCertSub') }}</text></view>
+      <view class="cert-action" @click="goPushSettings"><text class="cert-action-icon">🔔</text><text class="cert-action-label">{{ $t('mine.actions.pushSettings') }}</text><text class="cert-action-sub">{{ $t('mine.pushSettingsSub') }}</text></view>
+      <view v-if="user.isOrgManager" class="cert-action cert-action-mgr" @click="goOrg"><text class="cert-action-icon">🏢</text><text class="cert-action-label">{{ $t('mine.actions.org') }}</text><text class="cert-action-sub">{{ user.orgRoles[0]?.orgName }}</text></view>
     </view>
-    <view class="cert-logout" @click="doLogout"><text>退出登录</text></view>
-    <view class="cert-logout" style="background:#F0F0F0;border-color:#DDD;color:#666;margin-bottom:8rpx" @click="goChangePwd"><text>修改密码</text></view>
-    <view class="cert-section"><text class="cert-section-title">我的 AED 打卡</text>
-      <view v-for="aed in checkedAeds" :key="aed.id" class="cert-checkin-item" @click="openAed(aed.id)"><view class="cert-checkin-icon">✓</view><view class="cert-checkin-info"><text class="cert-checkin-name">{{ aed.name }}</text><text class="cert-checkin-date">{{ aed.lastCheck }}</text></view><text class="cert-checkin-count">{{ aed.checkIns.length }} 次</text></view>
-      <view v-if="checkedAeds.length===0" class="cert-empty"><text>还没有 AED 打卡记录</text><text class="cert-empty-link" @click="goAed">去探索 AED →</text></view>
+    <view class="cert-logout" @click="doLogout"><text>{{ $t('mine.logout') }}</text></view>
+    <view class="cert-logout" style="background:#F0F0F0;border-color:#DDD;color:#666;margin-bottom:8rpx" @click="goChangePwd"><text>{{ $t('mine.changePwd') }}</text></view>
+    <view class="cert-section"><text class="cert-section-title">{{ $t('mine.checkinTitle') }}</text>
+      <view v-for="aed in checkedAeds" :key="aed.id" class="cert-checkin-item" @click="openAed(aed.id)"><view class="cert-checkin-icon">✓</view><view class="cert-checkin-info"><text class="cert-checkin-name">{{ aed.name }}</text><text class="cert-checkin-date">{{ aed.lastCheck }}</text></view><text class="cert-checkin-count">{{ $t('mine.countTimes', { n: aed.checkIns.length }) }}</text></view>
+      <view v-if="checkedAeds.length===0" class="cert-empty"><text>{{ $t('mine.checkinEmpty') }}</text><text class="cert-empty-link" @click="goAed">{{ $t('mine.checkinExplore') }}</text></view>
     </view>
     </template>
 
     <template v-else>
     <view class="cert-guest-cta" @click="goLogin">
       <text class="cert-guest-icon">🔐</text>
-      <text class="cert-guest-title">登录后解锁全部功能</text>
-      <text class="cert-guest-desc">管理证书 · 参与救援 · 加入社区</text>
-      <view class="cert-guest-btn">立即登录</view>
+      <text class="cert-guest-title">{{ $t('mine.guestTitle') }}</text>
+      <text class="cert-guest-desc">{{ $t('mine.guestDesc') }}</text>
+      <view class="cert-guest-btn">{{ $t('mine.guestBtn') }}</view>
     </view>
     <view class="cert-guest-links">
-      <view class="cert-guest-link" @click="goAtlas">📖 急救手册</view>
-      <view class="cert-guest-link" @click="goVolunteer">🏆 排行榜</view>
+      <view class="cert-guest-link" @click="goAtlas">📖 {{ $t('mine.actions.manual') }}</view>
+      <view class="cert-guest-link" @click="goVolunteer">🏆 {{ $t('mine.actions.leaderboard') }}</view>
     </view>
     </template>
+
+    <!-- 语言切换入口：放在「我的」页 ⇒ **不进 SOS 主流程**（PRD §8 / 设计 §6 P1）。
+         登录与游客都渲染（游客也要能切语言）。 -->
+    <view class="cert-lang">
+      <text class="cert-lang-title">{{ $t('mine.lang.title') }}</text>
+      <view class="cert-lang-options">
+        <view class="cert-lang-option" :class="{ active: locale === 'zh-CN' }" @click="switchLang('zh-CN')">{{ $t('mine.lang.zh') }}</view>
+        <view class="cert-lang-option" :class="{ active: locale === 'en-US' }" @click="switchLang('en-US')">{{ $t('mine.lang.en') }}</view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -58,10 +68,53 @@ import { computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useAedStore } from '@/stores/aed'
 import { useAuthStore } from '@/stores/auth'
+import { i18n, setLocale, getLocale, type Locale } from '@/i18n'
+
 const user=useUserStore(),aedStore=useAedStore(),authStore=useAuthStore()
-const tierLabel=computed(()=>({gold:'金牌',silver:'银牌',bronze:'铜牌',diamond:'钻石'} as any)[user.profile.tier]||user.profile.tier)
+
+/**
+ * 全局组合式 i18n 实例（`t` **只能**在 computed / 函数体 / 回调里调用；
+ * 顶层取值会冻结语言，见设计 §3.5 / §11.1）。cast 范式与 drill / rescue 页一致。
+ */
+const i18nGlobal = i18n.global as unknown as {
+  locale: { value: string }
+  t: (key: string, named?: Record<string, unknown>) => string
+}
+function t(key: string, named?: Record<string, unknown>): string {
+  return i18nGlobal.t(key, named)
+}
+
+/**
+ * 等级名 —— **在 `computed` 内调 `t()`**（不是模块级字面量映射）：
+ * 后者只在 setup 期求值一次 ⇒ 语言切换后不重算 = 典型「语言冻结」（设计 §3.5 / §11.1）。
+ * 未收录的 `tier` 回落原始值（保持原 `|| tier` 语义，且绝不显示裸 key）。
+ */
+const tierKeys: Record<string, string> = {
+  gold: 'mine.tier.gold', silver: 'mine.tier.silver', bronze: 'mine.tier.bronze', diamond: 'mine.tier.diamond',
+}
+const tierLabel = computed(() => {
+  const tier = user.profile.tier as string
+  const key = tierKeys[tier] as string | undefined
+  return key ? t(key) : tier
+})
 const checkedAeds=computed(()=>aedStore.aeds.filter((a:any)=>a.checkIns.length>0))
-function showCerts(){uni.showModal({title:'认证记录',content:user.profile.certifications.join('\n')+'\n\n所有认证均在有效期内。',showCancel:false,confirmText:'知道了'})}
+
+/** 当前语言（响应式：内部读 `i18n.global.locale.value`）⇒ 切换后重算，用于高亮选中项。 */
+const locale = computed<Locale>(() => getLocale())
+
+/**
+ * 切换语言 —— 唯一的 UI 入口。
+ * `setLocale` 负责：改全局 locale + 持久化 + **同步原生 tabBar**。
+ * 之后用**新语言**弹确认 toast（`{lang}` 用语言自名）。
+ */
+function switchLang(target: Locale): void {
+  if (target === locale.value) return
+  setLocale(target)
+  const langName = t(target === 'en-US' ? 'mine.lang.en' : 'mine.lang.zh')
+  uni.showToast({ title: t('mine.lang.switched', { lang: langName }), icon: 'none' })
+}
+
+function showCerts(){uni.showModal({title:t('mine.actions.certs'),content:user.profile.certifications.join('\n')+'\n\n'+t('mine.certsModalBody'),showCancel:false,confirmText:t('mine.gotIt')})}
 function showRescueStats(){uni.navigateTo({url:'/pages/records/index'})}
 function goVolunteer(){uni.navigateTo({url:'/pages/volunteer/index'})}
 function goAtlas(){uni.navigateTo({url:'/pages/atlas/index'})}
@@ -73,7 +126,7 @@ function goUpload(){uni.navigateTo({url:'/pages/cert/upload'})}
 function goChangePwd(){uni.navigateTo({url:'/pages/auth/change-pwd'})}
 function goPushSettings(){uni.navigateTo({url:'/pages/cert/push-settings'})}
 function goLogin(){uni.navigateTo({url:'/pages/auth/login'})}
-function doLogout(){authStore.logout();uni.showToast({title:'已退出登录',icon:'none'});setTimeout(()=>uni.reLaunch({url:'/pages/home/index'}),800)}
+function doLogout(){authStore.logout();uni.showToast({title:t('mine.toastLoggedOut'),icon:'none'});setTimeout(()=>uni.reLaunch({url:'/pages/home/index'}),800)}
 onMounted(()=>{user.loadOrgRoles()})
 </script>
 
@@ -90,4 +143,9 @@ onMounted(()=>{user.loadOrgRoles()})
 .cert-action-mgr{border-color:var(--gold);background:linear-gradient(135deg,#FFFDF5,#FFF8E1)}.cert-logout{margin:0 40rpx 20rpx;padding:20rpx;text-align:center;background:#FEE2E2;border:1px solid #FECACA;border-radius:16rpx;font-size:24rpx;color:#991B1B;font-weight:600}
 .cert-guest-cta{margin:0 40rpx 32rpx;padding:60rpx 40rpx;background:linear-gradient(135deg,#FFF5F5,#FFE8E5);border:2px dashed var(--rescue-red);border-radius:24rpx;text-align:center}.cert-guest-icon{font-size:56rpx;display:block;margin-bottom:12rpx}.cert-guest-title{font-family:var(--serif);font-size:32rpx;font-weight:900;display:block;margin-bottom:8rpx}.cert-guest-desc{font-size:22rpx;color:var(--ink-mute);display:block;margin-bottom:24rpx}.cert-guest-btn{display:inline-block;padding:18rpx 60rpx;background:var(--rescue-red);color:#fff;border-radius:48rpx;font-size:26rpx;font-weight:700}
 .cert-guest-links{display:flex;gap:16rpx;padding:0 40rpx}.cert-guest-link{flex:1;padding:24rpx;background:#fff;border:1px solid var(--line);border-radius:16rpx;text-align:center;font-size:24rpx;color:var(--ink-soft);font-weight:600}
+.cert-lang{margin:40rpx;padding:28rpx;background:#fff;border:1px solid var(--line);border-radius:20rpx;display:flex;align-items:center;justify-content:space-between;gap:24rpx}
+.cert-lang-title{font-family:var(--serif);font-size:26rpx;font-weight:700;color:var(--ink)}
+.cert-lang-options{display:flex;gap:16rpx}
+.cert-lang-option{padding:14rpx 32rpx;border-radius:32rpx;font-size:24rpx;border:1px solid var(--line);color:var(--ink-mute)}
+.cert-lang-option.active{background:var(--ink);color:#fff;border-color:var(--ink)}
 </style>

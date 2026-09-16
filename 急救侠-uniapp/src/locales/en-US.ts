@@ -422,4 +422,67 @@ export default {
     },
     toast: { joined: 'Joined', pointsAwarded: 'Points awarded', created: 'Created' },
   },
+
+  /** tabBar labels — must mirror `pages.json` `tabBar.list` order; synced via `uni.setTabBarItem`. */
+  tabbar: {
+    home: 'Home',
+    aed: 'AED',
+    learn: 'Learn',
+    mine: 'Mine',
+  },
+
+  /** `pages/cert/index.vue` — the "Mine" tab (see zh-CN for the language-switch / freeze notes). */
+  mine: {
+    statRescues: 'Rescues',
+    statPoints: 'Points',
+    statCerts: 'Certs',
+    certTier: '{tier} Rescuer',
+    certFallbackName: 'First-aid certificate',
+    issuer: 'Certified by the Jiujiaxia platform',
+    certsHeld: 'Certificates held',
+    certCountValue: '{n} items',
+    countTimes: '{n} times',
+    level: 'Level',
+    newcomer: 'Newcomer',
+    noCert: 'No certification yet',
+    noCertHint: 'Complete the training to get certified',
+    qrTitle: 'Digital certificate verification',
+    qrDesc: 'Scan to verify the certificate and the volunteer credentials online',
+    actions: {
+      certs: 'Certificates',
+      rescueStats: 'Rescue stats',
+      leaderboard: 'Leaderboard',
+      manual: 'First-aid manual',
+      interests: 'Interests',
+      uploadCert: 'Register a certificate',
+      pushSettings: 'Notification settings',
+      org: 'Organization admin',
+    },
+    manualSub: '6 conditions',
+    interestsSub: 'Pick your modules',
+    uploadCertSub: 'Upload an existing certificate',
+    pushSettingsSub: 'Manage push subscriptions',
+    logout: 'Log out',
+    changePwd: 'Change password',
+    certsModalBody: 'All certificates are within their validity period.',
+    gotIt: 'Got it',
+    toastLoggedOut: 'Logged out',
+    checkinTitle: 'My AED check-ins',
+    checkinEmpty: 'No AED check-ins yet',
+    checkinExplore: 'Explore AEDs →',
+    guestTitle: 'Log in to unlock everything',
+    guestDesc: 'Manage certificates · Join rescues · Join the community',
+    guestBtn: 'Log in now',
+    tier: { gold: 'Gold', silver: 'Silver', bronze: 'Bronze', diamond: 'Diamond' },
+    /**
+     * Language names are **self-named under every locale** on purpose (a user should recognise
+     * their own language) ⇒ `简体中文` intentionally appears even in English mode.
+     */
+    lang: {
+      title: 'Language',
+      zh: '简体中文',
+      en: 'English',
+      switched: 'Switched to {lang}',
+    },
+  },
 }

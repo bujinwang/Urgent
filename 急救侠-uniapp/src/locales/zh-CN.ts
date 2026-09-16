@@ -542,4 +542,95 @@ export default {
     /** `uni.showToast` 文案。 */
     toast: { joined: '已报名', pointsAwarded: '积分已发放', created: '已创建' },
   },
+
+  /**
+   * tabBar 4 个 tab 的文字（`uni.setTabBarItem`）。
+   *
+   * ⚠️ **值必须与 `pages.json` 的 `tabBar.list[].text` 逐字一致**（zh 侧）：
+   * `pages.json` 是静态声明、**不在 Vue 响应式树内** ⇒ 语言切换时它**不会**自动更新，
+   * 必须由 `src/utils/tabbar-locale.ts` 显式调 `uni.setTabBarItem` 同步。
+   * 键名固定 4 个（顺序 / pagePath 见 `TABBAR_ITEMS`），与 `tabBar.list` 一一对应。
+   */
+  tabbar: {
+    home: '首页',
+    /** 专有名词，两种语言都不翻译。 */
+    aed: 'AED',
+    learn: '学习',
+    mine: '我的',
+  },
+
+  /**
+   * `pages/cert/index.vue` —— 「我的」页（tabBar 第 4 项）。
+   *
+   * ⚠️ 语言切换入口放在本域（PRD §8 / 设计 §3.2 第 3 条）：**不得进 SOS 主流程**。
+   * ⚠️ `tierLabel` 现由本域 `mine.tier.*` 驱动且**必须在 `computed` 内调 `t()`** ——
+   * 模块级字面量映射只求值一次 ⇒ 语言冻结（设计 §11.1）。
+   */
+  mine: {
+    /** 顶部资料统计三格（`label` 为固定后缀）。 */
+    statRescues: '参与救援',
+    statPoints: '积分',
+    statCerts: '认证',
+    /** 证书卡：`{tier} 急救侠`（整句 + 具名插值，禁止代码拼接）。 */
+    certTier: '{tier} 急救侠',
+    certFallbackName: '急救认证',
+    issuer: '急救侠平台认证',
+    certsHeld: '持有证书',
+    /**
+     * 计数单位：`{n} 项`（证书数，两处复用）/ `{n} 次`（救援数、打卡数）。
+     * 抽成整体而非「数字 + 单位」拼接（§3.3 第 4 条）。
+     */
+    certCountValue: '{n} 项',
+    countTimes: '{n} 次',
+    level: '等级',
+    /** 无认证时的证书卡。 */
+    newcomer: '新人',
+    noCert: '暂无认证',
+    noCertHint: '完成培训即可获得认证',
+    /** 电子证书 QR 卡。 */
+    qrTitle: '电子证书验证',
+    qrDesc: '扫码可在线验证证书真伪及志愿者资质',
+    /** 功能入口网格（`actions.*` = 标题，`*Sub` = 副标题）。 */
+    actions: {
+      certs: '认证记录',
+      rescueStats: '救援统计',
+      leaderboard: '排行榜',
+      manual: '急救手册',
+      interests: '兴趣方向',
+      uploadCert: '登记证书',
+      pushSettings: '通知设置',
+      org: '机构管理',
+    },
+    manualSub: '6 种急症',
+    interestsSub: '选择你的模块',
+    uploadCertSub: '上传已有认证',
+    pushSettingsSub: '推送订阅管理',
+    /** 底部按钮 / 弹层 / toast。 */
+    logout: '退出登录',
+    changePwd: '修改密码',
+    /** `uni.showModal` 认证记录弹层的固定说明（标题复用 `actions.certs`）。 */
+    certsModalBody: '所有认证均在有效期内。',
+    gotIt: '知道了',
+    toastLoggedOut: '已退出登录',
+    /** AED 打卡区块。 */
+    checkinTitle: '我的 AED 打卡',
+    checkinEmpty: '还没有 AED 打卡记录',
+    checkinExplore: '去探索 AED →',
+    /** 未登录（游客）引导。 */
+    guestTitle: '登录后解锁全部功能',
+    guestDesc: '管理证书 · 参与救援 · 加入社区',
+    guestBtn: '立即登录',
+    /**
+     * 等级名（与 `user.profile.tier` 取值一致）。
+     * 未收录的 tier **回落原始值**（保持原 `|| tier` 行为）；键必须与 `tier` 取值对齐。
+     */
+    tier: { gold: '金牌', silver: '银牌', bronze: '铜牌', diamond: '钻石' },
+    /** 语言切换入口。**各语言下都写语言自己的名字**（自名，便于用户辨认，故 en 下也会出现中文）。 */
+    lang: {
+      title: '语言',
+      zh: '简体中文',
+      en: 'English',
+      switched: '已切换为{lang}',
+    },
+  },
 }
