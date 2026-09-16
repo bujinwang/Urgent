@@ -72,6 +72,9 @@ const uniMock = {
   switchTab: vi.fn(),
   // F2 P1a：`setLocale()` 会在末尾同步原生 tabBar（`applyTabBarLocale`）⇒ 必须提供该宿主方法，
   // 否则 `typeof uni.setTabBarItem !== 'function'` 会让同步被静默跳过、相关断言无从覆盖。
+  // F2 P1b：`useLocalizedNavTitle()` 会调它同步原生导航栏标题 ⇒ 必须提供该宿主方法，
+  // 否则 `typeof uni.setNavigationBarTitle !== 'function'` 会让同步被静默跳过、相关断言无从覆盖。
+  setNavigationBarTitle: vi.fn(),
   setTabBarItem: vi.fn(),
   navigateBack: vi.fn(),
   request: vi.fn(),

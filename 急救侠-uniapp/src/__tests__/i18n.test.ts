@@ -48,7 +48,10 @@ function resolveKey(tree: unknown, key: string): unknown {
  */
 export function extractUsedKeys(src: string): string[] {
   const out: string[] = []
-  const re = /(?<![\w$])(?:\$?t|tm|rt)\(\s*['"]([^'"]+)['"]/g
+  // P1b 增补 `useLocalizedNavTitle`：它的**第 1 个实参就是 i18n 键**（`useLocalizedNavTitle('nav.drill')`）。
+  // 不纳入 ⇒ `nav.*` 键写错时不会被「代码用了但没定义」这条守卫抓到，
+  // 只能表现为"导航栏显示裸 key 而全绿"。
+  const re = /(?<![\w$])(?:\$?t|tm|rt|useLocalizedNavTitle)\(\s*['"]([^'"]+)['"]/g
   let m: RegExpExecArray | null
   while ((m = re.exec(src)) !== null) out.push(m[1])
   return out
@@ -148,6 +151,9 @@ describe('静态扫描器自检', () => {
     expect(extractUsedKeys(`const a = t('rescue.title')`)).toEqual(['rescue.title'])
     expect(extractUsedKeys(`<view>{{ $t('common.ok') }}</view>`)).toEqual(['common.ok'])
     expect(extractUsedKeys(`const arr = tm('voice.cprNumbers')`)).toEqual(['voice.cprNumbers'])
+    // P1b：`useLocalizedNavTitle('nav.x')` 的第 1 个实参就是 key ⇒ 必须纳入扫描，
+    // 否则 nav 键写错时「代码用了但没定义」这条守卫会漏（导航栏显示裸 key 而全绿）。
+    expect(extractUsedKeys(`useLocalizedNavTitle('nav.drill')`)).toEqual(['nav.drill'])
   })
 
   it('★ 不会把 format( / split( 误判为 i18n 调用（否则会产生假的漏译告警）', () => {
@@ -171,6 +177,8 @@ describe('静态扫描：范围清单内不得出现未定义 / 裸 key', () => 
     'src/pages/aed/index.vue',
     'src/pages/aed/detail.vue',
     'src/pages/drill/index.vue',
+    // P1a 补：「我的」页已双语化，全部 `mine.*` 键都必须被"用了但没定义"守卫覆盖。
+    'src/pages/cert/index.vue',
     'src/components/SosButton/index.vue',
     'src/components/StepTimer/index.vue',
     'src/components/Metronome/index.vue',
