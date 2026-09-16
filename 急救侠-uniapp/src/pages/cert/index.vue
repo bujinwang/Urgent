@@ -69,6 +69,7 @@ import { useUserStore } from '@/stores/user'
 import { useAedStore } from '@/stores/aed'
 import { useAuthStore } from '@/stores/auth'
 import { i18n, setLocale, getLocale, type Locale } from '@/i18n'
+import { useLocalizedNavTitle } from '@/utils/nav-title-locale'
 
 const user=useUserStore(),aedStore=useAedStore(),authStore=useAuthStore()
 
@@ -127,6 +128,8 @@ function goChangePwd(){uni.navigateTo({url:'/pages/auth/change-pwd'})}
 function goPushSettings(){uni.navigateTo({url:'/pages/cert/push-settings'})}
 function goLogin(){uni.navigateTo({url:'/pages/auth/login'})}
 function doLogout(){authStore.logout();uni.showToast({title:t('mine.toastLoggedOut'),icon:'none'});setTimeout(()=>uni.reLaunch({url:'/pages/home/index'}),800)}
+// 原生导航栏标题随语言切换（P1b）。本页标题在 `pages.json` 里是「我的徽章」（非 custom 导航栏）。
+useLocalizedNavTitle('nav.mine')
 onMounted(()=>{user.loadOrgRoles()})
 </script>
 

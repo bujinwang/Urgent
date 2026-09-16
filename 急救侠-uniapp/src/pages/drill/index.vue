@@ -55,6 +55,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { i18n } from '@/i18n'
+import { useLocalizedNavTitle } from '@/utils/nav-title-locale'
 
 const API = '/api/drill'
 const userStore = useUserStore()
@@ -105,6 +106,8 @@ function scenarioLabel(s:string) {
   }
   return labels[s] || s
 }
+// 原生导航栏标题随语言切换（P1b）。本页是**标准**导航栏（非 custom ⇒ 有原生标题栏）。
+useLocalizedNavTitle('nav.drill')
 onMounted(load)
 </script>
 

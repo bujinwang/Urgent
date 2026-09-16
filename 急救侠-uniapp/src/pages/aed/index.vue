@@ -133,6 +133,7 @@ import { ref, computed } from 'vue'
 import { useAedStore } from '@/stores/aed'
 import { useUserStore } from '@/stores/user'
 import { i18n } from '@/i18n'
+import { useLocalizedNavTitle } from '@/utils/nav-title-locale'
 import type { AedDevice } from '@/api/aed'
 
 /**
@@ -157,6 +158,10 @@ const i18nGlobal = i18n.global as unknown as {
 function t(key: string, named?: Record<string, unknown>): string {
   return i18nGlobal.t(key, named)
 }
+
+// 原生导航栏标题随语言切换（P1b）。本页是**标准**导航栏；
+// `rescue` / `guide` / `aed/detail` 是 `navigationStyle:'custom'`（自绘标题栏）⇒ 不需要这句。
+useLocalizedNavTitle('nav.aedIndex')
 
 /** 等级名（本地渲染；未在表内的 tier 渲染空串，与原 `tierLabel` 行为一致）。 */
 const tierLabel = computed<string>(() => {

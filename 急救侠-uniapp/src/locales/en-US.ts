@@ -431,6 +431,16 @@ export default {
     mine: 'Mine',
   },
 
+  /**
+   * Native navigation-bar titles (`uni.setNavigationBarTitle`) — only for pages whose copy is
+   * already localised; see zh-CN for why the set is deliberately narrow.
+   */
+  nav: {
+    aedIndex: 'Nearby AED',
+    drill: 'Emergency drills',
+    mine: 'My badges',
+  },
+
   /** `pages/cert/index.vue` — the "Mine" tab (see zh-CN for the language-switch / freeze notes). */
   mine: {
     statRescues: 'Rescues',

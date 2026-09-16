@@ -560,6 +560,20 @@ export default {
   },
 
   /**
+   * 原生导航栏标题（`uni.setNavigationBarTitle`）—— 只收录**文案已本地化**的页面。
+   *
+   * ⚠️ 值必须与 `pages.json` 里对应页的 `style.navigationBarTitleText` **逐字一致**，
+   * 否则切回中文时标题会"变样"（该对齐关系由 `src/__tests__/nav-title-locale.test.ts` 守护）。
+   * ⚠️ `rescue` / `guide` / `aed/detail` 是 `navigationStyle: 'custom'`（自绘导航栏、
+   * 无原生标题栏）⇒ **不在此组**。
+   */
+  nav: {
+    aedIndex: '附近 AED',
+    drill: '急救演习',
+    mine: '我的徽章',
+  },
+
+  /**
    * `pages/cert/index.vue` —— 「我的」页（tabBar 第 4 项）。
    *
    * ⚠️ 语言切换入口放在本域（PRD §8 / 设计 §3.2 第 3 条）：**不得进 SOS 主流程**。
