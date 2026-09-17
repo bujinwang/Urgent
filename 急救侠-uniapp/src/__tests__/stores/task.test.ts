@@ -51,4 +51,43 @@ describe('Task Store（真实接口）', () => {
     expect(store.activeTask).toBeNull()
     expect(store.runningDistance).toBe(240)
   })
+
+  // ---- F4 T01 调用点守卫（§1.1）：删掉 store 里那一行真实调用 ⇒ 这些用例必须红 ----
+
+  it('★ T19：acceptMission() 真实调用 acceptTaskApi（归因调用点守卫）', async () => {
+    const store = await mountStore()
+    store.acceptMission()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(vi.mocked(request)).toHaveBeenCalledWith({
+      url: '/task/accept', method: 'POST', data: { taskId: 'task_001' },
+    })
+  })
+
+  it('★ 调用点守卫：arrive() 真实调用 completeTaskApi（闭合入账）', async () => {
+    const store = await mountStore()
+    store.arrive()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(vi.mocked(request)).toHaveBeenCalledWith({
+      url: '/task/complete', method: 'POST', data: { taskId: 'task_001' },
+    })
+  })
+
+  it('★ 调用点守卫：finishMission() 真实调用 completeTaskApi（幂等，可重复）', async () => {
+    const store = await mountStore()
+    store.finishMission()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(vi.mocked(request)).toHaveBeenCalledWith({
+      url: '/task/complete', method: 'POST', data: { taskId: 'task_001' },
+    })
+  })
+
+  it('无活跃任务时 acceptMission/finishMission 不发归因请求（不误报）', async () => {
+    const store = await mountStore()
+    store.finishMission() // 清空 activeTask
+    vi.mocked(request).mockClear()
+    store.acceptMission()
+    store.finishMission()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(vi.mocked(request)).not.toHaveBeenCalled()
+  })
 })
