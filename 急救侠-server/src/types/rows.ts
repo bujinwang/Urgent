@@ -30,6 +30,11 @@ import type {
   CustodianAlertStatus,
   UnlockAction,
   UnlockCommandStatus,
+  ActivityType,
+  ServiceSourceType,
+  ServiceLogStatus,
+  TaskVolunteerStatus,
+  CertificateRecordStatus,
 } from './index'
 
 // ---- Aggregate helpers ----
@@ -861,4 +866,59 @@ export interface SosEventRow {
   /** 范围查询的**唯一依据**（刻意不用 `strftime`，见设计文档 §2.3）。 */
   created_at_ms: number
   created_at: string
+}
+
+// ---- F4 · 志愿服务时长台账 ----
+
+/**
+ * `volunteer_service_logs` row — 服务时长台账（**唯一权威口径**）。
+ * 时间列一律毫秒整数（`*_at_ms`），**不含任何位置列**。
+ */
+export interface VolunteerServiceLogRow {
+  id: string
+  user_id: string
+  activity_type: ActivityType
+  source_type: ServiceSourceType
+  source_ref: string
+  started_at_ms: number
+  /** `null` = 未闭合，**不计入**时长（设计 §10-Q3b）。 */
+  ended_at_ms: number | null
+  /** 服务端算；`ended_at_ms` 为空时为 `null`。 */
+  duration_min: number | null
+  /** 演习/真实分离（D4）：证明默认只统计 `is_drill=0`。 */
+  is_drill: number
+  status: ServiceLogStatus
+  org_id: string
+  created_by: string
+  voided_at_ms: number | null
+  void_reason: string
+  created_at_ms: number
+}
+
+/** `service_certificates` row — 证明发放记录。 */
+export interface ServiceCertificateRow {
+  id: string
+  user_id: string
+  /** 唯一可查编号，如 `VS-20260917-A7F3K2`。 */
+  cert_no: string
+  period_from_ms: number
+  period_to_ms: number
+  total_minutes: number
+  breakdown_json: string
+  issued_at_ms: number
+  issued_by: string
+  status: CertificateRecordStatus
+  revoked_at_ms: number | null
+  revoke_reason: string
+}
+
+/** `task_volunteers` row — 任务参与关系（照 `drill_participants`，时间用 `_ms`）。 */
+export interface TaskVolunteerRow {
+  id: string
+  task_id: string
+  user_id: string
+  responded_at_ms: number
+  /** `null` = 未闭合。闭合由 `/task/complete` 回写（**仅当 `ended IS NULL`**，保证幂等）。 */
+  ended_at_ms: number | null
+  status: TaskVolunteerStatus
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { server, seedTestData, clearAll } from './setup'
+import { server, seedTestData, clearAll, userToken } from './setup'
 
 describe('Task Routes', () => {
   beforeEach(() => { seedTestData() })
@@ -39,6 +39,15 @@ describe('Task Routes', () => {
       expect(res.status).toBe(200)
       expect(res.body.code).toBe(0)
     })
+
+    it('带 token ⇒ 返回 { attributed } 且归因成功（F4 T01 契约）', async () => {
+      const res = await request(server)
+        .post('/api/task/accept')
+        .set('Authorization', `Bearer ${userToken('user_001')}`)
+        .send({ taskId: 'task_001' })
+      expect(res.status).toBe(200)
+      expect(res.body.data).toEqual({ attributed: true })
+    })
   })
 
   describe('POST /api/task/complete', () => {
@@ -50,6 +59,14 @@ describe('Task Routes', () => {
 
       const active = await request(server).get('/api/task/active')
       expect(active.body.data).toBeNull()
+    })
+
+    it('带 token ⇒ 返回 { closed, minutes }（F4 T01 契约）', async () => {
+      const auth = { Authorization: `Bearer ${userToken('user_001')}` }
+      await request(server).post('/api/task/accept').set(auth).send({ taskId: 'task_001' })
+      const res = await request(server).post('/api/task/complete').set(auth).send({ taskId: 'task_001' })
+      expect(res.status).toBe(200)
+      expect(res.body.data).toEqual({ closed: 1, minutes: 0 })
     })
   })
 })

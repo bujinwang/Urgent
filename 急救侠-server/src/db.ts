@@ -18,6 +18,77 @@ if (DB_PATH === ':memory:') {
 
 db.pragma('foreign_keys = ON')
 
+// ---------------------------------------------------------------------------
+// F4 · 志愿服务时长台账（设计：volunteer-service-hours-design.md §4.1）
+//
+// ⚠️ 这三张表的 DDL **只在下面定义一次**，canonical schema 与 `migrations[]`
+// 复用同一常量 ⇒ 从机制上保证「两处逐字一致」（设计 §4.4 硬约束 #9）。
+// 时间列**一律 `*_at_ms INTEGER`**（设计 §1.3：`strftime` 对 `'T...Z'`/`'+08:00'`
+// 一律按 UTC 解析且忽略时区后缀，本项目已因此出过事故）。
+// **绝不含位置列**（设计 D1/T12）：不采经纬度 ⇒ schema 层面强制。
+// ---------------------------------------------------------------------------
+
+/** 表 1：台账（唯一权威口径）。所有展示 / 证明 / 导出只读它。 */
+const DDL_VOLUNTEER_SERVICE_LOGS = `
+CREATE TABLE IF NOT EXISTS volunteer_service_logs (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL,                  -- 只来自 token；FK users(id)
+  activity_type  TEXT NOT NULL,                  -- rescue_task|drill|training|aed_checkin|manual
+  source_type    TEXT NOT NULL DEFAULT 'system', -- system|manual
+  source_ref     TEXT NOT NULL DEFAULT '',        -- 关联事件 id；manual 为空
+  started_at_ms  INTEGER NOT NULL,
+  ended_at_ms    INTEGER,                        -- NULL = 未闭合，不计入时长
+  duration_min   INTEGER,                        -- 服务端算；ended 为空时 NULL
+  is_drill       INTEGER NOT NULL DEFAULT 0,     -- 演习/真实分离（D4）
+  status         TEXT NOT NULL DEFAULT 'pending',-- pending|confirmed|voided
+  org_id         TEXT NOT NULL DEFAULT '',       -- 机构归属快照（可空）
+  created_by     TEXT NOT NULL DEFAULT '',       -- 人工登记的登记人（留痕）
+  voided_at_ms   INTEGER,
+  void_reason    TEXT NOT NULL DEFAULT '',       -- 作废留痕（软删，硬约束 #6）
+  created_at_ms  INTEGER NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_vsl_user_time ON volunteer_service_logs(user_id, started_at_ms);
+CREATE INDEX IF NOT EXISTS idx_vsl_type      ON volunteer_service_logs(activity_type, started_at_ms);
+CREATE INDEX IF NOT EXISTS idx_vsl_status    ON volunteer_service_logs(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vsl_dedup
+  ON volunteer_service_logs(source_type, source_ref, user_id) WHERE source_ref <> '';`
+
+/** 表 2：证明发放记录。 */
+const DDL_SERVICE_CERTIFICATES = `
+CREATE TABLE IF NOT EXISTS service_certificates (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL,                  -- FK users(id)
+  cert_no        TEXT NOT NULL,                  -- 唯一可查，如 VS-20260917-A7F3K2
+  period_from_ms INTEGER NOT NULL,
+  period_to_ms   INTEGER NOT NULL,
+  total_minutes  INTEGER NOT NULL,               -- 只含 is_drill=0 且 status='confirmed' 且 ended 非空
+  breakdown_json TEXT NOT NULL DEFAULT '{}',     -- 按 activity_type 分解
+  issued_at_ms   INTEGER NOT NULL,
+  issued_by      TEXT NOT NULL DEFAULT 'self',   -- self|org_admin
+  status         TEXT NOT NULL DEFAULT 'active', -- active|revoked
+  revoked_at_ms  INTEGER,
+  revoke_reason  TEXT NOT NULL DEFAULT '',
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_no ON service_certificates(cert_no);
+CREATE INDEX IF NOT EXISTS idx_scert_user ON service_certificates(user_id, issued_at_ms DESC);`
+
+/** 表 3（Q3 选 a）：任务参与关系（照 `drill_participants`，唯一差异：时间用 `_ms`）。 */
+const DDL_TASK_VOLUNTEERS = `
+CREATE TABLE IF NOT EXISTS task_volunteers (
+  id               TEXT PRIMARY KEY,
+  task_id          TEXT NOT NULL,                -- FK tasks(id)
+  user_id          TEXT NOT NULL,                -- FK users(id)
+  responded_at_ms  INTEGER NOT NULL,
+  ended_at_ms      INTEGER,
+  status           TEXT NOT NULL DEFAULT 'responded', -- responded|closed
+  FOREIGN KEY (task_id) REFERENCES tasks(id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  UNIQUE(task_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);`
+
 /**
  * `app_meta` 标记键：平台管理员「收窄」是否已发生。
  *
@@ -799,6 +870,10 @@ export function initDb(options: { silent?: boolean } = {}) {
     CREATE INDEX IF NOT EXISTS idx_sos_events_real ON sos_events(is_drill, created_at_ms);
   `)
 
+  // ---- F4 · 志愿服务时长台账（canonical schema）----
+  // 用共享常量建表 ⇒ 与 `migrations[]` 中的 041/042/043 **逐字一致**（设计 §4.4）。
+  db.exec(`${DDL_TASK_VOLUNTEERS}\n${DDL_VOLUNTEER_SERVICE_LOGS}\n${DDL_SERVICE_CERTIFICATES}`)
+
   // ---- Tracked migrations ----
   db.exec(`CREATE TABLE IF NOT EXISTS _migrations (
     id TEXT PRIMARY KEY,
@@ -982,6 +1057,23 @@ export function initDb(options: { silent?: boolean } = {}) {
       CREATE INDEX IF NOT EXISTS idx_sos_events_user ON sos_events(user_id, created_at_ms);
       CREATE INDEX IF NOT EXISTS idx_sos_events_real ON sos_events(is_drill, created_at_ms);`,
     },
+    {
+      id: '041_add_task_volunteers',
+      description: 'create task_volunteers (task-side participation; UNIQUE(task_id,user_id))',
+      // 幂等建表 + 建索引：既有库补建；全新库 canonical 已建同一张表 ⇒ 本迁移为 no-op，仍记入 `_migrations`。
+      // 与 canonical schema 的 DDL **共用同一常量** ⇒ 两处逐字一致（设计 §4.4 硬约束 #9）。
+      sql: DDL_TASK_VOLUNTEERS,
+    },
+    {
+      id: '042_add_volunteer_service_logs',
+      description: 'create volunteer_service_logs (service-hours ledger; ms timestamps; NO location)',
+      sql: DDL_VOLUNTEER_SERVICE_LOGS,
+    },
+    {
+      id: '043_add_service_certificates',
+      description: 'create service_certificates (issued certificates; unique cert_no)',
+      sql: DDL_SERVICE_CERTIFICATES,
+    },
   ]
 
   const applied = new Set(
@@ -1058,7 +1150,7 @@ export function setMeta(key: string, value: string): void {
 export function clearAll() {
   // Disable FK constraints so DELETE order doesn't matter
   db.pragma('foreign_keys = OFF')
-  db.exec("DELETE FROM _migrations; DELETE FROM app_meta; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_custodian_alerts; DELETE FROM aed_sms_dispatches; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards; DELETE FROM gov_viewers; DELETE FROM sos_events;")
+  db.exec("DELETE FROM _migrations; DELETE FROM app_meta; DELETE FROM certificates; DELETE FROM organization_members; DELETE FROM organizations; DELETE FROM animal_health_records; DELETE FROM animal_care_records; DELETE FROM stray_animals; DELETE FROM wildlife_rescue_tasks; DELETE FROM wildlife_reports; DELETE FROM training_records; DELETE FROM drill_participants; DELETE FROM drill_events; DELETE FROM trail_event_participants; DELETE FROM trail_events; DELETE FROM user_trails; DELETE FROM mobilization_volunteers; DELETE FROM emergency_mobilizations; DELETE FROM external_certifications; DELETE FROM group_messages; DELETE FROM group_members; DELETE FROM volunteer_groups; DELETE FROM messages; DELETE FROM volunteer_locations; DELETE FROM public_inquiries; DELETE FROM notifications; DELETE FROM push_subscriptions; DELETE FROM aed_certifications; DELETE FROM aed_custodian_alerts; DELETE FROM aed_sms_dispatches; DELETE FROM aed_audit_log; DELETE FROM aed_pickups; DELETE FROM aed_maintenance; DELETE FROM aed_managers; DELETE FROM aed_checkins; DELETE FROM aed_devices; DELETE FROM users; DELETE FROM stats; DELETE FROM tasks; DELETE FROM news; DELETE FROM courses; DELETE FROM volunteers; DELETE FROM rescue_records; DELETE FROM rescue_cases; DELETE FROM video_comments; DELETE FROM atlas_cards; DELETE FROM gov_viewers; DELETE FROM sos_events; DELETE FROM volunteer_service_logs; DELETE FROM service_certificates; DELETE FROM task_volunteers;")
   db.pragma('foreign_keys = ON')
 }
 

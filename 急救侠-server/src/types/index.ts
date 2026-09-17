@@ -625,6 +625,74 @@ export type AlertCode = (typeof AlertCode)[keyof typeof AlertCode]
 /** SLA 固定 120s（本期）。 */
 export const CUSTODIAN_SLA_MS = 120000
 
+// ---- F4 · 志愿服务时长台账 + 证明（volunteer-service-hours-design.md §4.3/§7）----
+
+/**
+ * `volunteer_service_logs.activity_type` 的**唯一事实源**（设计 §7.1）。
+ *
+ * P0 阶段唯一自动来源是 `rescue_task`（§2.4）；其余值由 P1-7 人工登记或 P1-10
+ * 动员/演习链路补写。新增取值时**只需改这里**（连同 DB 注释）。
+ */
+export const ActivityType = z.enum(['rescue_task', 'drill', 'training', 'aed_checkin', 'manual'])
+export type ActivityType = z.infer<typeof ActivityType>
+
+/** 台账写入来源：`system`（系统闭合自动写）/ `manual`（人工登记）。 */
+export const ServiceSourceType = z.enum(['system', 'manual'])
+export type ServiceSourceType = z.infer<typeof ServiceSourceType>
+
+/** 台账状态：`pending`（待人工确认，**不进证明**）/ `confirmed` / `voided`（软删留痕）。 */
+export const ServiceLogStatus = z.enum(['pending', 'confirmed', 'voided'])
+export type ServiceLogStatus = z.infer<typeof ServiceLogStatus>
+
+/** 任务参与状态：`responded`（已接受未闭合）/ `closed`（已闭合）。 */
+export const TaskVolunteerStatus = z.enum(['responded', 'closed'])
+export type TaskVolunteerStatus = z.infer<typeof TaskVolunteerStatus>
+
+/** 证明记录状态：`active` / `revoked`（软删，仍可查到「存在且已撤销」）。 */
+export const CertificateRecordStatus = z.enum(['active', 'revoked'])
+export type CertificateRecordStatus = z.infer<typeof CertificateRecordStatus>
+
+/** 「我的服务时长」按 `activity_type` 的分项（`Σ minutes === totalMinutes`）。 */
+export interface ServiceHoursBreakdownItem {
+  activityType: ActivityType
+  minutes: number
+  count: number
+}
+
+/** 「我的服务时长」明细项。 */
+export interface ServiceHoursItem {
+  id: string
+  activityType: ActivityType
+  sourceType: ServiceSourceType
+  sourceRef: string
+  startedAtMs: number
+  endedAtMs: number
+  durationMin: number
+  isDrill: boolean
+  orgId: string
+}
+
+/** `GET /api/volunteer/service-hours/me` 的 `data`。 */
+export interface ServiceHoursView {
+  totalMinutes: number
+  breakdown: ServiceHoursBreakdownItem[]
+  items: ServiceHoursItem[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+/** `POST /api/task/accept` 的 `data`。`attributed=false` = 游客或重复 accept（未新增参与行）。 */
+export interface AcceptTaskResult {
+  attributed: boolean
+}
+
+/** `POST /api/task/complete` 的 `data`。`closed` = 本次真正闭合的参与行数（幂等：重复调用恒 0）。 */
+export interface CompleteTaskResult {
+  closed: number
+  minutes: number
+}
+
 // ---- API Response ----
 export const ApiResponse = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({
