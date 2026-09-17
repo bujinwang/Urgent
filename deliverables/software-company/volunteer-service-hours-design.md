@@ -1,10 +1,10 @@
 # 设计：志愿服务时长台账 + 志愿服务记录证明（F4）
 
 > 上游：`volunteer-service-hours-prd.md`（v1.0，F4）
-> 版本：v1.0 ｜ 状态：设计定稿，待实现 ｜ 语言：中文
-> 本文**只写 PRD 没定的东西**（架构、表结构、端点契约、调用流程、任务顺序、测试计划）；
-> **业务已拍板**的 Q1 / Q2 / D8 / 开工顺序**不复述、不重开**（见下「§0 已定前提」）。
+> 版本：**v1.1** ｜ 状态：设计定稿（§10 八条已全决，无待回问项），待实现 ｜ 语言：中文
+> 本文**只写 PRD 没定的东西**（架构、表结构、端点契约、调用流程、任务顺序、测试计划）。
 > 组织风格沿用同项目 `i18n-emergency-flow-design.md`（实测修正优先 + 代码取证 + 突变承重性）。
+> ⚠️ **v1.1 的两处关键更正**：断链范围从「task 侧」扩为「**6 个写型接口零接线**」（§1.1）；动员/演习是「**整条链路未实现**」而非「有表缺闭合」（§1.2）。修订记录见**附录 C**。
 
 ---
 
@@ -19,14 +19,25 @@
 
 ---
 
-## §1 ⚠️ 对 PRD 的两处实测修正（先读这节）
+## §1 ⚠️ 对 PRD 的三处实测修正/补强（先读这节）
 
-调研真实代码后，PRD 的事实基础基本成立，但有**两处需要修正/补强**，其中第 1 条**直接改变 P0-2 的范围与验收**。
+调研真实代码后，PRD 的事实基础基本成立，但有**三处需要修正/补强**，其中第 1 条**直接改变 P0-2 的范围与验收**，第 3 条**直接改变 P0 的范围叙述**。
 
-### 1.1 🔴 修正（关键）：`/api/task/accept` 与 `/complete` **在前端零调用点** —— 只补后端，可归因率仍恒为 0
+### 1.1 🔴 修正（关键）：断链不是 1 个接口，是 **6 个写型接口零接线 + 动员/演习无前端入口**
 
-PRD §1.1 缺口 2 只指出「`task.ts:44` 不记录是谁接受」。但真正的断链**不止后端**：
+PRD §1.1 缺口 2 只指出「`task.ts:44` 不记录是谁接受」。但 **team-lead 对 `src/api/**` 全部 68 个导出函数做了「HTTP 方法 × 生产调用点」普查**（排除 `__tests__`）后，范围要大得多：
 
+**写型且生产零接线 = 6 个**：
+| 接口 | 文件 | 后果 |
+|---|---|---|
+| `acceptTaskApi` / `completeTaskApi` | `api/task.ts:92-99` | **救援任务无法归因** ⇒ F4 主场景可归因率恒 0 |
+| `awardPointsApi` | `api/user.ts` | 积分发放不落库（`stores/user.ts` 的 `awardPoints` 第二参数还被静默丢弃，见 `NEXT_STEPS.md:214`） |
+| `createGovViewer` / `updateGovViewer` | `api/gov.ts` | 政府查看者管理无前端入口 |
+| `updateProgress` | `api/learn.ts` | 课程进度不落库（与 `courses` 全局单行、不按人留痕一致） |
+
+其余 30+ 写型函数接线正常（SOS 上报 / AED 管理 / 登录注册 / 证书签发等）。
+
+**`task` 侧的逐层证据**：
 | 层 | 现状 | 证据 |
 |---|---|---|
 | API 封装 | `acceptTaskApi` / `completeTaskApi` **存在** | `急救侠-uniapp/src/api/task.ts:92-99` |
@@ -43,7 +54,25 @@ F4 这里更极端 —— **API 有、测试有、store 方法有，但 store �
 
 > ⚠️ 由此得一条本设计的**组织原则**：**凡"后端写了表"的功能，任务的验收必须是"端到端可归因"，而不是"接口 200"**。
 
-### 1.2 ✅ 修正（少做）：时间字段口径有**现成的最新先例**，不必二选一
+### 1.2 🔴 修正（关键）：动员 / 演习**不是「有表缺闭合」，而是「整条链路未实现」**
+
+team-lead 的复查把三条链路的真实完成度重新定了级。**准确措辞如下**（这是"事实"而非"设计参照"）：
+
+| 场景 | schema 里的关系表 | 生产写入路径 | 前端入口 | 闭合时刻 | **真实结论** |
+|---|---|---|---|---|---|
+| **救援任务** `tasks` | ❌ 无（只有计数器） | ✅ `/task/accept`（但**前端不调**，§1.1） | ⚠️ 有页面但**只改本地 state** | ❌ | 后端有、前端断线；**P0-2 要补的就是它** |
+| **急救动员** `mobilization_volunteers` | ✅ 有（`db.ts:399-409`） | ❌ **无生产调用**（`POST /mobilizations/:id/respond` 未被前端调用；且 `src/api/` **无 mobilization 能力函数**） | ❌ **无** | ❌ | **整条链路未实现**（表里几行是 seed 数据） |
+| **演习** `drill_participants` | ✅ 有（`db.ts:309-319`） | ❌ **无生产调用**（前端不调 `/drill/events/:id/join`；`src/api/` **无 drill 能力函数**） | ⚠️ 有 `pages/drill/index.vue` 但只创建/展示，不报名 | ❌（`attended` 由 `/complete` 回写，但该端点亦无前端调用） | **整条链路未实现**（表里几行是 seed 数据） |
+
+> 🔎 **取证**：`src/api/` 内搜 `mobilization|drill`，**只命中** `sos.ts` 的 `isDrill`、`push.ts` 的 `drillReminder` 模板、`learn.ts` 的文案 ⇒ **根本没有动员/演习的能力函数**。
+
+⇒ **两条纪律**：
+1. `drill_participants.attended`（「报名 → 出席回写」）仍是**好的设计参照**（`task_volunteers` 照它抄），但**绝不能当作"线上已有的事实"**来描述——它只是一个**形状正确、接线为零**的 schema 先例。
+2. 因此 **P1-10（动员/演习闭合回写）的前提缺失**：那两条链路**连入口都不存在**，回写无从挂载。**不得塞进 F4**；若政府侧要求演习服务可见，须**先立「动员/演习响应链路」独立立项**（见 §2.4 / §10-Q8）。
+
+> ⚠️ **由此再次印证 §1.1 的组织原则**：本项目当前**真正"端到端跑通并可归因"的写型链路，比它的接口数量所暗示的少得多**。验收必须以"用户动作 ⇒ 库中出数据"为准。
+
+### 1.3 ✅ 修正（少做）：时间字段口径有**现成的最新先例**，不必二选一
 
 PRD §5.1 提示「既有表时间字段混用 TEXT / 毫秒整数」。实测**最新的一张表已给出权威口径**：
 
@@ -75,9 +104,25 @@ PRD §5.1 提示「既有表时间字段混用 TEXT / 毫秒整数」。实测**
 | P1-7 人工登记/审核 | `POST /api/volunteer/service-logs`（`source_type='manual'`、默认 `pending`） |
 | P1-8 政府看板聚合 | `/api/gov/dashboard` 追加 `serviceHours`（零 PII） |
 | P1-9 保留期清理 CLI | `npm run service:purge`（默认**不删证明**，台账长期保留） |
-| **P1-10 动员/演习闭合回写（新增）** | 把「闭合→台账」helper 复用到 `mobilization_volunteers` / `drill_participants`（见 §3.3 说明） |
+| **P1-10 动员/演习闭合回写（新增）** | 把「闭合→台账」helper 复用到 `mobilization_volunteers` / `drill_participants`（见 §3.3 说明）。⚠️ **前提缺失**：这两条链路**无前端入口**（§1.2）⇒ 须先立「动员/演习响应链路」独立立项，**回写随该立项落地**，不并入 F4 |
 
 ### 2.3 P2（不做）：政府平台同步（P2-10）/ 国标对齐（P2-11）/ 真实二维码 PDF（P2-12）。
+
+### 2.4 ★ P0 阶段「可信时长来源」实际只有一个：**救援任务**
+
+由 §1.1 / §1.2 可推出一条**必须在文档里写明、且会影响验收与 UI** 的事实：
+
+> **在 P0 阶段，唯一"端到端跑通并可归因"的自动时长来源是「救援任务」**（`activity_type='rescue_task'`）。
+> 动员 / 演习 / 培训 / AED 巡检**全部没有前端入口**（`src/api/` 无对应能力函数），故**不会产生自动台账行**。
+> `manual`（人工登记，P1-7）是唯一另一来源，且默认 `pending`、不自动计入证明。
+
+**对 KPI 的影响**（写进 §7）：
+- 「可归因率」在 P0 的分母**只能是救援任务**；用"全部服务参与"作分母会得到一个恒被 0 除或无意义的数。**KPI 口径必须收窄到「救援任务场景内」**，并在报表里注明。
+- 「未闭合率」「演习污染率」在 P0 分别是：(a) 救援任务内的未闭合占比；(b) **仅来自 `manual` 或测试直接插入**的 `is_drill=1` 行 —— 属**防御性**不变量，不是主路径（§3.4 已注明）。
+
+**对「我的时长」页展示的影响**（写进 T04 验收）：
+- 页面的**分项区在当前数据下只会出现 1 种 `activity_type`** ⇒ **不得写死"多分项"的布局假设**（如固定三列/固定图标映射），要以**数据驱动**渲染（有多少枚举值就渲染多少个），否则 P1-10 上线时会变形。
+- 空态必须是**明确文案**（"暂无服务记录"）而非空白或 0 兜底 —— 与 gov 看板「冷启动不显示 0」同一取向（`NEXT_STEPS.md:556`）。
 
 ---
 
@@ -124,7 +169,8 @@ PRD §5.1 提示「既有表时间字段混用 TEXT / 毫秒整数」。实测**
 1. **职责不得塌缩（唯一权威口径）**：PRD D1/§5.1 已把台账定义为**唯一权威口径**且**长期保留（权益凭证，D7）**。
    而「accept」是**意向**、不是**已发生服务**。若 (b) 在 accept 直写台账，则**台账会在服务尚未发生时就落一行**，且该行的 `started_at_ms` 一列同时承担「报名时刻」与「服务开始时刻」两种语义 ⇒ 与 `end` 一列一样被迫承载双职责，**为「口径污染」埋雷**（正是本项目 F3 `is_drill` 污染统计的同类教训）。
 2. **(b) 使既有计数器不一致可见化**：`/accept` 现在是 `volunteers_responded = volunteers_responded + 1`（`task.ts:44`），**本就不幂等**（重复 accept 反复 +1）。若 (b) 再往里直写台账、且台账靠部分唯一索引去重，则**同一动作产生两种结果**：计数器 +N，台账 1 行 ⇒ 数据自相矛盾、且**两个"真值"**。选 (a) 把「去重」放在**有明确 UNIQUE 约束**的关系表上，语义干净。
-3. **既有先例已存在两张同形表**：`drill_participants`（`db.ts:309-319`，唯一 `event_id,user_id`）与 `mobilization_volunteers`（`db.ts:399-409`，唯一 `mobilization_id,user_id`），写入点都是 `INSERT OR IGNORE`（`drill.ts:30` / `rescue.ts:71`）。**第三张同形表是最可复现、最可评审的路径**，不是新发明。团队亦已确认 `drill_participants`「最接近目标的形状」（它是三者中**唯一有闭合标记 `attended`** 的）。
+3. **既有 schema 先例已存在两张同形表**：`drill_participants`（`db.ts:309-319`，唯一 `event_id,user_id`）与 `mobilization_volunteers`（`db.ts:399-409`，唯一 `mobilization_id,user_id`）。**第三张同形表是最可复现、最可评审的路径**，不是新发明。`drill_participants` 还带 `attended` 闭合标记，形状「最接近目标」。
+   ⚠️ **但必须说清（§1.2）**：这两张表是**只有 schema、没有生产接线**的先例（`drill.ts` / `rescue.ts` 的写入代码存在，但前端无入口、无能力函数）⇒ 它们只当**形状参照**用，**不是"线上已有事实"**。`task_volunteers` 走 (a) 的价值在于**把这张正确的形状真正接上线**（配合 §1.1 的调用点接线）。
 
 **为什么 (b) 不选**（除上述 1/2 外）：(b) 把「任务侧」的写入逻辑**硬编码进台账写路径** ⇒ 当 P1-10 要补动员/演习时，台账里会**混入三套链路各自的写入分支**，与「唯一权威口径」直接冲突（PRD Q3 已预警「三种口径」）。选 (a) 后，三条链路**只共用一个 helper**（§3.4），台账写路径**只有一条**。
 
@@ -136,8 +182,8 @@ PRD §5.1 提示「既有表时间字段混用 TEXT / 毫秒整数」。实测**
 
 - PRD Q3 问：要不要把「闭合时刻」统一补到**既有两张表**、并三链路复用？
 - **本设计决定：P0-2 范围 = 任务侧（a）**（team-lead 明示「保持范围克制」），**但把「闭合 → 写台账」抽成单一模块** `services/serviceLog.ts`（`recordService()` / `closeService()`），**动员 / 演习的接线列为 P1-10**。
-- 理由：① 动员**没有「完成」语义**（`emergency_mobilizations` 有 `complete`，但 `mobilization_volunteers` 无 `attended`）；② 演习的闭合已在 `attended` 上（只差 `ended_at_ms` 与时间列）；③ 若回填历史将**臆造时长**（Q4 明确不建议）。④ 一次性改三条链路会把 P0-2 变成"三处迁移 + 三处改写"，违背景戒范围。
-- **由此产生的一个诚实的后果**：P0 阶段 `is_drill=1` 的台账**只会来自 `manual` 来源**（人工登记一场演习），不来自自动链路 ⇒ §7 的「演习污染率恒为 0」在 P0 是**防御性不变量**（靠 `manual` + 直接插入构造用例），到 P1-10 才成为主路径不变量。**已在 §7 注明，避免后人误判"没接线=没做"**。
+- 理由：① **两条链路连前端入口都不存在**（§1.2：`src/api/` 无 mobilization/drill 能力函数）⇒ 接线无从挂载，**须先立「动员/演习响应链路」独立立项**；② 动员**没有「完成」语义**（`emergency_mobilizations` 有 `complete`，但 `mobilization_volunteers` 无 `attended`）；③ 演习的闭合设计在 `attended` 上（只差 `ended_at_ms` 与时间列）；④ 若回填历史将**臆造时长**（Q4 明确不建议）；⑤ 一次性改三条链路会把 P0-2 变成"三处迁移 + 三处改写 + 三处接线"，违背景戒范围（team-lead 明示克制）。
+- **由此产生的一个诚实的后果（与 §2.4 一致）**：P0 阶段唯一自动时长来源是**救援任务**；`is_drill=1` 的台账**只可能来自 `manual` 来源**（人工登记一场演习）或测试直接插入，不来自自动链路 ⇒ §7 的「演习污染率恒为 0」在 P0 是**防御性不变量**，到 P1-10 才成为主路径不变量。**已在 §7 注明，避免后人误判"没接线=没做"**。
 
 ### 3.5 时长算法（服务端算，硬约束 #2）
 
@@ -160,7 +206,7 @@ export function computeDurationMin(startedMs: number, endedMs: number | null): n
 
 ### 4.1 新增表 DDL（canonical schema 与 `migrations[]` **逐字一致**）
 
-> 时间列**一律 `_ms INTEGER`**（§1.2）；主键带随机后缀（硬约束 #5）；**无任何经纬度/位置列**（硬约束 #7 / T12）。
+> 时间列**一律 `_ms INTEGER`**（§1.3）；主键带随机后缀（硬约束 #5）；**无任何经纬度/位置列**（硬约束 #7 / T12）。
 
 ```sql
 -- 表 1：台账（唯一权威口径）
@@ -246,20 +292,22 @@ CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 | 1 | `GET` | `/api/volunteer/service-hours/me` | `authMiddleware` | query: `page?`,`pageSize?`,`activityType?` | `{ totalMinutes, breakdown:[{activityType,minutes,count}], items:[…], page, pageSize, total }` | 200 / **401** |
 | 2 | `POST` | `/api/volunteer/service-certificates` | `authMiddleware` | body: `periodFromMs`,`periodToMs` | `{ certNo, periodFromMs, periodToMs, totalMinutes, breakdown, issuedAtMs, status }` | 200 / 400（区间非法/无数据） / 401 |
 | 3 | `GET` | `/api/volunteer/service-certificates/me` | `authMiddleware` | — | `[{certNo,periodFromMs,periodToMs,totalMinutes,status,issuedAtMs}]` | 200 / 401 |
-| 4 | `GET` | `/api/volunteer/service-certificates/:certNo` | **公开（无鉴权）** | path | `{ certNo, periodFromMs, periodToMs, totalMinutes, status }` **仅此 5 字段** | 200 / 404 |
+| 4 | `GET` | `/api/volunteer/service-certificates/:certNo` | **公开（无鉴权）** + **`createHourlyIpLimiter('SERVICE_CERT_VERIFY_HOURLY_LIMIT', 60)`**（Q7） | path | `{ certNo, periodFromMs, periodToMs, totalMinutes, status }` **仅此 5 字段** | 200 / 404 / **429** |
 | 5 | `POST` | `/api/volunteer/service-logs`（P1-7） | `authMiddleware` | body: `activityType`,`startedAtMs`,`endedAtMs`,`orgId?`,`targetUserId?` | `{id,status}` | 200 / 401 / 403 |
 | 6 | `GET` | `/api/org/:id/service-hours`（P1-6） | `authMiddleware` + 内联 admin/manager 校验 | query 同上 | 结构同 #1（**仅本机构成员**） | 200 / 401 / 403；跨机构 ⇒ **空集** |
 | 7 | `GET` | `/api/gov/dashboard`（P1-8） | `govMiddleware`（既有） | — | 追加 `serviceHours:{ totalMinutes, participantCount, byActivityType:[…] }` | 200 |
 | 8 | `POST` | `/api/task/accept`（**改写**） | **`optionalAuth`**（见 §10-Q1） | body: `taskId` | `{ attributed:boolean }` | 200 |
-| 9 | `POST` | `/api/task/complete`（**改写**） | **`optionalAuth`** | body: `taskId` | `{ closed:number, minutes:number }` | 200 |
+| 9 | `POST` | `/api/task/complete`（**改写**） | **`optionalAuth`**（见 §10-Q1） | body: `taskId` | `{ closed:number, minutes:number }` | 200 |
 | CLI | `npm run service:report` / `service:purge` | 运维 | **不开 HTTP** | `--days`/`--dry-run` | 见 §5.3 | exit 0/1/2 |
 
 **验收锚点**：
 - #1 **无 token ⇒ 401**（T1）；A **绝不**读到 B 的条目（T10，`user_id` 恒来自 token）。
-- #1 的 `breakdown` 之和 **恒等于** `totalMinutes`（T5）。
+- #1 的 `breakdown` 之和 **恒等于** `totalMinutes`（T5）；P0 阶段分项**实际只有 `rescue_task`**（§2.4）—— 断言须**数据驱动**，不得写死"恰好 N 个分项"。
 - #2 同区间生成两次 ⇒ `certNo` **不同**、`totalMinutes` **相同**（P0-4 验收①）。
 - #4 **零 PII**：响应体**不含** `user_id`/`name`/`phone`/`userId`（T15，深扫断言，照 `role-split.test.ts`）。
+- #4 **限流**（Q7）：超过阈值 ⇒ **429**；限流器须在测试中 `force=true` 注入验证（照 `createSmsReportLimiter(force)` 先例）。
 - #4 作废后 ⇒ `status: 'revoked'`（T9 半段）；且该分钟数从**后续**证明中消失、原台账行**仍在**（不物理删）。
+- #8/#9 **游客响应不产生时长记录**（Q1，§10）：无 token 调 accept/complete ⇒ **无 `task_volunteers` 行、无台账行**，**仍返回 200**（不 401）。⚠️ 这是**约束的结果、不是缺陷**（不登录就没有 `user_id`，物理上无法归因）——**不得**据此改 `authMiddleware`，也不得录为 bug。
 
 ### 4.4 迁移通道（硬约束 #9，严格走既有 runner）
 
@@ -383,7 +431,7 @@ npm run service:purge [--days <N>] [--dry-run]
   1. `db.ts`：新增 3 张表 canonical schema + 索引；`migrations[]` 追加 **041/042/043**（逐字一致）；`clearAll()` 补 3 表。
   2. `types/index.ts` / `types/rows.ts`：新增 `ActivityType` 枚举、台账/证明/参与 行类型与响应类型；复用 `success()/error()`。
   3. `services/serviceLog.ts`（**新**）：`recordService()` / `closeService()` / `computeDurationMin()` / `MAX_SINGLE_MINUTES` / 聚合 helper（`getUserHours()`）——**唯一权威实现**（供 T02/T05 复用）。
-  4. `routes/task.ts`：`/accept`（`optionalAuth`，`INSERT OR IGNORE task_volunteers`）、`/complete`（闭合 + 写台账，**幂等**）。
+  4. `routes/task.ts`：`/accept`（`optionalAuth`，`INSERT OR IGNORE task_volunteers`）、`/complete`（闭合 + 写台账，**幂等**）。⚠️ **`volunteers_responded` 的既有非幂等行为保持不变**（§10-Q2），但**必须加一条测试固定它**（见验收）。
   5. **前端调用点接线（§1.1 关键）**：`api/task.ts` 保持；`stores/task.ts` 的 `acceptMission()` 调 `acceptTaskApi(taskId)`；`finishMission()`/`arrive()` 结束时调 `completeTaskApi(taskId)`。
 - **改文件**：`急救侠-server/src/db.ts`、`src/types/index.ts`、`src/types/rows.ts`、`src/services/serviceLog.ts`(新)、`src/routes/task.ts`、`src/__tests__/task.test.ts`、`src/__tests__/service-hours.test.ts`(新)、`急救侠-uniapp/src/stores/task.ts`、`急救侠-uniapp/src/__tests__/stores/task.test.ts`
 - **验收标准**：
@@ -392,6 +440,8 @@ npm run service:purge [--days <N>] [--dry-run]
   - `duration_min` 恒等于服务端算法；body 传 `duration_min: 9999` **被忽略**（T3）。
   - 写入端点 body 传 `userId:'victim'` ⇒ `user_id` 恒等于 token 身份（T2）。
   - **可归因率 > 0 的端到端证明**：走 `useTaskStore.acceptMission()`（**不是直接打端点**）⇒ 库中出现该用户的参与行（**调用点守卫**，§7）。
+  - **游客不产生记录**（Q1）：无 token 调 accept/complete ⇒ 无参与行、无台账行，且**返回 200**（非 401）（T23）。
+  - ⚠️ **`volunteers_responded` 既有行为固定测试**（Q2）：接线后该计数器**首次被真实调用**，其非幂等会实际暴露 ⇒ 必须有一条用例**断言其当前（非幂等）行为**并附可检索注释，防止后人误以为它可靠（T24）。
   - `PRAGMA table_info` 3 张表**均无**位置列（T12）；`clearAll()` 后 3 表为空（T17）。
 - **可并行**：否（T02/T05 皆依赖它）。
 
@@ -404,16 +454,17 @@ npm run service:purge [--days <N>] [--dry-run]
      - `GET /service-hours/me`（auth，分页 + 分项）。
      - `POST /service-certificates`（auth，选区间 → `certNo`/`total_minutes`/`breakdown`）。
      - `GET /service-certificates/me`（auth，我的证明列表）。
-     - `GET /service-certificates/:certNo`（**公开**，**仅 5 字段，零 PII**）。
+     - `GET /service-certificates/:certNo`（**公开**，**仅 5 字段，零 PII**，**按 IP 限流**——Q7）。
   2. `services/serviceCertificate.ts`（**新**）：`issue()`（区间聚合 + `cert_no` 生成 + 撞库重试）、`listMine()`、`verify()`（**投影裁剪为 5 字段**）、`revoke()`（软删）。
-  3. `app.ts`：`app.use('/api/volunteer', serviceHoursRouter)`（在既有 `volunteerRouter` 之后）。
-  4. 测试：`__tests__/service-hours-api.test.ts`、`__tests__/service-certificates.test.ts`。
-- **改文件**：`src/routes/serviceHours.ts`(新)、`src/services/serviceCertificate.ts`(新)、`src/app.ts`、`src/__tests__/service-hours-api.test.ts`(新)、`src/__tests__/service-certificates.test.ts`(新)
+  3. `app.ts`：`app.use('/api/volunteer/service-certificates', createHourlyIpLimiter('SERVICE_CERT_VERIFY_HOURLY_LIMIT', 60))`（在 `serviceHoursRouter` **之前**、且**仅作用于公开的验真路径**，勿让 `/me` 与 `POST` 也被限流）+ `app.use('/api/volunteer', serviceHoursRouter)`（在既有 `volunteerRouter` 之后）。限流器 `force` 参数照 `createSmsReportLimiter` 先例，供测试注入。
+  4. 测试：`__tests__/service-hours-api.test.ts`、`__tests__/service-certificates.test.ts`、`__tests__/service-cert-verify-rate-limit.test.ts`。
+- **改文件**：`src/routes/serviceHours.ts`(新)、`src/services/serviceCertificate.ts`(新)、`src/app.ts`、`src/__tests__/service-hours-api.test.ts`(新)、`src/__tests__/service-certificates.test.ts`(新)、`src/__tests__/service-cert-verify-rate-limit.test.ts`(新)
 - **验收标准**：
   - 无 token ⇒ **401**（T1）；用户 A **绝不**读到 B 任一条（T10）。
   - 分项之和 **恒等于** 总时长（T5）；`pending` / `is_drill=1` / `ended IS NULL` **均不进**证明（T4/T7/T8）。
   - 同区间生成两次 ⇒ `certNo` 不同、`totalMinutes` 相同（P0-4①）。
   - 验真接口深扫**不含** `user_id`/`name`/`phone`（T15）；作废后返回 `revoked` 且该分钟数从**后续**证明消失、原台账行仍在（T9）。
+  - **验真端点限流**（Q7）：超过阈值 ⇒ **429**；且限流**不误伤**同前缀的 `/me`、`POST`（T25）。
 - **可并行**：与 **T05** 并行（T05 只依赖 T01）。
 
 ---
@@ -442,6 +493,7 @@ npm run service:purge [--days <N>] [--dry-run]
   5. i18n 守卫扩围：`__tests__/i18n-scope.ts` + `__tests__/i18n.test.ts` 的 `SCOPE_FILES` 加入 2 新页；新增 `__tests__/pages/hours-i18n.test.ts`（裸 CJK + en 渲染快照 + 内容完整性）。
 - **改文件**：`src/pages/volunteer/hours.vue`(新)、`src/pages/volunteer/certificates.vue`(新)、`src/pages/cert/index.vue`、`src/pages.json`、`src/__tests__/i18n-scope.ts`、`src/__tests__/i18n.test.ts`、`src/__tests__/pages/hours-i18n.test.ts`(新)
 - **验收标准**：新文案**零裸 CJK**（守卫）；**登录态 + 游客态两套夹具**（不渲染分支对守卫不可见）；**按钮调用点**有独立用例（删掉那一行 ⇒ 变红）；**措辞**仅「志愿服务记录证明（急救侠平台出具）」。
+  - **分项区必须数据驱动**（§2.4）：P0 阶段实际只有 `rescue_task` 一种来源 ⇒ 布局**不得写死"多分项/固定列/固定图标映射"**，须按返回的 `breakdown` 长度渲染；空态为**明确文案**（"暂无服务记录"）而非空白或 0 兜底。
 - **可并行**：否（依赖 T03）。
 
 ---
@@ -536,10 +588,14 @@ graph TD
 | **T20** | ★ **前端按钮调用点**：「生成证明」点按 ⇒ 调 `createCertificate()` | 删页面里那一行调用 | 调用点守卫 | 前端 |
 | **T21** | ★ **禁止措辞**：UI/CSV/i18n 无「国家标准/国标/官方」 | 往 locale 值塞「符合国家标准」 | 禁用词守卫 | 前端 |
 | **T22** | 夹具盲区：**登录态 + 游客态**两套夹具均渲染并被断言 | 删游客态夹具 | 游客态用例 | 前端 |
+| **T23** | **游客响应不产生记录**（Q1）：无 token 调 accept/complete ⇒ 无参与/台账行且**返回 200** | 把 `optionalAuth` 改成 `authMiddleware`（游客被 401） | 游客用例红（**证明这是约束、不是可"修"的缺陷**） | 后端 |
+| **T24** | **`volunteers_responded` 既有非幂等行为被固定**（Q2） | 把计数器改成幂等重算 | 该固定用例红（**提醒**：修它=行为变更，须另开工单） | 后端 |
+| **T25** | **验真端点限流**（Q7）且**不误伤** `/me`+`POST` | 去掉限流器 / 把限流器挂到整个 `/api/volunteer` 前缀 | 限流用例红（两方向） | 后端 |
 
 **守卫承重性自检（本项目教训）**：
 - 「扫描器自身失效」类自检**必须能被突变咬住**（如「范围清单非空」断言要写成"应等于 N"而非 `>= 0`，F2 §9.4）。
 - 每加一层守卫，**先问"还有谁会咬住同一突变"**，避免把别人的功劳记到自己头上（F2 §9.4.1）。
+- ⚠️ **T23/T24 是"行为固定型"用例**：它们不是防回归，而是**防后人误判**（把"约束的结果"当 bug 修、把"既有缺陷"当可靠计数器用）。断言消息里须写明原因，照 `KNOWN-BUG` 标记法（F2 §13.2）。
 
 ---
 
@@ -551,21 +607,36 @@ graph TD
 | D-2 | `routes/org.ts:198` 证书签发**无鉴权**、`userId` 取自 body | 机构可给任何人发证 | T05 的新端点**加 auth**；**旧的 `certificates` 签发端点不在本次修复范围**（避免范围膨胀），另立工单 |
 | D-3 | `/api/task/accept` 的 `volunteers_responded` **非幂等**（重复 accept 反复 +1） | 计数虚高 | 本次**不改**（并入 T01 时**保留既有行为**，见 §10-Q2）；另立工单 |
 | D-4 | `volunteers` 是**死表**（`seed.ts` 才写） | 排行榜与真实用户双轨 | 时长**已挂 `users.id`**，不碰 `volunteers` |
+| **D-5** | **另 4 个写型接口生产零接线**（team-lead 普查确认）：`awardPointsApi`（`api/user.ts`）、`createGovViewer`、`updateGovViewer`（`api/gov.ts`）、`updateProgress`（`api/learn.ts`） | 这些能力"有封装、无入口"，与 §1.1 同源 | **不在 F4 范围**（F4 只接 task 侧那 2 个）；**另开工单**逐条核"该能力是否本就需要"（`awardPoints` 的第二参数还被静默丢弃，`NEXT_STEPS.md:214`） |
+| **D-6** | **动员/演习链路整条未实现**（§1.2）：`src/api/` 无 mobilization/drill 能力函数，前端不调 respond/join | 政府侧若要"演习服务可见"将落空 | **须独立立项**（「动员/演习响应链路」）；**不得塞进 F4**（§10-Q8） |
 
 ---
 
-## §10 待明确事项（回问产品/业务方）
+## §10 已决事项（team-lead / 业务方拍板 —— 本设计据此落地，不再"待明确"）
 
-> 以下为**我在设计时做了默认选择**但**没有绝对把握**的点，请业务方/team-lead 确认或纠正。
+> ✅ **全部 8 条已决**（2026-09 拍板）。下表为**决策 + 落地位置**；无待回问项。
+> ⚠️ **编号说明**：本节的 `Q1…Q8` 是**本文档的"设计待明确项"编号**（team-lead 决策单沿用），**与 PRD §11 的 Q1…Q9 无关**（如本文 `Q1`=鉴权、PRD `Q1`=国标口径）。引用时请写「§10-Qx」以免混淆。
 
-- **Q1（鉴权，影响"急救无需注册"）**：`/task/accept` 与 `/complete` 我选了 **`optionalAuth`**（登录则归因、游客跳过），以**保持 SOS「无需注册」的既有流**（建议书 §04）。若业务要求"任务响应必须登录"，则应改 `authMiddleware`（游客将被 401 拦截）——**请拍板**。
-- **Q2（计数器）**：`volunteers_responded` 的**非幂等**是既有缺陷。我倾向**本次不动**（保持最小改动面），仅在 T01 接线后由关系表提供可核对真值。是否要在本次顺手改为「按 `task_volunteers` 重算」？
-- **Q3b（未闭合兜底）**：始终无 `ended_at_ms` 的参与记录，我选 **(a) 不计入**（最保守、不臆造）。确认？
-- **Q4（历史回填）**：不做（臆造时长）。确认？
-- **Q5（封顶后的处置）**：`> 480 min` 我选「**封顶 480 + `status='pending'` 待人工确认**」（D2「超出需人工登记」的最省事落法）。若业务要求「整条不计入直到人工改」，需调整。
-- **Q6（`cert_no` 形态）**：默认 `VS-YYYYMMDD-<6位base36大写>`，`UNIQUE` 兜底 + 撞库重试。是否需要**校验位 / 更长熵 / 前缀可配**？
-- **Q7（验真端点限流）**：`GET /service-certificates/:certNo` 为**公开**端点。是否需要**按 IP 限流**（防遍历枚举编号）？我倾向**要**（复用 `createHourlyIpLimiter`），但会新增一处限流配置——**请拍板**。
-- **Q8（P1-10 时间窗）**：动员/演习闭合回写（`is_drill=1` 自动来源）**本次不做**。是否会因此导致政府侧"演习服务"不可见而被要求提前？
+| # | 决策 | 落地位置 |
+|---|---|---|
+| **Q1** | **采纳 `optionalAuth`**。**不登录就没有 `user_id`，物理上无法归因 ⇒ 游客响应必然不产生时长记录。这是约束的结果、不是缺陷**；**不得**为此改 `authMiddleware`（会破坏建议书 §04「无需注册」，优先级更高）。 | §4.3 端点 #8/#9 + 验收锚点；**§4.3 已显式写明「游客响应不产生时长记录」**；T23 固定该行为 |
+| **Q2** | **不动 `volunteers_responded`**（保持最小改动面），由 `task_volunteers` 提供可核对真值；⚠️ 接线后该计数器**首次被真实调用** ⇒ T01 内**加测试固定其既有（非幂等）行为**，防后人误以为可靠 | D-3 + T01 验收 + T24 |
+| **Q3b** | **采纳 (a) 不计入** —— 无闭合不臆造时长 | §3.5 / §7 T4 |
+| **Q4** | **不做历史回填** | §4.4 |
+| **Q5** | **采纳「封顶 480 + `status='pending'` 待人工确认」** | §3.5 |
+| **Q6** | **采纳 `VS-YYYYMMDD-<6位base36大写>`**，`UNIQUE` + 撞库重试；**不加校验位**（日期内 36⁶ ≈ 21.7 亿组合，配合 Q7 限流已足） | §4.1 / §5.2 |
+| **Q7** | **要限流**（复用 `createHourlyIpLimiter`）。理由：验真端点公开、编号可枚举 ⇒ 虽只返回总时长不返回 PII，但**「某人有无证明」本身即隐私** | §4.3 端点 #4 + T02 + T25 |
+| **Q8** | **不做**。理由比原设计更强：动员/演习**连前端入口都不存在**（§1.2，`src/api/` 无能力函数）⇒ 回写无从挂载。若政府侧要求演习服务可见，**应先立「动员/演习响应链路」独立立项，不得塞进 F4** | §1.2 / §2.2 P1-10 / §2.4 |
+
+---
+
+## §10bis 仍需业务/架构确认的**次要**事项（不阻塞）
+
+| # | 事项 | 我的默认 |
+|---|---|---|
+| N1 | `serviceHours` 的 KPI 分母口径（§2.4：P0 需收窄到"救援任务场景内"） | 报表里注明分母范围，不用"全部服务参与" |
+| N2 | 机构侧人工登记（P1-7）是否要**双人复核**（PRD Q8 原始提问，未决） | 默认不做；另评估 |
+| N3 | `cert_no` 前缀是否需可配（多租户） | 默认固定 `VS-` |
 
 ---
 
@@ -667,13 +738,28 @@ classDiagram
 
 ---
 
-## 附录 B：开放问题 → 本设计的默认结论（速查）
+## 附录 B：开放问题 → 结论（速查，均已定）
 
-| PRD 问题 | 本设计结论 | 依据 |
+| PRD 问题 | 结论 | 依据 |
 |---|---|---|
 | Q3（a/b） | **(a) 新表 `task_volunteers`** | §3.3（三条理由） |
-| Q3（三链路统一） | P0 只做任务侧，**抽单一 helper**，动员/演习列 **P1-10** | §3.4 |
+| Q3（三链路统一） | P0 只做任务侧，**抽单一 helper**；动员/演习 **P1-10**（须先立独立立项） | §3.4 |
 | Q3b | 未闭合 ⇒ **不计入** | §3.5 / §10-Q3b |
 | Q4 | **不回填** | §4.4 / §10-Q4 |
 | Q5 | 不采位置；台账**长期保留**；政府只给聚合 | 硬约束 #7/#8 |
-| Q7（同步/国标） | **不做**（P2-10/P2-11） | §0 |
+| Q7（政府平台同步 / 国标） | **不做**（P2-10/P2-11） | §0 |
+| **Q1（鉴权）** | **`optionalAuth`**；游客不产生记录（约束，非缺陷） | §10-Q1 |
+| **Q2（计数器）** | 不动，加测试固定既有行为 | §10-Q2 |
+| **Q6（`cert_no`）** | `VS-YYYYMMDD-<6 base36>`，无校验位 | §10-Q6 |
+| **Q7（验真限流）** | **要限流**（编号可枚举 ⇒ 「有无证明」即隐私） | §10-Q7 |
+| **Q8（动员/演习）** | **不做**（无入口 ⇒ 须独立立项） | §10-Q8 / §2.4 |
+
+---
+
+## 附录 C：修订记录
+
+| 版本 | 变更 |
+|---|---|
+| v1.0 | 初版（P0-1~P0-5 设计 + 5 任务分解 + §10 八条待明确） |
+| **v1.1** | ① §1.1 范围从「task 侧断线」**扩为「6 个写型接口零接线」**；② **新增 §1.2**：动员/演习**非「有表缺闭合」而是「整条链路未实现」**（原三档表措辞已更正）；③ **新增 §2.4**：P0 可信时长来源**只有救援任务**，并给出对 KPI / UI 的影响；④ §10 八条**全部已决**（Q1 `optionalAuth`+游客不产生记录 / Q7 限流 / Q8 不做），新增 §10bis 次要项；⑤ 任务验收补 **T23 游客不产生记录 / T24 计数器行为固定 / T25 验真限流**；⑥ T02 增限流器与测试文件。 |
+
