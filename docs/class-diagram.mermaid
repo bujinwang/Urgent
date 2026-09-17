@@ -1,0 +1,91 @@
+classDiagram
+    class User {
+        +string id
+        +string name  %% 自填昵称（非实名，Q2）
+    }
+    class Task {
+        +string id
+        +string status
+        +int volunteers_responded
+    }
+    class TaskVolunteer {
+        +string id
+        +string task_id
+        +string user_id
+        +int responded_at_ms
+        +int ended_at_ms
+        +string status  %% responded|closed
+    }
+    class VolunteerServiceLog {
+        +string id
+        +string user_id
+        +string activity_type
+        +string source_type  %% system|manual
+        +string source_ref
+        +int started_at_ms
+        +int ended_at_ms
+        +int duration_min
+        +int is_drill
+        +string status  %% pending|confirmed|voided
+        +string org_id
+        +string created_by
+        +int voided_at_ms
+        +string void_reason
+        +int created_at_ms
+    }
+    class ServiceCertificate {
+        +string id
+        +string user_id
+        +string cert_no
+        +int period_from_ms
+        +int period_to_ms
+        +int total_minutes
+        +string breakdown_json
+        +int issued_at_ms
+        +string issued_by
+        +string status  %% active|revoked
+        +int revoked_at_ms
+        +string revoke_reason
+    }
+    class Organization {
+        +string id
+        +string name
+    }
+    class OrganizationMember {
+        +string org_id
+        +string user_id
+        +string role  %% admin|manager|member
+    }
+    class ServiceLogService {
+        +int MAX_SINGLE_MINUTES = 480
+        +computeDurationMin(started, ended) int
+        +recordService(input) string
+        +closeService(input) int
+        +getUserHours(userId, page, pageSize) HoursView
+        +buildBreakdown(userId, from, to) Breakdown
+    }
+    class ServiceCertificateService {
+        +issue(userId, from, to) Certificate
+        +listMine(userId) Certificate[]
+        +verify(certNo) VerifyView  %% 仅 5 字段，零 PII
+        +revoke(id, reason) void
+        +genCertNo(now) string
+    }
+    class ServiceHoursRouter {
+        +GET_service_hours_me(req) HoursView
+        +POST_service_certificates(req) Certificate
+        +GET_service_certificates_me(req) Certificate[]
+        +GET_service_certificates_certNo(req) VerifyView
+    }
+
+    User "1" --> "0..*" TaskVolunteer : participant
+    Task "1" --> "0..*" TaskVolunteer : has
+    User "1" --> "0..*" VolunteerServiceLog : owns
+    User "1" --> "0..*" ServiceCertificate : issued
+    Organization "1" --> "0..*" OrganizationMember : contains
+    OrganizationMember ..> VolunteerServiceLog : org 归属(软引用 org_id)
+    ServiceLogService ..> VolunteerServiceLog : 唯一权威写入/聚合
+    ServiceCertificateService ..> VolunteerServiceLog : 只读聚合
+    ServiceCertificateService ..> ServiceCertificate : 写入
+    ServiceHoursRouter ..> ServiceLogService : 查询
+    ServiceHoursRouter ..> ServiceCertificateService : 生成/验真

@@ -1,0 +1,73 @@
+sequenceDiagram
+    autonumber
+    participant U as 志愿者(前端)
+    participant S as useTaskStore
+    participant A as taskRouter
+    participant TV as task_volunteers
+    participant L as ServiceLog(helper)
+    participant DB as volunteer_service_logs
+
+    Note over U,S: 现状：acceptMission() 只改本地 state，不调 API（设计 §1.1）
+    U->>S: 点「接受·立即出发」
+    S->>A: POST /task/accept {taskId}  (Bearer token)
+    A->>A: user_id = req.auth?.userId ∥ openid  ← 只从 token（绝不读 body）
+    alt 已登录
+        A->>TV: INSERT OR IGNORE (id, task_id, user_id, responded_at_ms=now)
+        TV-->>A: changes=1（首次）/ 0（重复 accept）
+    else 游客（可选登录）
+        A-->>A: 无身份 ⇒ 跳过归因（保留"无需注册"急救流）
+    end
+    A->>A: UPDATE tasks SET status='active'
+    A-->>S: { attributed:true }
+
+    U->>S: 任务结束（到达/结束）
+    S->>A: POST /task/complete {taskId}
+    A->>A: user_id = req.auth?.userId ∥ openid
+    A->>TV: SELECT user_id, responded_at_ms WHERE task_id=? AND ended_at_ms IS NULL
+    loop 每位未闭合参与者
+        A->>TV: UPDATE task_volunteers SET ended_at_ms=now, status='closed' WHERE … AND ended_at_ms IS NULL
+        Note right of TV: 幂等：仅当 ended IS NULL 才写 ⇒ 二次 complete 影响 0 行（T18）
+        A->>L: closeService({userId, taskId, respondedAtMs, endedMs=now})
+        L->>L: durationMin = max(0, round((ended-started)/60000))；>480 ⇒ 封顶+status=pending
+        L->>DB: INSERT OR IGNORE (…)  ← 唯一索引 idx_vsl_dedup 兜底幂等
+        DB-->>L: changes=1/0
+    end
+    A->>A: UPDATE tasks SET status='completed'
+    A-->>S: { closed:N, minutes:M }
+
+    U->>S: 打开「我的服务时长」
+    S->>A: GET /volunteer/service-hours/me
+    A->>DB: 聚合 WHERE user_id=? AND ended IS NOT NULL AND is_drill=0 AND status='confirmed'
+    A-->>S: 总时长 + 分项 + 明细
+
+---
+
+sequenceDiagram
+    autonumber
+    participant U as 志愿者(前端)
+    participant P as serviceHoursRouter
+    participant C as ServiceCertificate(helper)
+    participant DB as volunteer_service_logs
+    participant SC as service_certificates
+    participant V as 第三方(匿名验真)
+
+    U->>P: POST /volunteer/service-certificates {periodFromMs, periodToMs} (token)
+    P->>P: user_id = req.auth.userId  ← 只从 token
+    P->>C: issue({userId, from, to})
+    C->>DB: SELECT activity_type, SUM(duration_min) WHERE user_id=? AND started_at_ms>=? AND started_at_ms<? AND status='confirmed' AND is_drill=0 AND ended_at_ms IS NOT NULL GROUP BY activity_type
+    DB-->>C: 分项
+    C->>C: total=Σ分项；breakdown=JSON；certNo=VS-YYYYMMDD-<rand>（重试防撞 UNIQUE）
+    alt total=0
+        C-->>P: 400 该区间无可用服务记录
+    else total>0
+        C->>SC: INSERT (id, user_id, cert_no, period_*, total_minutes, breakdown_json, issued_at_ms, issued_by='self', status='active')
+        C-->>P: 证明对象
+        P-->>U: {certNo, totalMinutes, breakdown, …}
+    end
+    Note over U: 前端展示「志愿服务记录证明（急救侠平台出具）」+ 打印/导出
+
+    V->>P: GET /volunteer/service-certificates/:certNo  （公开，无 token）
+    P->>SC: SELECT cert_no, period_from_ms, period_to_ms, total_minutes, status WHERE cert_no=?
+    P->>P: 投影裁剪为 5 字段（零 PII 守卫：绝不含 user_id/name/phone）
+    P-->>V: { certNo, periodFromMs, periodToMs, totalMinutes, status }
+    Note over P,V: 作废 ⇒ status='revoked'（仍可查"存在且已撤销"）
