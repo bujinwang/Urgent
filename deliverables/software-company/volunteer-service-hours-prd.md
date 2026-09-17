@@ -28,7 +28,18 @@ grep "服务时长|志愿证明|志愿服务证明|serviceHours|volunteerHours|s
 `users` / `volunteers` 两表均**只有 `points` / `rescue_count`**（`db.ts:72-73`、`db.ts:670-671`）。
 前端志愿者页只展示**积分 / 参与救援 / 发现 AED / 已打卡**（`pages/volunteer/index.vue:6-24`），**没有"时长"**。
 
-**❌ 缺口 2（比缺口 1 更致命）：主场景根本没有「人 × 事件」记录**
+**⚠️ 已按「字段名 + 写法」双向复核（避免关键词 grep 的盲区）**：
+
+| 回查项 | 命令 | 结果 |
+|---|---|---|
+| 时长类别名（后端） | `grep -rniE "duration\|elapsed\|minutes\|hours\|时长\|工时\|服务时间\|投入"` 于 `routes/ services/ types/ db.ts` | 仅 4 类**无关**命中：`video_posts.duration` / `media-alert.videoDuration`（视频时长）、`rescue_replays.duration`（复盘文本如 `'8分钟'`）、`courses.duration`（展示串 `'15分钟'`）、`open_hours`（AED 开放时间）。**无一处是"按人的服务时长"** |
+| 投影别名 | 查 `SELECT … AS hours/minutes/serviceHours` | 仅 `gov.ts:193-204` 的 `hourlyDistribution`（按小时分桶的**任务计数**，非时长） |
+| 时长类别名（前端） | 同上正则于 `急救侠-uniapp/src` | 仅 `video/index.vue:49` 的 `时长 {{fmtDuration(...)}}`（视频预览）与 en-US 文案中的医学叙述 |
+| 解构写法（教训来自 D5 复核） | 用 `\{\s*userId\s*\}\s*=\s*req\.body` 而非 `body\.userId` | 后者**零命中**（唯一命中在 `public.ts:126` 的注释里），前者命中 **26 处** ⇒ 本项目大量身份字段走**解构赋值**，关键词 grep 会漏 |
+
+⇒ 结论：**"服务时长"这一维度在项目里确实完全不存在**，且有正反两侧证据支撑，不是 grep 漏检。
+
+**❌ 缺口 2（比缺口 1 更致命）：两个维度同时缺失 ——「归因」与「闭合」**
 
 ```ts
 // 急救侠-server/src/routes/task.ts:44
@@ -37,7 +48,26 @@ db.prepare("UPDATE tasks SET status = 'active', volunteers_responded = volunteer
 `POST /api/task/accept` **只把计数器 +1，不记录是谁接受了任务**。`tasks` 表本身也无 `user_id` 列（`db.ts:91-103`）。
 ⇒ **救援任务这一最核心的服务场景，当前无法归因到任何一个人**，"服务时长"无从计算。这是 F4 的**真前置**。
 
-**⚠️ 缺口 3：现有「人 × 事件」记录散落五处，且**都只有单时间戳、没有时长**
+**而"归因"之外还缺"闭合"** —— 即使补上"谁参与了"，`duration_min` 仍算不出来，因为**现有参与关系一律只有"开始"没有"结束"**：
+
+| 关系表 | 归因 | 闭合时刻 |
+|---|---|---|
+| `mobilization_volunteers`（`db.ts:399-409`） | ✅ `user_id` | ❌ 只有 `responded_at`，**无 `ended_at`** |
+| `drill_participants`（`db.ts:309-319`） | ✅ `user_id` | ❌ 只有 `joined_at`，**无 `ended_at`** |
+| `tasks` | ❌ 无 `user_id` | ❌ |
+| `drill_events`（`db.ts:198-216`） | — | ❌ 只有 `date TEXT`（日期串），**无起止时刻** |
+
+**★ 好消息：幂等写法已有现成先例可直接照抄，不必新发明**
+
+`mobilization_volunteers` 就是一张**已经写好的「人 × 事件」关系表**，且写入点 `rescue.ts:69-73` 已经用了
+**`UNIQUE(mobilization_id, user_id)` 约束 + `INSERT OR IGNORE`** 来做幂等 ——
+与 P0-2 要求的"同一用户 accept 两次仍只有一条"**是同一个模式**。
+`drill_participants`（`db.ts:309-319`，`UNIQUE(event_id, user_id)`）与写入点 `drill.ts:30` 的
+`INSERT OR IGNORE` **同理**（见 §1.1 末「演习场景核实」）。
+
+⇒ 结论不变但更精确：**F4 缺的不是"幂等技巧"，而是 (a) 任务侧的归因、(b) 所有侧的闭合时刻**。
+
+**⚠️ 缺口 3：现有「人 × 事件」记录散落六处，且**都只有单时间戳、没有时长**
 
 | 表 | 字段 | 有无"人" | 有无"时长/区间" |
 |---|---|---|---|
@@ -49,6 +79,13 @@ db.prepare("UPDATE tasks SET status = 'active', volunteers_responded = volunteer
 | `tasks` (`db.ts:91-103`) | 无 `user_id` | ❌ | ❌ |
 
 另：`courses` 的进度是**全局单行**，`UPDATE courses SET progress=?` 不带用户（`routes/learn.ts:26`）⇒ **培训完成也没有按人留痕**。
+`courses.duration` 是 `'15分钟'` 这类**展示用字符串**（`seed.ts:100-105`），是"课程设计时长"，与谁学、学了多久无关。
+
+**演习场景核实（team-lead 指定回查项）**：
+`drill.ts:28` 确实从 `body.userId` 取身份，且**演习有对应的参与关系表** —— `drill_participants`（`db.ts:309-319`）。
+写入点 `drill.ts:30`（`INSERT OR IGNORE`），`attended` 在 `drill.ts:46`（`/events/:id/complete` 时置 1），
+并在 `drill.ts:48-49` **自动为每位参与者补一条 `training_records`**。
+⇒ **演习侧"归因"是齐的，缺的仍是"闭合时刻"**（无 `ended_at`，且 `drill_events` 只有 `date TEXT`）。
 
 **⚠️ 缺口 4：`volunteers` 表是"死表"，排行榜与真实用户是两套数据**
 
@@ -126,7 +163,7 @@ rescue_count / public_id / is_leader / affiliation / volunteer_type / is_organiz
 | **D2** | **时长单位与算法** | **分钟**入库（`duration_min INTEGER`），服务端由起止时刻算出；**不采信客户端上报的时长**；单次上限封顶（建议 **480 分钟/条**，超出需人工登记） | 客户端时长可伪造；封顶是防"挂机刷时长"的最廉价护栏 |
 | **D3** | **自动记 vs 需审核** | **系统来源自动记（`status='confirmed'`）**；**人工登记来源默认 `pending`，需机构管理员或本人确认**；两种都可被**作废**（留 `void_reason`，**不物理删除**） | 全量人工审核会压垮运营；全量自动记则无纠错口。**作废留痕**比删除更可审计 |
 | **D4** | **演习与真实分离** | 台账带 `is_drill`；证明**默认只统计 `is_drill=0`**，且分项可见 | 直接继承 F3 教训：`is_drill` 若不分，统计必被污染 |
-| **D5** | **身份只从 token 派生** | 所有写入端点挂 `authMiddleware`，`user_id = req.auth.userId`；**绝不读 `req.body.userId`** | F3 §3.1 已确立；注意 `task.ts` / `rescue.ts:71` / `drill.ts` / `org.ts:198` **至今仍在读 body.userId**，这是**既有的**信任边界弱点，**新端点不得沿用** |
+| **D5** | **身份只从 token 派生** | 所有写入端点挂 `authMiddleware`，`user_id = req.auth.userId`；**绝不读 `req.body.userId`** | F3 §3.1 已确立（`routes/public.ts:126` 已把「身份只从 token 派生」写成注释纪律）。⚠️ 但**现存代码不是这样**：全仓**≥26 个端点**从 `req.body` 解构 `userId` 直接入库，另有 **6 个端点**从 `req.query.userId` / `req.query.leaderId` 取身份 ⇒ 这是**系统性的既存身份模型，不是个别遗留**（清单见附录 A）。**修它们不属于 F4 范围**（避免范围膨胀），仅在 PRD 点出并另立技术债；**新端点不得沿用** |
 | **D6** | **谁能看** | 本人 → 全部明细；机构管理员 → **仅本机构成员**的聚合与明细；政府 → **仅聚合、零 PII**；编号验真页 → **仅返回编号/区间/总时长/状态，不返回姓名** | 与 gov 看板既有取向一致（`NEXT_STEPS.md:555`「零 PII」） |
 | **D7** | **保留期** | **台账长期保留（不设自动删除）**；**证明记录永久保留**（它是权益凭证）；行为明细中的**位置类字段一律不采**（见 §6） | 与 F3 的 SOS 埋点（90 天清理）**性质不同**：时长是志愿者的**权益**，删了等于剥夺凭据 ⇒ **不可照抄 F3 的保留期** |
 | **D8** | **证明的措辞** | UI 与导出物统一用「**志愿服务记录证明（急救侠平台出具）**」，**不使用**"官方""国家标准""政府认可"字样 | 避免重复 §1.1 缺口 6 那种"看着像、实际不可验"的失实陈述；"官方"需政府背书（建议书 §06 政府方职责含"荣誉证书、政府表彰"） |
@@ -143,12 +180,16 @@ rescue_count / public_id / is_leader / affiliation / volunteer_type / is_organiz
 - 为什么：这是 F4 的**唯一权威口径**，所有展示/证明/导出都从它派生，避免各处重算（与 `aed-linkage-prd.md:65`「唯一权威口径」同一原则）。
 - 验收：① 同一 `(source_type, source_ref, user_id)` 重复写入**不产生第二行**；② `duration_min` 恒等于服务端算出的 `(ended-started)` 取整，**客户端传值被忽略**；③ `PRAGMA table_info` **不含任何经纬度/位置列**。
 
-**P0-2 · 补主场景的「人 × 事件」留痕**
-- 做什么：让救援任务可归因 —— 二选一（**方案由架构师定，见 Q3**）：
+**P0-2 · 补主场景的「人 × 事件」留痕 —— 归因 **与** 闭合时刻**
+- 做什么：让救援任务可归因**且可闭合** —— 二选一（**方案由架构师定，见 Q3**）：
   (a) 新表 `task_volunteers(task_id, user_id, responded_at_ms, ended_at_ms)`，`accept`/`complete` 时写；
   (b) 不建关系表，`accept` 时直写台账、`complete` 时补 `ended_at_ms`。
-- 为什么：`task.ts:44` 现状下主场景零归因，F4 会做成空壳。
-- 验收：同一用户对同一任务 accept 两次 ⇒ 仍**只有一条**参与记录；`complete` 后该条**必须有** `ended_at_ms`（缺失即视为未闭合，不计入时长）。
+  ⚠️ **无论选哪个，`ended_at_ms` 都是必填能力** —— 没有闭合时刻就**算不出 `duration_min`**。
+- 为什么：两个独立缺口，**只补一个都不够**：
+  1. `task.ts:44` 现状下主场景**零归因**；
+  2. **即使补上归因，现有所有参与关系表都只有"开始"没有"结束"** —— `mobilization_volunteers` 只有 `responded_at`（`db.ts:399-409`）、`drill_participants` 只有 `joined_at`（`db.ts:309-319`）、`drill_events` 只有 `date TEXT`（`db.ts:198-216`）⇒ **闭合时刻是全集缺失，不是任务场景独有**。
+- ✅ **幂等写法不必新发明**：照抄 `mobilization_volunteers` 的 **`UNIQUE(...)` 约束 + `INSERT OR IGNORE`**（`db.ts:399-409` + `rescue.ts:69-73`），或 `drill_participants` 的同款（`db.ts:309-319` + `drill.ts:30`）。
+- 验收：① 同一用户对同一任务 accept 两次 ⇒ 仍**只有一条**参与记录；② `complete` 后该条**必须有** `ended_at_ms`（缺失即视为未闭合，**不计入时长**）；③ `/complete` 被重复调用 ⇒ 幂等，**不产生第二条**、不重复累加时长。
 
 **P0-3 · 我的时长（查询 + 明细）**
 - 做什么：`GET /api/volunteer/service-hours/me`（token 派生），返回**总时长 + 按 `activity_type` 分项 + 明细列表（分页）**。
@@ -355,6 +396,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_tv_dedup ON task_volunteers(task_id, user_
 | T15 | 验真接口**零 PII**：响应体断言**不含** `user_id` / `name` / `phone` | 多返回一个 `userName` ⇒ 变红（建议用深扫断言，照 `role-split.test.ts` 的写法） |
 | T16 | 迁移：复制真实库剥离新表后启动 ⇒ 日志 **`Migration applied: 041`**（非 skipped） | 只写 canonical 不写 `migrations[]` ⇒ 变红（**此项必须在实机跑，`:memory:` 测不出来**） |
 | T17 | `clearAll()` **包含**新表：写入后 `clearAll()` ⇒ 新表为空 | 漏加进 `db.ts:1061` ⇒ 变红 |
+| T18 | **闭合幂等**：`/complete` 重复调用两次 ⇒ 参与记录仍 1 条、`ended_at_ms` **不被第二次覆盖**、总时长不重复累加 | 去掉幂等守卫 ⇒ 时长翻倍，变红 |
 
 > ⚠️ **复跑纪律**：`NEXT_STEPS.md:302` 记录过 vitest 在编辑后立即运行可能取到过期缓存、把突变**假报为存活** ⇒ 所有 SURVIVED 结论**必须复跑确认**。
 > ⚠️ **调用点必须单独测**：F3 曾出现"模块测得很全，但删掉页面里那一行调用仍全绿"（`sos-telemetry-design.md:291`）⇒ 前端写入/导出**按钮的调用点**要有独立用例。
@@ -426,6 +468,22 @@ sequenceDiagram
 - (b) `accept`/`complete` 时直写台账（迁移更少，但任务与台账耦合）。
 我倾向 **(a)**，但这是架构决策，请架构师定。
 
+**选型时必须一并考虑的既有先例**：`mobilization_volunteers`（`db.ts:399-409`）与 `drill_participants`（`db.ts:309-319`）**已经是两张形态相同的「人 × 事件」表**（`user_id` + 唯一约束 + `INSERT OR IGNORE`），
+但**两者都没有 `ended_at`**。所以本条不只是"要不要建新表"的取舍，而是：
+
+1. **要不要把"闭合时刻"统一补到既有两张表上**（而不是只补任务侧）？三条服务链路（任务/动员/演习）各自的做法不同 ⇒ 台账将出现**三种口径**，与「唯一权威口径」原则冲突；
+2. **是否统一抽象**为"参与关系 + 闭合时刻"的单一模式（三处复用），避免架构师为每条链路各写一套写入逻辑；
+3. 若统一，是否需要一个 `activity_type` 枚举把三条链路归一（这直接决定 §5.1 台账的 `source_ref` 能否跨链路唯一）。
+
+> 我倾向"统一补 `ended_at` + 三链路复用同一写入助手"，但这**扩大了 P0-2 的范围**（从"补任务侧"变成"补三条链路"）⇒ **需拍板**：是接受范围扩大，还是 P0 只做任务侧、其余链路列入 P1？
+
+### 🟡 Q3b（P1 级）闭合时刻缺失时的兜底规则是什么？
+若某条参与记录始终没有 `ended_at`（用户中途退出、`/complete` 未被调用、旧数据回填），该条：
+- (a) 不计入时长（**我倾向**，最保守、无需臆造数据）；
+- (b) 按活动类型的默认时长计入（如"演练默认 2 小时"）—— **这是臆造数据**，我不建议，若采用必须可识别标注；
+- (c) 计入但标 `status='pending'` 待人工确认。
+**这条直接影响 Q4（历史回填）的可行性。**
+
 ### 🟡 Q4（P1 级）历史参与记录是否回填？
 现有 `drill_participants` / `mobilization_volunteers` / `training_records` 有历史行但**只有单时间戳、没有结束时刻**。
 回填需要**人为定义时长规则**（如"演练默认记 2 小时"）⇒ **这是臆造数据**，我**不建议**；若业务方要求，请明确规则与标注方式（回填记录应可识别）。
@@ -454,6 +512,10 @@ F4 的人工登记若沿用同一模式，会继承这个弱点。**是否要借
 |---|---|
 | 时长维度零命中 | 后端 grep 仅命中 `open_hours`(`db.ts:122`)/`hourlyDistribution`(`gov.ts:193`)；前端 grep 零命中 |
 | 任务无法归因到人 | `routes/task.ts:44`（只 `+1` 计数器）；`tasks` 无 `user_id`（`db.ts:91-103`） |
+| 闭合时刻全集缺失 | `mobilization_volunteers` 无 `ended_at`（`db.ts:399-409`）；`drill_participants` 无 `ended_at`（`db.ts:309-319`）；`drill_events` 只有 `date TEXT`（`db.ts:198-216`） |
+| 幂等写法有现成先例 | `db.ts:399-409` 的 `UNIQUE(mobilization_id,user_id)` + `rescue.ts:69-73` 的 `INSERT OR IGNORE`；同款见 `db.ts:309-319` + `drill.ts:30` |
+| 演习有参与表、自动补培训记录 | `db.ts:309-319`；写入 `drill.ts:30`；`attended=1` @ `drill.ts:46`；补 `training_records` @ `drill.ts:48-49` |
+| 身份取自客户端是**系统性**的 | 附录 A：**26 个** `req.body` 解构 + **6 个** `req.query`（见下） |
 | `volunteers` 是死表 | 全仓 `INSERT INTO volunteers` 仅 `seed.ts:135` + 测试 |
 | 无实名 | `users` 列全览 `db.ts:67-89`；登录 `routes/auth.ts:29` |
 | 证书卡不可核验 | `pages/cert/index.vue:22` 空 `qr-box` + `:143` CSS 假码 |
@@ -464,3 +526,42 @@ F4 的人工登记若沿用同一模式，会继承这个弱点。**是否要借
 | 演习/真实分离教训 | F3 `sos-telemetry-design.md §8`；`product-backlog.md:177` |
 | 突变假存活 / 调用点无覆盖 | `sos-telemetry-design.md:291`、`:302` |
 | ⚠️ 与任务书的一处更正 | 任务书称「`NEXT_STEPS.md` 技术债**第 5 条**有 CSV 说明」—— 实际技术债第 5 条是 **`Date.now()` 单时间戳主键碰撞**（`NEXT_STEPS.md:216`）；CSV 在 **§「P2-8 政府看板 · CSV / PDF 导出」（`:552-557`）**。两条都相关：前者提醒新表主键**必须**带随机后缀（照 `push.ts:44`），后者是导出要照抄的对象 |
+
+---
+
+## 附录 A：身份取自客户端（非 token）的端点全清单
+
+> ⚠️ **这是既存代码的系统性特征，不是 F4 引入的，也不在 F4 修复范围内。** 此处只作为「F4 新端点为什么必须挂 `authMiddleware`」的反面证据。
+> 检索方式（**关键**）：必须用解构写法 `\{\s*[^}]*userId[^}]*\}\s*=\s*req\.body`。
+> 若用 `grep "body\.userId"` 会**零命中**（唯一命中是 `public.ts:126` 的注释），从而误判为"没有问题"。
+
+**A.1 从 `req.body` 解构 `userId` 并入库（26 处）**
+
+| 文件 | 行 | 文件 | 行 |
+|---|---|---|---|
+| `user.ts` | 83 / 93 / 130 | `rescue.ts` | 14 / 69 / 121 / 143 |
+| `org.ts` | 108 / 200 | `aed.ts` | 243 / 279 / 366 / 446 |
+| `trail.ts` | 25 / 56 | `wildlife.ts` | 10 |
+| `animals.ts` | 37 / 46 | `drill.ts` | 28 |
+| `replay.ts` | 36 | `video.ts` | 70 / 99 / 111 |
+| `community.ts` | 13 / 83 / 99 | | |
+
+**A.2 从 `req.query` 取身份（6 处）**
+
+| 文件 | 行 | 取用 |
+|---|---|---|
+| `aed.ts` | 98 | `req.query.userId` |
+| `community.ts` | 36 | `req.query.userId` |
+| `rescue.ts` | 23 | `req.query.userId` |
+| `rescue.ts` | 88 | `req.query.leaderId` |
+| `user.ts` | 52 | `req.query.userId` |
+| `user.ts` | 71 | `req.query.userId` |
+
+**A.3 对比：已经做对的先例（F4 应照抄这两处）**
+
+| 位置 | 做法 |
+|---|---|
+| `routes/user.ts:106-113`（`POST /api/user/points`） | 挂 `authMiddleware`，`userId = req.auth.userId \|\| req.auth.openid`，**不读 body**；注释已写明这是"安全收敛 F3"的修复 |
+| `routes/public.ts:126`（SOS 埋点） | 注释中把「**身份只从 token 派生，绝不读 `req.body.userId`**」写成纪律条款（F3 设计 §3.1） |
+
+⇒ **F4 的所有写入端点必须落在 A.3 这一侧。** A.1 / A.2 的收敛建议**另立技术债工单**，不在本 PRD 实施。
