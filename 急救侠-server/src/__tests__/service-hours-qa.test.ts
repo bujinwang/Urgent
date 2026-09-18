@@ -62,6 +62,14 @@ const setArrived = (userId: string, ms: number, taskId = TASK): void => {
   db.prepare('UPDATE task_volunteers SET arrived_at_ms = ? WHERE task_id = ? AND user_id = ?').run(ms, taskId, userId)
 }
 
+/** `tasks.status` 当前值（供 #4 的保守口径断言）。 */
+const taskStatus = (taskId = TASK): string =>
+  (db.prepare('SELECT status FROM tasks WHERE id = ?').get(taskId) as { status: string }).status
+
+/** 既有（非幂等）计数器 `tasks.volunteers_responded`（供 #3）。 */
+const taskResponded = (taskId = TASK): number =>
+  (db.prepare('SELECT volunteers_responded AS v FROM tasks WHERE id = ?').get(taskId) as { v: number }).v
+
 describe('F4 T01 · 独立对抗性验证（v1.2）', () => {
   beforeEach(() => { seedTestData() })
 
@@ -331,5 +339,129 @@ describe('F4 T01 · 独立对抗性验证（v1.2）', () => {
     expect(row.ended_at_ms).toBeNull()
     expect(row.status).toBe('responded')
     expect(row.void_reason).toBe('')
+  })
+
+  // =========================================================================
+  // 12. ★ #1 跨人幂等交叉：A、B 都到达 → A /complete → B /complete → A 再 /complete
+  //     （实现方只测了"同人重复"，没测"两人各自闭合"这条正常路径）
+  // =========================================================================
+  it('QA-12（#1）：A、B 都到达 ⇒ 各自闭合、各 1 台账、时长各按自己的 arrived 算、互不影响', async () => {
+    addUserB()
+    await accept(tokenA())
+    await accept(tokenB())
+    await arrive(tokenA())
+    await arrive(tokenB())
+    setArrived('user_001', Date.now() - 20 * 60000)
+    setArrived('user_002', Date.now() - 15 * 60000)
+
+    const a1 = await complete(tokenA())
+    expect(a1.body.data.closed).toBe(1)
+    expect(a1.body.data.minutes).toBe(20)
+    // A 闭合不得扰动 B
+    expect(tv('user_002').ended_at_ms).toBeNull()
+    expect(tv('user_002').status).toBe('arrived')
+
+    const b1 = await complete(tokenB())
+    expect(b1.body.data.closed).toBe(1)
+    expect(b1.body.data.minutes).toBe(15)
+
+    const aRow = tv('user_001')
+    const bRow = tv('user_002')
+    expect(aRow.status).toBe('left')
+    expect(bRow.status).toBe('left')
+
+    // 各 1 条台账，时长按各自 arrived 起算
+    expect(logs('user_001').length).toBe(1)
+    expect(logs('user_002').length).toBe(1)
+    expect(logs('user_001')[0].duration_min).toBe(20)
+    expect(logs('user_002')[0].duration_min).toBe(15)
+    expect(logs('user_001')[0].started_at_ms).toBe(aRow.arrived_at_ms)
+    expect(logs('user_002')[0].started_at_ms).toBe(bRow.arrived_at_ms)
+
+    // A 的第二次动作：不改变 B 的任何字段，也不新增台账
+    const bSnapshot = { ...tv('user_002') }
+    const a2 = await complete(tokenA())
+    expect(a2.body.data.closed).toBe(0)
+    expect(tv('user_001').ended_at_ms).toBe(aRow.ended_at_ms)
+    expect(tv('user_002')).toEqual(bSnapshot)
+    expect(count('volunteer_service_logs')).toBe(2)
+  })
+
+  // =========================================================================
+  // 13. ★ #2 固定「放弃后不可重新参与同一任务」的**现状**（设计已登记的产品边界）
+  // =========================================================================
+  it('QA-13（#2）：放弃后 /accept /arrive /complete 全部 no-op，arrived 不被重置、status 保持 voided、零台账', async () => {
+    await accept(tokenA())
+    await arrive(tokenA())
+    const arrivedAfterFirst = tv('user_001').arrived_at_ms
+    expect(arrivedAfterFirst).toBeGreaterThan(0)
+
+    const ab = await abandon(tokenA(), { reason: '临时离开' })
+    expect(ab.body.data.voided).toBe(true)
+
+    // ⚠️ 行为固定型（设计已登记）：`UNIQUE(task_id, user_id)` + `status <> 'voided'` 守卫 ⇒
+    // 同一志愿者**放弃后无法重新参与同一任务**。若日后决定支持「反悔重参与」，
+    // **请有意地更新本用例的期望**（改为断言重新参与成功），而不要为让它变绿而顺手改断言。
+    const ra = await accept(tokenA())
+    expect(ra.body.data.attributed).toBe(false) // UNIQUE 冲突 ⇒ INSERT OR IGNORE 0 行
+    const rr = await arrive(tokenA())
+    expect(rr.body.data.arrived).toBe(false) // status='voided' 守卫 ⇒ no-op
+    const rc = await complete(tokenA())
+    expect(rc.body.data.closed).toBe(0)
+
+    const row = tv('user_001')
+    expect(row.arrived_at_ms).toBe(arrivedAfterFirst) // 未被重置
+    expect(row.status).toBe('voided')
+    expect(row.ended_at_ms).toBeNull()
+    expect(count('volunteer_service_logs')).toBe(0)
+  })
+
+  // =========================================================================
+  // 14. ★ #3 游客 /accept 的计数器行为（实现方 T24 用的是**登录用户**，未覆盖游客）
+  // =========================================================================
+  it('QA-14（#3）：游客 /accept ⇒ volunteers_responded 仍 +1（既存非幂等行为，D-3，本次刻意不改）', async () => {
+    const before = taskResponded()
+    const ra = await hit('/api/task/accept', undefined)
+
+    expect(ra.status).toBe(200)
+    expect(ra.body.data.attributed).toBe(false) // 游客无归因
+    // ⚠️ 行为固定型（D-3）：`/accept` 的计数器是**无条件自增**（与是否登录无关）⇒ 游客也 +1。
+    // 这是既存缺陷、本次刻意不修；若日后修 D-3（改为幂等重算），**必须同步更新此处期望**。
+    expect(taskResponded()).toBe(before + 1)
+    expect(count('task_volunteers')).toBe(0) // 但游客确实不产生参与行
+  })
+
+  // =========================================================================
+  // 15. ★ #4 固定 /complete 对 `tasks.status` 的**保守口径**（设计 §11.4）
+  // =========================================================================
+  it('QA-15a（#4）：已到达者 /complete ⇒ tasks.status 置 completed', async () => {
+    await accept(tokenA())
+    await arrive(tokenA())
+    expect(taskStatus()).toBe('active')
+    await complete(tokenA())
+    expect(taskStatus()).toBe('completed')
+  })
+
+  it('QA-15b（#4）：B 仍在场（已到达未闭合）也不影响该保守口径 —— A /complete 照常置 completed', async () => {
+    addUserB()
+    await accept(tokenA())
+    await accept(tokenB())
+    await arrive(tokenA())
+    await arrive(tokenB())
+    await complete(tokenA())
+    expect(taskStatus()).toBe('completed')
+    expect(tv('user_002').ended_at_ms).toBeNull() // 保守口径：不因 A 离开而闭合他人
+  })
+
+  it('QA-15c（#4）：未到场者 / 游客 /complete ⇒ 不改变 tasks.status（closed=0 不得置 completed）', async () => {
+    await accept(tokenA()) // 只报名、未到达
+    expect(taskStatus()).toBe('active')
+
+    const rc = await complete(tokenA())
+    expect(rc.body.data.closed).toBe(0)
+    expect(taskStatus()).toBe('active') // ★ 未到场 ⇒ 不得置 completed
+
+    await hit('/api/task/complete', undefined) // 游客
+    expect(taskStatus()).toBe('active') // ★ 游客 ⇒ 不得置 completed
   })
 })
