@@ -4,8 +4,10 @@
  * 本轮要把「位置 + 群组」这一批仍未收口的端点补齐：
  * 1. **匿名可达 ⇒ 401**：/location、/nearby、/groups（GET/POST）、/:id/join、/:id/messages（GET/POST）
  * 2. **GPS 归属不可伪造**：body.userId=B ⇒ 位置落在调用者名下，且**他人移动 AED 坐标零变化**（★ 最易漏）
- * 3. **nearby 不再退化为全表**：radius 钳制 [100,10000]、lat/lng 非法 ⇒ 400（而非静默取 0）、
- *    且只暴露 24h 内刷新过的位置
+ * 3. **nearby 不再退化为全表**：radius 钳制 [100,10000]、lat/lng 非法 ⇒ 400（而非静默取 0）
+ *    （★ 24h 新鲜度过滤经 team-lead 裁决撤销：会让 /nearby 在生产上恒为空，与产品决策相反。
+ *      对应的「陈旧 GPS 不再暴露」用例与 M13 突变一并下线；现状与风险改为在源码
+ *      `GET /nearby` 上方的 KNOWN-BUG 标注里钉死）
  * 4. **群成员判据**：非成员读/发群消息 ⇒ 403 且目标侧零变化；成员读写正常 ⇒ 200（能力保留）
  *
  * ⚠️ 纪律：不得为了让这些用例变绿而放松任何鉴权。每条守卫均已用「改坏源码 ⇒ 用例变红」
@@ -49,23 +51,16 @@ function ensureUser(id: string): void {
 }
 
 /**
- * 直接落一条志愿者位置（`updated_at` 可回溯，用于构造「陈旧 GPS」）。
+ * 直接落一条志愿者位置。
  *
- * @param hoursAgo 距今多少小时更新；0 表示"刚刚"。
+ * ★ 早先这里有个 `hoursAgo` 形参用来构造「陈旧 GPS」验证 24h 新鲜度过滤；该过滤已按 team-lead
+ * 裁决撤销（会让 `/nearby` 在生产上恒为空），形参随之删除 —— 留着等于给未来留一个死开关。
  */
-function addLocation(userId: string, lat: number, lng: number, hoursAgo = 0): void {
+function addLocation(userId: string, lat: number, lng: number): void {
   ensureUser(userId)
-  const id = 'vl_' + userId
-  if (hoursAgo > 0) {
-    db.prepare(
-      `INSERT INTO volunteer_locations (id, user_id, user_name, lat, lng, updated_at)
-       VALUES (?,?,?,?,?, datetime('now', ?))`
-    ).run(id, userId, userId, lat, lng, `-${hoursAgo} hours`)
-  } else {
-    db.prepare(
-      `INSERT INTO volunteer_locations (id, user_id, user_name, lat, lng) VALUES (?,?,?,?,?)`
-    ).run(id, userId, userId, lat, lng)
-  }
+  db.prepare(
+    `INSERT INTO volunteer_locations (id, user_id, user_name, lat, lng) VALUES (?,?,?,?,?)`
+  ).run('vl_' + userId, userId, userId, lat, lng)
 }
 
 /** 读某志愿者的最新坐标。 */
@@ -228,7 +223,7 @@ describe('P0-2 · POST /location：位置与移动 AED 都只绑定调用者本�
 
 /* ═══════════════════ 3. GET /nearby：不再退化为「全表坐标」 ═══════════════════ */
 
-describe('P0-2 · GET /nearby：radius 钳制 + 坐标校验 + 24h 新鲜度', () => {
+describe('P0-2 · GET /nearby：radius 钳制 + 坐标校验', () => {
   /** 打一次 /nearby。 */
   function nearby(query: Record<string, unknown>, userId = 'u_alice') {
     return request(server)
@@ -307,15 +302,16 @@ describe('P0-2 · GET /nearby：radius 钳制 + 坐标校验 + 24h 新鲜度', (
     expect(first).toHaveProperty('lng')
   })
 
-  it('⑦ ★ 陈旧 GPS（48h 前）不再暴露；24h 内刷新过的仍可见', async () => {
-    addLocation('u_stale', NEAR_LAT, NEAR_LNG, 48)  // 48 小时前更新
-    addLocation('u_fresh', NEAR_LAT, NEAR_LNG, 2)   // 2 小时前更新
+  // ★ 原「陈旧 GPS（48h 前）不再暴露」用例已随 24h 新鲜度过滤一并下线（team-lead 裁决）。
+  //   取而代之的不变量：结果集与加固前一致 —— 陈数据不该被悄悄滤掉（`/nearby` 目前本就只服务 seed 的静态数据）。
+  it('⑦ 陈旧坐标**照旧返回**（未偷偷实现过期淘汰）：结果集语义与加固前一致', async () => {
+    addLocation('u_stale', NEAR_LAT, NEAR_LNG)
+    db.prepare(`UPDATE volunteer_locations SET updated_at = datetime('now', '-480 hours') WHERE user_id=?`).run('u_stale')
 
     const res = await nearby({ ...BASE_QUERY, radius: 5000 })
     expect(res.status).toBe(200)
     const ids: string[] = (res.body.data as Array<{ userId: string }>).map((v) => v.userId)
-    expect(ids).toContain('u_fresh')
-    expect(ids).not.toContain('u_stale') // ★ 陈旧坐标被滤掉
+    expect(ids).toContain('u_stale') // ★ 明确钉住「当前不淘汰陈数据」这一现状，将来引入过期策略时此用例应主动更新
   })
 
   it('⑧ 调用者本人也出现在结果里（前端负责把自己滤掉，后端不擅自剔除）', async () => {

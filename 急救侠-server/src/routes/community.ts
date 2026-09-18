@@ -15,13 +15,6 @@ const NEARBY_RADIUS_MIN = 100
 const NEARBY_RADIUS_MAX = 10000
 /** `radius` 缺省值（米）——沿用加固前的默认口径，避免改动既有调用方行为。 */
 const NEARBY_RADIUS_DEFAULT = 5000
-/**
- * 位置新鲜度窗口（小时）——超过此窗口未更新的 GPS 不再出现在「附近的人」里。
- * （陈旧坐标既无救援价值，继续暴露又构成隐私风险。）
- */
-const NEARBY_FRESHNESS_HOURS = 24
-/** SQLite `datetime()` 修饰符；由常量数字拼出，无注入面。 */
-const NEARBY_FRESHNESS_MODIFIER = `-${NEARBY_FRESHNESS_HOURS} hours`
 
 /**
  * 把 `radius` 钳制到 `[NEARBY_RADIUS_MIN, NEARBY_RADIUS_MAX]`。
@@ -88,18 +81,40 @@ communityRouter.post('/location', authMiddleware, (req, res) => {
 })
 
 /**
- * ★ P0-2：`GET /nearby` 此前**匿名**即可枚举他人实时 GPS —— 他人坐标属最敏感的一类数据。
- * 四处一并收紧：
+ * ★ P0-2：`GET /nearby` 此前**匿名**即可枚举他人坐标 —— 他人坐标属最敏感的一类数据。
+ * 三处收紧（本端点回归「加登录门槛 + 参数钳制」，**查询结果集与加固前一致**）：
  * ① 必须登录（`authMiddleware`）；
  * ② `radius` 未做上限 ⇒ 传一个极大 `radius` 即可**一次拉回全表**坐标。现钳制到 [100, 10000] 米；
  * ③ `lat`/`lng` 非法时此前静默取 0（等价于变成一个以 0°,0° 为中心的超大矩形，同样近于全表），
- *    现返回 400 参数错误；
- * ④ 只返回**最近 24 小时内**更新过的位置，陈旧 GPS 不再继续暴露。
+ *    现返回 400 参数错误。
+ *
+ * ┌────────────────────────────────────────────────────────────────────────┐
+ * │ ⚠️ KNOWN-BUG / 未实现：本端点当前**不是**真正的「附近的人」，请勿被返回值误导 │
+ * └────────────────────────────────────────────────────────────────────────┘
+ * 事实清单（已核，免得后来人再查一遍）：
+ * 1. **上报链路不存在**：`POST /community/location` 全仓**零调用点**（前端/后端/脚本均无），
+ *    没有任何代码会往 `volunteer_locations` 写实时坐标。
+ * 2. **唯一调用方不取真实 GPS**：`pages/community/index.vue` 用的是**硬编码坐标**
+ *    `lat=22.517&lng=113.947`，与用户实际位置无关。
+ * 3. ⇒ 返回值恒为 `src/seed.ts` 建库时插的 **5 行静态陈数据**（`vl_user_001`/`vl_v002`…`vl_v005`，
+ *    `updated_at` 取 `datetime('now')` 即**建库时刻**）。本功能**尚未真正接线**。
+ * 4. ⚠️ **一旦将来建立真实上报链路，本端点立刻变成**
+ *    「任意登录用户可枚举他人**最后一次已知坐标**」⇒ 届时必须再收紧。候选方案（待产品定）：
+ *    - 加 `users.is_public` 过滤（注意：迁移 028 的列是 `DEFAULT 0`，需先做开关 + 存量回填，
+ *      否则功能整体归零；见下方 P1 待办）；或
+ *    - 仅返回与本机构 / 互为可见相关的志愿者；或
+ *    - 上报时就地做地理降精度（不存精确坐标）。
+ * 5. **坐标保留策略未定**：当前**没有任何过期清理机制**，且不排除给用户加"清除我的位置"开关，
+ *    两条都属于待产品决策。
  *
  * ⚠️ **P1 待办**：本批**故意未加** `AND u.is_public = 1` 过滤（`users.is_public`，迁移 028）。
  * 该列定义为 `is_public INTEGER NOT NULL DEFAULT 0`（见 `src/db.ts` 建表 + 迁移 028），
  * 默认值为 **0** ⇒ 一旦加上该条件，尚未主动开启公开档案的用户会被全部滤掉，
  * 「附近志愿者」功能将**整体归零**。待前端提供「公开我的位置」开关并完成存量回填后再引入。
+ *
+ * ⚠️ **已撤销的决策**：本批一度加过 `updated_at >= datetime('now','-24 hours')` 的 24h 新鲜度过滤，
+ * 经核验会让 `/nearby` 在**生产上恒为空**（见事实清单第 1/3 条：库里只有 5 行陈数据）⇒
+ * 与「暂时保留现状 + 标注未实现」的产品决策相反 ⇒ 已移除，改以本段 KNOWN-BUG 标注替代。
  */
 communityRouter.get('/nearby', authMiddleware, (req, res) => {
   try {
@@ -111,7 +126,7 @@ communityRouter.get('/nearby', authMiddleware, (req, res) => {
     const radius = clampRadius(req.query.radius)
     const dlat = radius / 111000
     const dlng = radius / (111000 * Math.cos(lat * Math.PI / 180))
-    const rows = all<NearbyVolunteerRow>(`SELECT vl.*, u.tier, u.rescue_count FROM volunteer_locations vl JOIN users u ON u.id=vl.user_id WHERE vl.lat BETWEEN ? AND ? AND vl.lng BETWEEN ? AND ? AND vl.updated_at >= datetime('now', '${NEARBY_FRESHNESS_MODIFIER}') ORDER BY ((vl.lat-?)*(vl.lat-?) + (vl.lng-?)*(vl.lng-?)) ASC LIMIT 30`, lat - dlat, lat + dlat, lng - dlng, lng + dlng, lat, lat, lng, lng)
+    const rows = all<NearbyVolunteerRow>('SELECT vl.*, u.tier, u.rescue_count FROM volunteer_locations vl JOIN users u ON u.id=vl.user_id WHERE vl.lat BETWEEN ? AND ? AND vl.lng BETWEEN ? AND ? ORDER BY ((vl.lat-?)*(vl.lat-?) + (vl.lng-?)*(vl.lng-?)) ASC LIMIT 30', lat - dlat, lat + dlat, lng - dlng, lng + dlng, lat, lat, lng, lng)
     res.json(success(rows.map((r: NearbyVolunteerRow) => ({ userId: r.user_id, userName: r.user_name, tier: r.tier, rescueCount: r.rescue_count, lat: r.lat, lng: r.lng, updatedAt: r.updated_at }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
