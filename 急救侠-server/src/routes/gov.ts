@@ -254,6 +254,8 @@ function buildPeople(): GovPeople {
  * - ⚠️ **不含任何身份字段**（`userId`/`name`/`phone`）—— 只有聚合。
  * - ⚠️ **无计数中的台账 ⇒ 返回 `null`**（绝不 0 兜底）—— 与 `people` 不同，后者是"结构性计数"，
  *   而服务时长"冷启动 = 无数据"须显式区分（`NEXT_STEPS.md:556` 取向）。
+ * - ★ **T42（v1.6，§4.5-④）判据 = "有无台账行"**：**有行 ⇒ 返回对象**（`totalMinutes` **可为 0**），
+ *   **无行 ⇒ `null`**。**0 分钟是一个事实、`null` 表示无数据** —— 二者不混（与 `/me` 口径统一）。
  * - ⚠️ **不做区县过滤**：`volunteer_service_logs` **没有 district 列**（表设计如此），
  *   故与 `people` 一样是**全局**聚合；若日后要按区县出服务时长，须先给台账加区域维度（独立设计）。
  */
@@ -267,8 +269,19 @@ function buildServiceHours(): GovServiceHours | null {
     activityType: r.activity_type, minutes: r.minutes, count: r.cnt,
   }))
   const totalMinutes = byActivityType.reduce((s, b) => s + b.minutes, 0)
-  if (totalMinutes <= 0) return null // 冷启动：绝不 0 兜底
 
+  // ★ T42（v1.6，§4.5-④）：`null` 判据 = **「有无计数中的台账行」**，**不是「分钟数是否为 0」**。
+  //   理由：**0 分钟是一个事实（他确实参与过 —— 例如 `started_at_ms == ended_at_ms` 的已确认行）**，
+  //   而 `null` 只表达「无数据」—— 两者不该混。本判据与 `/service-hours/me` **统一**
+  //   （后者对同一条零时长行返回 `totalMinutes:0` 且 `breakdown` 有 1 项）。
+  //   ⚠️ `rows` 是**按 `activity_type` 分组**后的结果；只要有一个分组 ⇒ 必有计数行
+  //   （即使该分组合计为 0 分钟）⇒ `rows.length > 0`。
+  //   ⚠️ 若把判据改回 `totalMinutes <= 0` ⇒ `service-hours-gov.test.ts` 的 T42 用例必红。
+  if (rows.length === 0) return null // 冷启动（无计数中的台账）：绝不 0 兜底
+
+  // ★ T41（v1.6，§4.5-③）：人次**去重** —— 一人多机构**不得**被数成多人。
+  // ⚠️ 总时长（上方 `totalMinutes`）**直接对台账 `SUM`、只算一次**，**不经**「各机构汇总相加」
+  //    （后者会因「一人多机构」而**翻倍**）—— 这也是本函数**不 JOIN `organization_members`** 的原因。
   const participantCount = get<{ c: number }>(
     `SELECT COUNT(DISTINCT user_id) AS c FROM volunteer_service_logs WHERE ${COUNTING_WHERE}`
   )?.c ?? 0
