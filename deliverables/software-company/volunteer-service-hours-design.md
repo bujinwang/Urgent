@@ -1,11 +1,12 @@
 # 设计：志愿服务时长台账 + 志愿服务记录证明（F4）
 
 > 上游：`volunteer-service-hours-prd.md`（v1.0，F4）
-> 版本：**v1.2** ｜ 状态：设计定稿（§10 八条已全决；§11 v1.2 时长口径修正已拍板），待重新实现 ｜ 语言：中文
+> 版本：**v1.3** ｜ 状态：设计定稿（§10 八条已全决；§11 v1.2/v1.3 修正已拍板），待实现 ｜ 语言：中文
 > 本文**只写 PRD 没定的东西**（架构、表结构、端点契约、调用流程、任务顺序、测试计划）。
 > 组织风格沿用同项目 `i18n-emergency-flow-design.md`（实测修正优先 + 代码取证 + 突变承重性）。
-> ⚠️ **v1.1 的两处关键更正**：断链范围从「task 侧」扩为「**6 个写型接口零接线**」（§1.1）；动员/演习是「**整条链路未实现**」而非「有表缺闭合」（§1.2）。
-> ⚠️ **★ v1.2 的关键更正（先读 §11）**：时长区间 = **「到达 → 离开」**（赶路不计入）；`startedMs` 取 **`arrived_at_ms`**（**不是** `responded_at_ms`）；放弃/退出 ⇒ **作废留痕、不入账**；`/complete` 改为**按人闭合**（堵搭便车）。修订记录见**附录 C**。
+> ⚠️ **v1.1 更正**：断链范围从「task 侧」扩为「**6 个写型接口零接线**」（§1.1）；动员/演习是「**整条链路未实现**」（§1.2）。
+> ⚠️ **★ v1.2 更正（读 §11）**：时长区间 = **「到达 → 离开」**（赶路不计入）；`startedMs` 取 **`arrived_at_ms`**；放弃/退出 ⇒ **作废留痕、不入账**；`/complete` 改**按人闭合**。
+> ⚠️ **★★ v1.3 更正（读 §11.9 / §11.10）**：① **作废证明 ≠ 作废服务** —— `revoke()` **只撤证明、台账不动**（采 **B**，保护权益），防重复改在**签发**时用 `idx_scert_active_dedup`；② **限流器只挂目标路由**（原 `app.use` 前缀挂载与"勿误伤 `/me`/`POST`"**自相矛盾**）。修订记录见**附录 C**。
 
 ---
 
@@ -259,6 +260,10 @@ CREATE TABLE IF NOT EXISTS service_certificates (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_no ON service_certificates(cert_no);
 CREATE INDEX IF NOT EXISTS idx_scert_user ON service_certificates(user_id, issued_at_ms DESC);
+-- ★ v1.3 防重复签发：同人 + 同区间，最多**一个** active 证明（部分唯一索引，形状同 idx_vsl_dedup）。
+-- 作废（status→'revoked'）后该行离开索引 ⇒ 允许对同区间**重新**签发（新编号）。见 §11.9。
+CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_active_dedup
+  ON service_certificates(user_id, period_from_ms, period_to_ms) WHERE status = 'active';
 
 -- 表 3（Q3 选 a）：任务参与关系（照 drill_participants）
 -- ★ v1.2：区分三个时刻 —— 报名 responded_at_ms / 到达 arrived_at_ms / 离开 ended_at_ms
@@ -305,7 +310,7 @@ CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 | 1 | `GET` | `/api/volunteer/service-hours/me` | `authMiddleware` | query: `page?`,`pageSize?`,`activityType?` | `{ totalMinutes, breakdown:[{activityType,minutes,count}], items:[…], page, pageSize, total }` | 200 / **401** |
 | 2 | `POST` | `/api/volunteer/service-certificates` | `authMiddleware` | body: `periodFromMs`,`periodToMs` | `{ certNo, periodFromMs, periodToMs, totalMinutes, breakdown, issuedAtMs, status }` | 200 / 400（区间非法/无数据） / 401 |
 | 3 | `GET` | `/api/volunteer/service-certificates/me` | `authMiddleware` | — | `[{certNo,periodFromMs,periodToMs,totalMinutes,status,issuedAtMs}]` | 200 / 401 |
-| 4 | `GET` | `/api/volunteer/service-certificates/:certNo` | **公开（无鉴权）** + **`createHourlyIpLimiter('SERVICE_CERT_VERIFY_HOURLY_LIMIT', 60)`**（Q7） | path | `{ certNo, periodFromMs, periodToMs, totalMinutes, status }` **仅此 5 字段** | 200 / 404 / **429** |
+| 4 | `GET` | `/api/volunteer/service-certificates/:certNo` | **公开（无鉴权）** + **★该路由级中间件** `createHourlyIpLimiter('SERVICE_CERT_VERIFY_HOURLY_LIMIT', 60)`（Q7，见 §6-T02-3） | path | `{ certNo, periodFromMs, periodToMs, totalMinutes, status }` **仅此 5 字段** | 200 / 404 / **429** |
 | 5 | `POST` | `/api/volunteer/service-logs`（P1-7） | `authMiddleware` | body: `activityType`,`startedAtMs`,`endedAtMs`,`orgId?`,`targetUserId?` | `{id,status}` | 200 / 401 / 403 |
 | 6 | `GET` | `/api/org/:id/service-hours`（P1-6） | `authMiddleware` + 内联 admin/manager 校验 | query 同上 | 结构同 #1（**仅本机构成员**） | 200 / 401 / 403；跨机构 ⇒ **空集** |
 | 7 | `GET` | `/api/gov/dashboard`（P1-8） | `govMiddleware`（既有） | — | 追加 `serviceHours:{ totalMinutes, participantCount, byActivityType:[…] }` | 200 |
@@ -313,15 +318,17 @@ CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 | 9 | `POST` | **`/api/task/arrive`**（**v1.2 新增**，§11.4） | **`optionalAuth`** | body: `taskId` | `{ arrived:boolean }` | 200 |
 | 10 | `POST` | `/api/task/complete`（**v1.2 改为「按人闭合」**，§11.4） | **`optionalAuth`** | body: `taskId` | `{ closed:number, minutes:number }` | 200 |
 | 11 | `POST` | **`/api/task/abandon`**（**v1.2 新增**，§11.4） | **`optionalAuth`** | body: `taskId`, `reason?` | `{ voided:boolean }` | 200 |
+| 12 | `POST` | **`/api/volunteer/service-certificates/:certNo/revoke`**（**v1.3 新增**，**仅本人自撤**） | `authMiddleware` | body: `reason?` | `{ certNo, status:'revoked' }` | 200 / 401 / **403（非本人）** / 404 |
 | CLI | `npm run service:report` / `service:purge` | 运维 | **不开 HTTP** | `--days`/`--dry-run` | 见 §5.3 | exit 0/1/2 |
 
 **验收锚点**：
 - #1 **无 token ⇒ 401**（T1）；A **绝不**读到 B 的条目（T10，`user_id` 恒来自 token）。
 - #1 的 `breakdown` 之和 **恒等于** `totalMinutes`（T5）；P0 阶段分项**实际只有 `rescue_task`**（§2.4）—— 断言须**数据驱动**，不得写死"恰好 N 个分项"。
-- #2 同区间生成两次 ⇒ `certNo` **不同**、`totalMinutes` **相同**（P0-4 验收①）。
+- #2 **同区间重复签发 ⇒ 幂等返回既有 `active` 编号**（★ v1.3 **修订原 P0-4①**，见 §11.9）；**作废后**再开 ⇒ **新编号、同 `totalMinutes`**。
 - #4 **零 PII**：响应体**不含** `user_id`/`name`/`phone`/`userId`（T15，深扫断言，照 `role-split.test.ts`）。
-- #4 **限流**（Q7）：超过阈值 ⇒ **429**；限流器须在测试中 `force=true` 注入验证（照 `createSmsReportLimiter(force)` 先例）。
-- #4 作废后 ⇒ `status: 'revoked'`（T9 半段）；且该分钟数从**后续**证明中消失、原台账行**仍在**（不物理删）。
+- #4 **限流**（Q7）：**只作用于该条路由**（`router.get('/:certNo', verifyLimiter, handler)`）；超阈值 ⇒ **429**；`/me` 与 `POST` **不受**该限流器影响（T25）。限流器须在测试中 `force=true` 注入验证（照 `createSmsReportLimiter(force)` 先例）。
+- #4 作废后 ⇒ `status: 'revoked'`（T9）；★ **台账完全不受影响**（v1.3 语义 B，见 §11.9）：该区间 minutes **仍可被后续新证明统计**，原台账行仍在。
+- #12 **仅本人可撤**（`user_id` 来自 token）；撤他人 ⇒ **403**；撤销**不动台账**（§11.9）。
 - #8~#11 **游客不产生时长记录**（Q1，§10）：无 token 调 accept/arrive/complete/abandon ⇒ **无参与行、无台账行**，**仍返回 200**（不 401）。⚠️ 这是**约束的结果、不是缺陷**（不登录就没有 `user_id`，物理上无法归因）——**不得**据此改 `authMiddleware`，也不得录为 bug。
 
 ### 4.4 迁移通道（硬约束 #9，严格走既有 runner）
@@ -330,9 +337,10 @@ CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 |---|---|---|
 | Runner | `initDb()` 内 `migrations[]`，**启动时执行**，登记 `_migrations` | `db.ts:820-1011` |
 | 通道 | **canonical schema（新库）+ `migrations[]`（既有库）双写**，两处 DDL 逐字一致 | 同 `040`（`db.ts:967-984`） |
-| 编号 | **041 `add_task_volunteers` / 042 `add_volunteer_service_logs` / 043 `add_service_certificates`**（接续当前最大 `040`）；**v1.2 追加 044 `add_task_arrival_void`**（给 `task_volunteers` 加 `arrived_at_ms`/`voided_at_ms`/`void_reason`） | `db.ts:968` |
+| 编号 | **041 `add_task_volunteers` / 042 `add_volunteer_service_logs` / 043 `add_service_certificates`**（接续当前最大 `040`）；**v1.2 追加 044 `add_task_arrival_void`**（给 `task_volunteers` 加 `arrived_at_ms`/`voided_at_ms`/`void_reason`）；**v1.3 追加 045 `add_service_cert_active_dedup`**（先**去重既有 active 重复**再建 `idx_scert_active_dedup`，见下） | `db.ts:968` |
+| ⚠️ **045 必须先去重再建唯一索引** | 旧行为**允许**同区间重复开证明 ⇒ 直接 `CREATE UNIQUE INDEX` 会因**既有重复**而**失败**。故 045 的 `sql` 须**先**执行一条一次性 `UPDATE ... SET status='revoked'`（对同 `(user_id, period_from, period_to)` 的多条 active，**保留 `issued_at_ms` 最早的一条**，其余作废），**再**建唯一索引。**全库无重复时该 UPDATE 影响 0 行（幂等）** | 本设计（新） |
 | ⚠️ **必须改 `clearAll()`** | 把 3 张新表加进 `db.ts:1061` 的 `DELETE` 清单，否则**测试隔离污染**（T17） | 硬约束 + PRD §5.2 |
-| ⚠️ **必须实机验证升级路径** | 单测跑 `:memory:`，canonical 已建表 ⇒ 迁移**恒为 skipped，真实升级从未被验证**。须照 `NEXT_STEPS.md:609-621`：**复制真实库 → 剥离 041/042/043/044 产物 → 启真实服务 → 日志必须是 `Migration applied: 041/042/043/044`**（非 skipped）（T16，**在实机跑，`:memory:` 测不出**） |
+| ⚠️ **必须实机验证升级路径** | 单测跑 `:memory:`，canonical 已建表 ⇒ 迁移**恒为 skipped，真实升级从未被验证**。须照 `NEXT_STEPS.md:609-621`：**复制真实库 → 剥离 041/042/043/044/045 产物 → 启真实服务 → 日志必须是 `Migration applied: 041/042/043/044/045`**（非 skipped）（T16，**在实机跑，`:memory:` 测不出**）。⚠️ 045 还需**专门构造"含重复 active 证明的旧库"**验证去重步骤真的清掉了重复（T32） |
 | 回填 | **不做历史回填**（Q4 判定为臆造数据）⇒ `migrations[]` **无 `after` 回调** | Q4 |
 
 ---
@@ -494,19 +502,25 @@ npm run service:purge [--days <N>] [--dry-run]
 - **做什么**：
   1. `routes/serviceHours.ts`（**新**，挂 `/api/volunteer`）：
      - `GET /service-hours/me`（auth，分页 + 分项）。
-     - `POST /service-certificates`（auth，选区间 → `certNo`/`total_minutes`/`breakdown`）。
+     - `POST /service-certificates`（auth，选区间 → `certNo`/`total_minutes`/`breakdown`；**v1.3 幂等**：同人同区间已有 `active` 证明 ⇒ 返回既有编号）。
      - `GET /service-certificates/me`（auth，我的证明列表）。
-     - `GET /service-certificates/:certNo`（**公开**，**仅 5 字段，零 PII**，**按 IP 限流**——Q7）。
-  2. `services/serviceCertificate.ts`（**新**）：`issue()`（区间聚合 + `cert_no` 生成 + 撞库重试）、`listMine()`、`verify()`（**投影裁剪为 5 字段**）、`revoke()`（软删）。
-  3. `app.ts`：`app.use('/api/volunteer/service-certificates', createHourlyIpLimiter('SERVICE_CERT_VERIFY_HOURLY_LIMIT', 60))`（在 `serviceHoursRouter` **之前**、且**仅作用于公开的验真路径**，勿让 `/me` 与 `POST` 也被限流）+ `app.use('/api/volunteer', serviceHoursRouter)`（在既有 `volunteerRouter` 之后）。限流器 `force` 参数照 `createSmsReportLimiter` 先例，供测试注入。
-  4. 测试：`__tests__/service-hours-api.test.ts`、`__tests__/service-certificates.test.ts`、`__tests__/service-cert-verify-rate-limit.test.ts`。
-- **改文件**：`src/routes/serviceHours.ts`(新)、`src/services/serviceCertificate.ts`(新)、`src/app.ts`、`src/__tests__/service-hours-api.test.ts`(新)、`src/__tests__/service-certificates.test.ts`(新)、`src/__tests__/service-cert-verify-rate-limit.test.ts`(新)
+     - `GET /service-certificates/:certNo`（**公开**，**仅 5 字段，零 PII**，**★该路由级限流**——Q7）。
+     - **`POST /service-certificates/:certNo/revoke`**（auth，**仅本人**自撤；§11.9）。
+  2. `services/serviceCertificate.ts`（**新**）：`issue()`（区间聚合 + `cert_no` 生成 + 撞库重试 + **同区间 `active` 幂等**）、`listMine()`、`verify()`（**投影裁剪为 5 字段**）、`revoke()`（★ **v1.3 只作废证明本身，绝不动台账** —— 见 §11.9）。
+  3. **★ §6-T02-3（v1.3 重写 —— 原设计自相矛盾，见 §11.10）**：
+     - **限流器作为该单条路由的中间件**，写在 router 里：`serviceHoursRouter.get('/service-certificates/:certNo', verifyLimiter, handler)`。**不再**用 `app.use('/api/volunteer/service-certificates', limiter)` 前缀挂载（`app.use(path,…)` 是**前缀匹配**，会连带命中 `/me` 与 `POST`；且依赖 `req.path` 相对路径语义，挂载点一变即静默失效）。
+     - ⚠️ **循环导入陷阱**：`createHourlyIpLimiter` 目前**定义在 `app.ts`**（并被导出）。若 `routes/serviceHours.ts` 从 `app.ts` import 它，会形成 **`app.ts → routes/serviceHours.ts → app.ts` 循环依赖**（ESM 下可能拿到未初始化绑定 ⇒ 启动即崩，且堆栈指向无辜模块；同 F2 `tabbar-locale` 的 TDZ 教训，`i18n-emergency-flow-design.md` §15.1）。⇒ **把 `createHourlyIpLimiter`（连同 `createSmsReportLimiter` / `isTestMode`）抽到独立模块 `src/middleware/rateLimit.ts`**；`app.ts` 与 `routes/serviceHours.ts` **都从那里 import**。
+     - `app.ts` 只需保留 `app.use('/api/volunteer', serviceHoursRouter)`（在既有 `volunteerRouter` 之后）。
+  4. 测试：`__tests__/service-hours-api.test.ts`、`__tests__/service-certificates.test.ts`、`__tests__/service-cert-verify-rate-limit.test.ts`、`__tests__/service-cert-revoke.test.ts`。
+- **改文件**：`src/routes/serviceHours.ts`(新)、`src/services/serviceCertificate.ts`(新)、**`src/middleware/rateLimit.ts`(新)**、`src/app.ts`、`src/db.ts`（迁移 045）、`src/__tests__/service-hours-api.test.ts`(新)、`src/__tests__/service-certificates.test.ts`(新)、`src/__tests__/service-cert-verify-rate-limit.test.ts`(新)、`src/__tests__/service-cert-revoke.test.ts`(新)
 - **验收标准**：
   - 无 token ⇒ **401**（T1）；用户 A **绝不**读到 B 任一条（T10）。
   - 分项之和 **恒等于** 总时长（T5）；`pending` / `is_drill=1` / `ended IS NULL` **均不进**证明（T4/T7/T8）。
-  - 同区间生成两次 ⇒ `certNo` 不同、`totalMinutes` 相同（P0-4①）。
-  - 验真接口深扫**不含** `user_id`/`name`/`phone`（T15）；作废后返回 `revoked` 且该分钟数从**后续**证明消失、原台账行仍在（T9）。
-  - **验真端点限流**（Q7）：超过阈值 ⇒ **429**；且限流**不误伤**同前缀的 `/me`、`POST`（T25）。
+  - **同区间重复签发 ⇒ 幂等返回既有 `active` 编号**（★ v1.3 修订原 P0-4①；作废后再开 ⇒ 新编号、同 `totalMinutes`）（T33）。
+  - 验真接口深扫**不含** `user_id`/`name`/`phone`（T15）。
+  - ★ **作废证明只影响证明本身，台账不动**（T34）：撤一张覆盖 120h 的证明后，该 120h **仍能被后续新证明统计**；原台账行仍在。
+  - **验真端点限流**（Q7）：**只作用于 `GET /:certNo`**；超阈值 ⇒ **429**；`/me` 与 `POST` **不受影响**（T25）。
+  - ★ **本人自撤**：非本人撤 ⇒ **403**；撤他人证明不改任何台账（T35）。
 - **可并行**：与 **T05** 并行（T05 只依赖 T01）。
 
 ---
@@ -598,6 +612,7 @@ graph TD
 8. **测试约定**：后端 `src/__tests__/*.test.ts` 跑 `:memory:`（用 `app` 做 `request()`）；前端 vitest（基线以当日实测为准）；突变一律 `cp` 备份 + `shasum -a256 -c` 还原；跑完全量**扫 `Errors` 行**（F2 §11.3）。
 9. **★ 禁止措辞（Q1/D8）**：任何 UI/CSV/PDF/i18n 值**不得**含「符合国家标准 / 国家标准 / 国标 / 官方 / 政府认可」。
 10. **★ 任务时长口径（v1.2，§11）**：`task_volunteers` 三时刻 —— `responded`（报名，**不计时**）/ `arrived`（**时长起点**）/ `ended`（**时长终点**）；`status ∈ responded|arrived|left|voided`。**闭合一律按人**（`user_id` 维度），**禁止 task-wide 闭合**。放弃/退出 ⇒ `voided` + `void_reason`，**不写台账**。
+11. **★ 限流器只挂在目标路由上（v1.3，§11.10）**：一律 `router.<method>(path, limiter, handler)`，**禁止** `app.use(prefix, limiter)` 前缀挂载 —— Express 的 `app.use(path,…)` 是**前缀匹配**，会**误伤同前缀的其它路由**；且若在限流器内用 `req.path` 区分路由，会**依赖相对路径语义**（挂载点一变即**静默失效**）。⚠️ 限流器工厂（`createHourlyIpLimiter` / `createSmsReportLimiter`）**必须放在独立中间件模块**（`src/middleware/rateLimit.ts`）—— **不得从 `app.ts` import**（router↔app 会**循环依赖**）。
 
 ---
 
@@ -640,12 +655,17 @@ graph TD
 | **T29** | ★ **按人闭合**：A 到达、B 仅报名；A `/complete` ⇒ 仅 A 入账，B 无台账 | 把 `closeServiceForUser` 改回 task-wide 循环 | 「B 无台账」用例红（**堵第 4 类搭便车**） | 后端 |
 | **T30** | ★ **v1.2 调用点守卫**：`arrived.vue`→`/complete`；`running.vue`→`/abandon`；`stores.arrive()`→`/arrive` | 各删对应一行调用 | 三个调用点用例**分别**红（§11.5） | 前端 |
 | **T31** | ★ **v1.2 幂等闭合（按人）**：同一人 `/complete` 两次 ⇒ `ended_at_ms` 不被覆盖、时长不翻倍 | 去掉 `ended_at_ms IS NULL` 守卫 | 行数/时长断言红（**原 T18 的按人版**） | 后端 |
+| **T32** | ★ **v1.3 迁移 045 去重**：含重复 active 证明的旧库启动 ⇒ 去重后 `idx_scert_active_dedup` 建成、每 `(user,period)` 仅 1 条 active | 去掉 045 的去重 `UPDATE`（直接建唯一索引） | **迁移失败 / 启动报错**（实机红） | 实机 |
+| **T33** | ★ **v1.3 同区间幂等签发**：同人同区间再 `POST` ⇒ 返回**既有** `certNo`；作废后再开 ⇒ **新**编号、同 `totalMinutes` | 去掉 `idx_scert_active_dedup` / 去掉 issue 的幂等分支 | 编号断言红（两方向） | 后端 |
+| **T34** | ★★ **v1.3 作废不伤台账**（**权益主守卫**）：撤一张覆盖 120h 的证明 ⇒ 台账行**仍在**、该 120h **仍可被后续新证明统计** | 让 `revoke()` 顺手把区间台账 `status='voided'`（=A 的做法） | 「台账仍在」+「后续证明含该 120h」用例红 | 后端 |
+| **T35** | ★ **v1.3 自撤鉴权**：非本人撤他人证明 ⇒ **403**，且**不改任何台账/证明** | 去掉 `user_id` 归属校验 | 403 用例红 | 后端 |
 
 **守卫承重性自检（本项目教训）**：
 - 「扫描器自身失效」类自检**必须能被突变咬住**（如「范围清单非空」断言要写成"应等于 N"而非 `>= 0`，F2 §9.4）。
 - 每加一层守卫，**先问"还有谁会咬住同一突变"**，避免把别人的功劳记到自己头上（F2 §9.4.1）。
 - ⚠️ **T23/T24 是"行为固定型"用例**：它们不是防回归，而是**防后人误判**（把"约束的结果"当 bug 修、把"既有缺陷"当可靠计数器用）。断言消息里须写明原因，照 `KNOWN-BUG` 标记法（F2 §13.2）。
 - ★ **T26–T31 是 v1.2 缺陷的"回归守卫"**：v1.0 的四类错误（可刷 / 语义倒置 / 退出即记 / 搭便车）**各对应至少一条**；其中 **T26 是本次缺陷的"主守卫"** —— 它把「到达才计时」钉死在实现层。⚠️ **T18 的语义已随 v1.2 变更**（从 task-wide 变 per-user，见 T31），旧断言须同步更新。
+- ★★ **T34 是 v1.3 的"权益主守卫"**：它是**唯一**能咬住「作废证明误伤台账」这条**不可逆权益损失**的用例 —— **必须有**（撤一张证明后，该区间时长仍能被**新**证明统计）。突变方向只有一个（`revoke()` 顺手作废台账），**必须精确变红**。
 
 ---
 
@@ -779,6 +799,37 @@ graph TD
 | 前端 `store` + 3 个 mission 页 | **改** | 见 §11.5（**本次缺陷现场**） |
 | T02/T03/T04/T05 | **不受影响** | 它们只读台账，台账语义未变 |
 
+### 11.9 ★★ v1.3：`revoke()` 语义澄清 —— **作废证明 ≠ 作废服务**（语义 B）
+
+**问题（team-lead + 实现方发现）**：v1.0 的 T9 写了「作废后…该分钟数**从后续证明消失**」，实现方据此推断"唯一机制是作废台账"，于是 `revoke()` **顺带把该证明覆盖区间内的所有 `confirmed` 台账行置为 `voided`**。后果**不可逆地损害志愿者权益**：服务了 1–6 月共 120h、开了一张证明交学校；后来想重开（改日期/分月开），**作废旧证明 ⇒ 那 120h 全部作废**，后续任何证明都不含它。而"作废"在常识里只是「**这张纸无效了**」。
+
+**★ 决策：采 B —— `revoke()` 只作废「证明本身」，台账完全不动。**
+
+| 维度 | **A（v1.0 现状，弃）** | **B（v1.3 采纳）** |
+|---|---|---|
+| 作废作用域 | 证明 + **覆盖区间台账** | **仅证明**（`service_certificates.status='revoked'`） |
+| 志愿者时长 | **丢失**（不可逆） | **不受影响** |
+| 后续证明 | 该区间永久缺席 | **仍可统计**该区间；可**重新开** |
+| 与 P0-4① 的张力 | 允许任意重复签发 ⇒ 用户可能**无意清空自己的时长** | 无（防重复改在**签发**时做） |
+
+**采 B 的理由**：① 台账是**权益凭证**（D7），**只有"服务没发生"才该作废它**，而"撤回一张纸"不是；② A 把**破坏性**操作暴露给一个**允许重复签发**（P0-4①）的入口 ⇒ 用户极易自伤；③ "防重复证明"的**正确落点是在签发**，不是在作废。
+
+**★ B 需要补的机制（防重复签发）—— 落在 T02**：
+- **同 `(user_id, period_from_ms, period_to_ms)` 最多一个 `active` 证明**，由 §4.1 的 **部分唯一索引 `idx_scert_active_dedup`** 在 **DB 层**强制（形状同 `idx_vsl_dedup`）。
+- `issue()` 行为：命中已有 `active` ⇒ **幂等返回既有 `certNo`**（不新建、不换编号）；若既有为 `revoked` ⇒ 允许新建（**新编号**）。
+- ⚠️ **这修订了 PRD 的 P0-4①**（原：「同区间两次 ⇒ 编号**不同**」）。新口径：**同区间两次（未作废）⇒ 幂等同编号；作废后再开 ⇒ 新编号、同 `totalMinutes`**。**保留原意**（`cert_no` 全局唯一 + `totalMinutes` 确定性），**去掉**与 B 冲突的"必须产生两个编号"。**此属 PRD 级断言变更，须业务方/team-lead 确认**（若坚持 A，请回复，我再改回）。
+- ⚠️ **实现方已写的「同区间两次 ⇒ 编号不同」用例须同步改写**为上述新口径（否则会与 `idx_scert_active_dedup` 冲突而失败）。
+
+**`revoke()` 的 HTTP 端点归属（回答 team-lead item 4）**：
+- v1.0 只把 `revoke()` 列为**服务函数、无 HTTP 端点** —— 部分**有意**（管理面收敛），但既然采 B（非破坏性），**本人自撤是安全的用户动作** ⇒ **本版在 T02 补 `POST /api/volunteer/service-certificates/:certNo/revoke`（auth、仅本人）**。
+- **机构/管理员**作废他人证明 ⇒ **归 T05**（需 org 鉴权与授权模型）；若本次不做，**另立工单**，不得塞进 T02。
+
+### 11.10 ★ v1.3：限流器挂载修正（原 §6-T02-3 自相矛盾）
+
+**问题**：v1.0 要求 `app.use('/api/volunteer/service-certificates', limiter)` **同时**要求"勿让 `/me` 与 `POST` 也被限流" —— **自相矛盾**：Express 的 `app.use(path, mw)` 是**前缀匹配**，三者都会命中。实现方在限流器内部用 `req.path` 判断（只限 `GET` 且非 `/`、`/me`）**满足了意图**，但**依赖 `req.path` 在挂载点下的相对路径语义**（隐晦）；若后人把挂载点改成 `/api/volunteer`，判断**静默失效**。
+
+**修正**：限流器作为**该单条路由的中间件**（`serviceHoursRouter.get('/service-certificates/:certNo', verifyLimiter, handler)`），**不依赖任何路径语义**、不受挂载点变化影响。配套：限流器工厂**抽到 `src/middleware/rateLimit.ts`**（避免 router↔app 循环导入，见 §6-T02-3）。**共享知识新增 §7-11**。
+
 ---
 
 ## 附录 A：类图（数据结构与接口）
@@ -856,17 +907,18 @@ classDiagram
         +buildBreakdown(userId, from, to) Breakdown
     }
     class ServiceCertificateService {
-        +issue(userId, from, to) Certificate
+        +issue(userId, from, to) Certificate   %% ★v1.3 同区间 active ⇒ 幂等返回既有编号
         +listMine(userId) Certificate[]
         +verify(certNo) VerifyView  %% 仅 5 字段，零 PII
-        +revoke(id, reason) void
+        +revokeForUser(userId, certNo, reason) Certificate  %% ★v1.3 只撤证明、不动台账
         +genCertNo(now) string
     }
     class ServiceHoursRouter {
         +GET_service_hours_me(req) HoursView
         +POST_service_certificates(req) Certificate
         +GET_service_certificates_me(req) Certificate[]
-        +GET_service_certificates_certNo(req) VerifyView
+        +GET_service_certificates_certNo(req) VerifyView   %% ★v1.3 该路由级限流
+        +POST_service_certificates_revoke(req) Certificate %% ★v1.3 仅本人
     }
 
     User "1" --> "0..*" TaskVolunteer : participant
@@ -909,4 +961,5 @@ classDiagram
 | v1.0 | 初版（P0-1~P0-5 设计 + 5 任务分解 + §10 八条待明确） |
 | **v1.1** | ① §1.1 范围从「task 侧断线」**扩为「6 个写型接口零接线」**；② **新增 §1.2**：动员/演习**非「有表缺闭合」而是「整条链路未实现」**（原三档表措辞已更正）；③ **新增 §2.4**：P0 可信时长来源**只有救援任务**，并给出对 KPI / UI 的影响；④ §10 八条**全部已决**（Q1 `optionalAuth`+游客不产生记录 / Q7 限流 / Q8 不做），新增 §10bis 次要项；⑤ 任务验收补 **T23 游客不产生记录 / T24 计数器行为固定 / T25 验真限流**；⑥ T02 增限流器与测试文件。 |
 | **v1.2** | ★ **新增 §11 增量设计**：修正「时长区间语义」设计级缺陷（可刷 + 语义倒置 + 搭便车）。① 表 `task_volunteers` 加 `arrived_at_ms`/`voided_at_ms`/`void_reason`，`status` 扩为 4 值，**迁移 044**；② **新端点 `/task/arrive`、`/task/abandon`**，`/complete` **改为按人闭合**（`startedMs=arrived_at_ms`）；③ **§5.1 时序图重画**（到达/离开拆成两个动作）；④ **§3.5** 固化"起点=到达"；⑤ `closeService()`→`closeServiceForUser()`；⑥ **§11.5 前端调用点重映射**（`arrive()` 改调 `/arrive`；`finishMission()` 降为纯本地重置；新增 `endService()`/`abandonMission()`）；⑦ §6 T01 验收与 §8 增 **T26–T31**；⑧ `arrived.vue` 文案「返回首页」→「结束服务并返回」（标注为 T01 附加项）；⑨ §11.6 处置「到达后永不结束」边界。 |
+| **v1.3** | ★ **两处修订（均由 T02 实现方据实上报，team-lead 核实）**：<br>① **§11.9 `revoke()` 语义 = B**：**作废证明只作废证明本身、台账不动**（v1.0 的 A 会让志愿者**不可逆丢时长**）。配套**防重复签发**：`idx_scert_active_dedup`（部分唯一索引，**迁移 045**，须**先去重再建**）+ `issue()` 同区间幂等返回既有编号；**新增 `POST /service-certificates/:certNo/revoke`（仅本人）归 T02**，机构侧归 T05。**修订 PRD P0-4①**（同区间两次 ⇒ **同**编号；作废后再开 ⇒ 新编号）。<br>② **§11.10 限流器挂载修正**：原 `app.use('/api/volunteer/service-certificates', limiter)` 与"勿误伤 `/me`/`POST`"**自相矛盾**（Express 前缀匹配）⇒ 改为**该单条路由的中间件**，并把 `createHourlyIpLimiter` **抽到 `src/middleware/rateLimit.ts`**（避 router↔app **循环导入**）。**§7 新增约定 #11**。§8 增 **T32–T35**（T34 = 权益主守卫）。 |
 
