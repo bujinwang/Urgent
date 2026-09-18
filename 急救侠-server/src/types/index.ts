@@ -728,9 +728,14 @@ export interface RevokeCertificateResult {
   status: CertificateRecordStatus
 }
 
-/** `POST /api/task/accept` 的 `data`。`attributed=false` = 游客或重复 accept（未新增参与行）。 */
+/**
+ * `POST /api/task/accept` 的 `data`。
+ * `attributed=true` = 本次**新建**了参与行；`rejoined=true` = 命中本人 `voided` 行并**重新激活**
+ * （★ v1.4 反悔）。游客或重复 accept（`responded`/`arrived`/`left`）⇒ 两者皆 `false`。
+ */
 export interface AcceptTaskResult {
   attributed: boolean
+  rejoined: boolean
 }
 
 /**

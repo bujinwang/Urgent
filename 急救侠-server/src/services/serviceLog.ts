@@ -155,10 +155,9 @@ export interface AbandonParticipationInput {
  *
  * 幂等：`ended_at_ms IS NULL AND status <> 'voided'` 守卫 ⇒ 重复调用无副作用。已闭合（`left`）⇒ no-op。
  *
- * ⚠️ **已知产品边界（本次不实现）**：`UNIQUE(task_id, user_id)` 保证一人一行，而本函数把该行置 `voided`
- * 之后，`arriveParticipation` / `closeServiceForUser` 的 `status <> 'voided'` 守卫会**跳过**它 ⇒
- * 同一志愿者**放弃后无法重新参与同一任务**（`/arrive` 与 `/complete` 均 no-op，永远拿不到该任务时长）。
- * 「反悔想回去参与」是否要支持，待业务确认；此处仅记录现状，**不加额外逻辑**。
+ * ⚠️ **`status='voided'` 不是终局**：★ v1.4 起支持「放弃后反悔、重新参与同一任务」，
+ * 由 {@link rejoinParticipation} 把 `voided` 行重新激活为 `responded`（§11.11）。
+ * 但 ★ **`left`（已闭合）是终局**：本函数与 `rejoinParticipation()` 的守卫都排除 `ended_at_ms` 非空的行。
  *
  * @returns `true` = 本次真正作了废。
  */
@@ -167,6 +166,51 @@ export function abandonParticipation(input: AbandonParticipationInput): boolean 
     `UPDATE task_volunteers SET status = 'voided', voided_at_ms = ?, void_reason = ?
      WHERE task_id = ? AND user_id = ? AND ended_at_ms IS NULL AND status <> 'voided'`
   ).run(input.now ?? Date.now(), input.reason ?? 'abandoned', input.taskId, input.userId)
+  return info.changes === 1
+}
+
+/** `rejoinParticipation()` 入参。 */
+export interface RejoinParticipationInput {
+  taskId: string
+  userId: string
+  /** 本次重新接受的时刻（= 新的 `responded_at_ms`）。 */
+  respondedMs: number
+}
+
+/**
+ * 「放弃后反悔、重新参与同一任务」—— 把本人 `voided` 行重新激活为 `responded`（★ v1.4，§11.11-③）。
+ *
+ * 重置清单（team-lead 已识别的坑，**必须全做**）：
+ * - `status = 'responded'`
+ * - `responded_at_ms = input.respondedMs`（**本次**接受时刻，不是第一次）
+ * - ★★ `arrived_at_ms = NULL`（**最危险的一行**：不清它 ⇒ `/arrive` 的 `arrived_at_ms IS NULL` 守卫
+ *   不满足 ⇒ 本次到达**不被记录**；`/complete` 会拿**上一段的到达**当起点 ⇒ 算出**巨大且错误**的时长
+ *   —— **越早反悔时长越大**，反向激励。T36 专测此点）
+ * - `ended_at_ms = NULL`（`voided` 行本应已为 NULL，防御性重置）
+ * - `rejoin_count = rejoin_count + 1`（审计）
+ * - **`voided_at_ms` / `void_reason` 不清**（审计保留，语义＝「最近一次」作废痕迹）
+ *
+ * ⚠️ 守卫 `status = 'voided'` ⇒ **`left`（已闭合）的行命中不到** ⇒ **闭合后不可反悔**（§11.11-⑤）。
+ *
+ * ★★ **为什么 `left` 必须是终局（写进注释，勿删）**：台账部分唯一索引
+ * `idx_vsl_dedup(source_type, source_ref, user_id) WHERE source_ref <> ''` 会按 `(system, taskId, user)`
+ * 去重。若允许「一任务多段服务、每段各自入账」，第二段的台账行会被 `INSERT OR IGNORE` **静默丢弃**
+ * ⇒ **静默丢时长**。⇒ 「`left` 终局」不只是产品语义，**也是本索引下"不丢时长"的必要条件**。
+ * 后人若为支持"一任务多段服务"改掉它，**必须先**把 `source_ref` 扩为含段号（如 `taskId#2`）或改索引 ——
+ * 那是独立设计，**不得**只改状态机。
+ *
+ * @returns `true` = 本次真的重新激活了（命中 `voided` 行）；`responded`/`arrived`/`left`/无行 ⇒ `false`。
+ */
+export function rejoinParticipation(input: RejoinParticipationInput): boolean {
+  const info = db.prepare(
+    `UPDATE task_volunteers
+     SET status = 'responded',
+         responded_at_ms = ?,
+         arrived_at_ms = NULL,
+         ended_at_ms = NULL,
+         rejoin_count = rejoin_count + 1
+     WHERE task_id = ? AND user_id = ? AND status = 'voided'`
+  ).run(input.respondedMs, input.taskId, input.userId)
   return info.changes === 1
 }
 

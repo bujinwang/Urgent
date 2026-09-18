@@ -388,9 +388,13 @@ describe('F4 T01 · 独立对抗性验证（v1.2）', () => {
   })
 
   // =========================================================================
-  // 13. ★ #2 固定「放弃后不可重新参与同一任务」的**现状**（设计已登记的产品边界）
+  // 13. ★ #2（★ v1.4 更新）：「放弃后**反悔重新参与**同一任务」
+  //
+  // v1.2 曾把「放弃后无法重新参与」登记为产品边界，并有行为固定型用例锁住它；
+  // **用户于 v1.4 否掉了该边界**（急救场景「先说来不了、后来赶到」是现实的）⇒ 本用例**有意**
+  // 改为断言「重新参与**成功**」，并按 §11.11-③ 校验反悔的重置清单（尤其 `arrived_at_ms` 被清空）。
   // =========================================================================
-  it('QA-13（#2）：放弃后 /accept /arrive /complete 全部 no-op，arrived 不被重置、status 保持 voided、零台账', async () => {
+  it('QA-13（#2，★v1.4 更新）：放弃后 /accept ⇒ **反悔重新参与**（rejoined:true ∧ arrived 被重置 ∧ 痕迹保留），随后 arrive/complete 正常', async () => {
     await accept(tokenA())
     await arrive(tokenA())
     const arrivedAfterFirst = tv('user_001').arrived_at_ms
@@ -399,21 +403,23 @@ describe('F4 T01 · 独立对抗性验证（v1.2）', () => {
     const ab = await abandon(tokenA(), { reason: '临时离开' })
     expect(ab.body.data.voided).toBe(true)
 
-    // ⚠️ 行为固定型（设计已登记）：`UNIQUE(task_id, user_id)` + `status <> 'voided'` 守卫 ⇒
-    // 同一志愿者**放弃后无法重新参与同一任务**。若日后决定支持「反悔重参与」，
-    // **请有意地更新本用例的期望**（改为断言重新参与成功），而不要为让它变绿而顺手改断言。
+    // ★ v1.4（§11.11）：/accept 现在是 upsert —— 命中本人 voided 行 ⇒ 重新激活
     const ra = await accept(tokenA())
-    expect(ra.body.data.attributed).toBe(false) // UNIQUE 冲突 ⇒ INSERT OR IGNORE 0 行
-    const rr = await arrive(tokenA())
-    expect(rr.body.data.arrived).toBe(false) // status='voided' 守卫 ⇒ no-op
-    const rc = await complete(tokenA())
-    expect(rc.body.data.closed).toBe(0)
+    expect(ra.body.data.rejoined).toBe(true)
+    expect(ra.body.data.attributed).toBe(false) // 未新建行
 
     const row = tv('user_001')
-    expect(row.arrived_at_ms).toBe(arrivedAfterFirst) // 未被重置
-    expect(row.status).toBe('voided')
-    expect(row.ended_at_ms).toBeNull()
-    expect(count('volunteer_service_logs')).toBe(0)
+    expect(row.status).toBe('responded')
+    expect(row.arrived_at_ms).toBeNull()          // ★ 已重置（否则本次到达会 no-op、时长从旧到达起算）
+    expect(row.rejoin_count).toBe(1)              // ★ 审计计数
+    expect(row.voided_at_ms).toBeGreaterThan(0)   // ★ 作废痕迹保留（不清空）
+
+    // 反悔后 arrive/complete 恢复正常
+    const rr = await arrive(tokenA())
+    expect(rr.body.data.arrived).toBe(true)
+    const rc = await complete(tokenA())
+    expect(rc.body.data.closed).toBe(1)
+    expect(count('volunteer_service_logs')).toBe(1)
   })
 
   // =========================================================================

@@ -47,13 +47,14 @@ describe('Task Routes', () => {
       expect(res.body.code).toBe(0)
     })
 
-    it('带 token ⇒ 返回 { attributed } 且归因成功（F4 T01 契约）', async () => {
+    it('带 token ⇒ 返回 { attributed, rejoined } 且归因成功（F4 T01 契约）', async () => {
       const res = await request(server)
         .post('/api/task/accept')
         .set('Authorization', `Bearer ${userToken('user_001')}`)
         .send({ taskId: 'task_001' })
       expect(res.status).toBe(200)
-      expect(res.body.data).toEqual({ attributed: true })
+      // v1.4：新增 rejoined（本次为首次接受 ⇒ false）
+      expect(res.body.data).toEqual({ attributed: true, rejoined: false })
     })
   })
 

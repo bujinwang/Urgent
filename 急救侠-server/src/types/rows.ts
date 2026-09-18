@@ -926,7 +926,9 @@ export interface TaskVolunteerRow {
   /** `null` = 未闭合。闭合由 `/task/complete` 按人回写（**仅当 `ended IS NULL`**，保证幂等）。 */
   ended_at_ms: number | null
   status: TaskVolunteerStatus
-  /** ★ v1.2：作废留痕（放弃/中途退出）。 */
+  /** ★ v1.2：作废留痕（放弃/中途退出）。★ v1.4 语义＝**最近一次**作废，重新参与**不清空**。 */
   voided_at_ms: number | null
   void_reason: string
+  /** ★ v1.4：「反悔重新参与」次数（审计）。 */
+  rejoin_count: number
 }

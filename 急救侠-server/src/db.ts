@@ -119,8 +119,9 @@ CREATE TABLE IF NOT EXISTS task_volunteers (
   arrived_at_ms    INTEGER,                      -- ★ 到达现场（= 时长起点）；NULL = 未到场
   ended_at_ms      INTEGER,                      -- 离开现场（= 时长终点）
   status           TEXT NOT NULL DEFAULT 'responded', -- responded|arrived|left|voided
-  voided_at_ms     INTEGER,                      -- ★ 作废留痕（放弃/中途退出）
-  void_reason      TEXT NOT NULL DEFAULT '',     -- ★
+  voided_at_ms     INTEGER,                      -- 作废留痕；★v1.4 语义＝**最近一次**作废，重新参与**不清空**（审计）
+  void_reason      TEXT NOT NULL DEFAULT '',     -- ★v1.4 同上（最近一次）
+  rejoin_count     INTEGER NOT NULL DEFAULT 0,   -- ★v1.4「反悔重新参与」次数（审计）
   FOREIGN KEY (task_id) REFERENCES tasks(id),
   FOREIGN KEY (user_id) REFERENCES users(id),
   UNIQUE(task_id, user_id)
@@ -1127,6 +1128,15 @@ export function initDb(options: { silent?: boolean } = {}) {
       description: 'dedupe duplicate active service_certificates then add partial unique index idx_scert_active_dedup',
       // ★ v1.3：先去重再建唯一索引（顺序不可换，详见 `MIGRATION_045_SQL` 注释）。
       sql: MIGRATION_045_SQL,
+    },
+    {
+      id: '046_add_task_rejoin_count',
+      description: 'add rejoin_count to task_volunteers (v1.4: abandon→rejoin support, audit)',
+      // ★ v1.4（§11.11-②）：支持「放弃后反悔、重新参与同一任务」，用 `rejoin_count` 记录反悔次数（审计）。
+      // 纯**加列** ⇒ canonical 与迁移**两处都写**即可（与 T01 的 044 同做法）。
+      // 幂等：canonical 已含该列 ⇒ 全新库此 ALTER 因「duplicate column」被外层 catch 记为 skipped；
+      // 既有库则真正补列并记入 `_migrations`。（★ 与 T02 的索引不同：加列**无需**「先去重」。）
+      sql: "ALTER TABLE task_volunteers ADD COLUMN rejoin_count INTEGER NOT NULL DEFAULT 0",
     },
   ]
 

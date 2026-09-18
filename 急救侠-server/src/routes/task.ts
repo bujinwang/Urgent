@@ -3,7 +3,7 @@ import db, { get, all } from '../db'
 import { success, error, RescueTask } from '../types'
 import type { TaskRow } from '../types/rows'
 import { optionalAuth } from '../middleware/auth'
-import { genId, closeServiceForUser, arriveParticipation, abandonParticipation } from '../services/serviceLog'
+import { genId, closeServiceForUser, arriveParticipation, abandonParticipation, rejoinParticipation } from '../services/serviceLog'
 
 export const taskRouter = Router()
 
@@ -43,6 +43,12 @@ taskRouter.get('/list', (_req, res) => {
 /**
  * `POST /api/task/accept` —— 接受救援任务并**归因留痕**（F4 P0-2，§5.1 时序）。
  *
+ * ★ v1.4：本端点语义为 **upsert**（§11.11-①）——
+ * ① 无本人行 ⇒ `INSERT OR IGNORE` 建 `responded` 行（保持现状）⇒ `attributed:true`；
+ * ② 命中本人 `status='voided'` 的行 ⇒ **重新激活**（「放弃后反悔、重新参与」）⇒ `rejoined:true`；
+ * ③ 命中 `responded`/`arrived`/`left` ⇒ 两者皆 `false`（幂等 / `left` 终局）。
+ * 反悔**复用本端点**（不新增 `/task/rejoin`），前端「接受·立即出发」按钮即入口（§11.11-⑦）。
+ *
  * 鉴权：`optionalAuth`（§10-Q1）。**游客（无 token）不产生参与行、不产生台账行，仍返回 200**
  * —— 这是约束的结果、不是缺陷（不登录就没有 `user_id`，物理上无法归因），**不得**改成 401。
  *
@@ -60,6 +66,7 @@ taskRouter.post('/accept', optionalAuth, (req, res) => {
     db.prepare("UPDATE tasks SET status = 'active', volunteers_responded = volunteers_responded + 1 WHERE id = ?").run(taskId)
 
     let attributed = false
+    let rejoined = false
     if (uid) {
       // 幂等靠 UNIQUE(task_id, user_id) + INSERT OR IGNORE（硬约束 #4）。
       // 用 `SELECT ... WHERE EXISTS(tasks)` 守卫：任务不存在时不写（避免 FK 违约抛 500，
@@ -70,9 +77,15 @@ taskRouter.post('/accept', optionalAuth, (req, res) => {
          WHERE EXISTS (SELECT 1 FROM tasks WHERE id = ?)`
       ).run(genId('tv'), taskId, uid, Date.now(), 'responded', taskId)
       attributed = info.changes === 1
+
+      // ★ v1.4 反悔：未新建（已存在本人行）时，若是 `voided` 则重新激活（§11.11-①）。
+      // 重置清单（**含清空 arrived_at_ms**）在 `rejoinParticipation()` 内，勿在此重复实现。
+      if (!attributed) {
+        rejoined = rejoinParticipation({ taskId, userId: uid, respondedMs: Date.now() })
+      }
     }
 
-    res.json(success({ attributed }, '任务已接受'))
+    res.json(success({ attributed, rejoined }, '任务已接受'))
   } catch (e: any) {
     res.status(500).json(error(e.message || '服务器错误'))
   }
@@ -127,7 +140,9 @@ taskRouter.post('/complete', optionalAuth, (req, res) => {
  * `POST /api/task/abandon` —— 记「**放弃 / 中途退出**」（★ v1.2，§11.4）。
  *
  * 鉴权：`optionalAuth`；游客 ⇒ no-op、返 200（Q1）。
- * 语义：参与行标为 `voided` + `void_reason` 留痕，**绝不写台账**（Q2：放弃 ⇒ 不计入时长，T28）。
+ * ⚠️ ★ v1.4（T40）：本端点**绝不**改 `tasks.status`（尤其**不得**置 `completed`）——
+ * 任务须保持 `active`，否则 `mission/index` 不再展示它，**「放弃后反悔」的入口就消失了**。
+ * `abandon` 只动本人参与行，**不写台账**（这是「`(task,user)` 至多一条台账」的前提，§11.11-⑥）。
  */
 taskRouter.post('/abandon', optionalAuth, (req, res) => {
   try {
