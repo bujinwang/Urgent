@@ -6,6 +6,15 @@
     </view>
 
     <template v-if="isLoggedIn">
+      <!-- ★ 加载失败态：**与空态可区分**（空态说「暂无证明」，此处说「加载失败」+ 重试）。
+           ⚠️ 这里用**本页局部** `loadError`，**不能**用 `store.error`：后者被 create/revoke/verify 的
+           失败也写入 ⇒ 一次「撤销失败」会把整页内容换成失败态（动作失败 ≠ 加载失败）。 -->
+      <view v-if="loadError" class="certs-error">
+        <text class="certs-error-text">{{ t('serviceCert.loadFailed') }}</text>
+        <view class="certs-error-retry" @click="onRetry">{{ t('hours.retry') }}</view>
+      </view>
+
+      <template v-else>
       <view class="certs-card">
         <text class="certs-doc-title">{{ t('serviceCert.docTitle') }}</text>
         <text class="certs-disclaimer">{{ t('serviceCert.disclaimer') }}</text>
@@ -42,6 +51,7 @@
         <view class="certs-btn-primary" @click="onVerify">{{ t('serviceCert.verify') }}</view>
         <text v-if="verifyResult" class="certs-verify-result">{{ verifyResult }}</text>
       </view>
+      </template>
     </template>
 
     <view v-else class="certs-guest">
@@ -71,6 +81,9 @@ function t(key: string, named?: Record<string, unknown>): string {
 const isLoggedIn = computed(() => !!user.profile?.id)
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+/** 本页**局部**加载失败态（见模板注释：不可用共享的 `store.error`）。 */
+const loadError = ref('')
 
 /** 两位补零。 */
 function pad2(n: number): string {
@@ -156,8 +169,24 @@ function goLogin(): void {
 // 原生导航栏标题随语言切换（P1b）；本页有标准原生标题栏 ⇒ 必须接线（见 nav-title-locale.test.ts 的守卫）。
 useLocalizedNavTitle('nav.serviceCert')
 
+/** 加载证明列表 —— 失败写**局部** `loadError`（渲染失败态 + 重试），**不**静默落空态。 */
+async function load(): Promise<void> {
+  try {
+    loadError.value = ''
+    await store.loadCertificates()
+  } catch {
+    // 只显示本地化文案（**不回显**后端 message，避免 en 下混入中文）。
+    loadError.value = t('serviceCert.loadFailed')
+  }
+}
+
+/** 失败态「重试」。 */
+function onRetry(): void {
+  void load()
+}
+
 onMounted(() => {
-  if (isLoggedIn.value) void store.loadCertificates().catch(() => { /* 错误已记录于 store.error */ })
+  if (isLoggedIn.value) void load()
 })
 </script>
 
@@ -176,6 +205,9 @@ onMounted(() => {
 .certs-section{padding:0 40rpx 32rpx}
 .certs-section-title{font-family:var(--serif);font-size:28rpx;font-weight:700;display:block;margin-bottom:20rpx}
 .certs-empty{text-align:center;padding:48rpx 0;color:var(--ink-mute);font-size:26rpx}
+.certs-error{margin:0 40rpx 32rpx;padding:48rpx 32rpx;background:#FEF2F2;border:1px solid #FECACA;border-radius:24rpx;text-align:center}
+.certs-error-text{display:block;color:#991B1B;font-size:26rpx;margin-bottom:24rpx}
+.certs-error-retry{display:inline-block;padding:16rpx 56rpx;background:var(--rescue-red);color:#fff;border-radius:40rpx;font-size:26rpx;font-weight:700}
 .certs-item{display:flex;align-items:center;gap:16rpx;padding:24rpx;background:#fff;border:1px solid var(--line);border-radius:20rpx;margin-bottom:12rpx;flex-wrap:wrap}
 .certs-item-no{font-family:var(--mono);font-size:24rpx;font-weight:700;flex:1}
 .certs-item-total{font-size:24rpx}

@@ -6,6 +6,14 @@
     </view>
 
     <template v-if="isLoggedIn">
+      <!-- ★ 加载失败态：**必须与空态可区分** —— 空态说「暂无服务记录」，此处说「加载失败」+ 重试按钮。
+           若两者混同，用户会把"网络失败"误读成"**我的时长没了**"（时长=权益凭证，最不该发生的误导）。 -->
+      <view v-if="store.error" class="hours-error">
+        <text class="hours-error-text">{{ t('hours.loadFailed') }}</text>
+        <view class="hours-error-retry" @click="onRetry">{{ t('hours.retry') }}</view>
+      </view>
+
+      <template v-else>
       <view class="hours-total">
         <text class="hours-total-label">{{ t('hours.total') }}</text>
         <text class="hours-total-value">{{ t('hours.minutes', { n: store.totalMinutes }) }}</text>
@@ -41,6 +49,7 @@
         <text class="hours-page-info">{{ t('hours.page', { page: store.page }) }}</text>
         <view class="hours-page-btn" @click="nextPage">{{ t('hours.next') }}</view>
       </view>
+      </template>
     </template>
 
     <!-- 游客态：明确引导（不是空白） -->
@@ -124,8 +133,18 @@ function goLogin(): void {
 // 原生导航栏标题随语言切换（P1b）；本页有标准原生标题栏 ⇒ 必须接线（见 nav-title-locale.test.ts 的守卫）。
 useLocalizedNavTitle('nav.hours')
 
+/** 加载「我的时长」——失败**记录于 `store.error`**（页面据此渲染**失败态**，绝不静默落空态）。 */
+function load(): void {
+  void store.loadHours().catch(() => { /* 错误已记录于 store.error ⇒ 渲染失败态（不静默吞掉） */ })
+}
+
+/** 失败态「重试」。 */
+function onRetry(): void {
+  load()
+}
+
 onMounted(() => {
-  if (isLoggedIn.value) void store.loadHours().catch(() => { /* 错误已记录于 store.error */ })
+  if (isLoggedIn.value) load()
 })
 </script>
 
@@ -143,6 +162,9 @@ onMounted(() => {
 .hours-section{padding:0 40rpx 32rpx}
 .hours-section-title{font-family:var(--serif);font-size:28rpx;font-weight:700;display:block;margin-bottom:20rpx}
 .hours-empty{text-align:center;padding:48rpx 0;color:var(--ink-mute);font-size:26rpx}
+.hours-error{margin:0 40rpx 32rpx;padding:48rpx 32rpx;background:#FEF2F2;border:1px solid #FECACA;border-radius:24rpx;text-align:center}
+.hours-error-text{display:block;color:#991B1B;font-size:26rpx;margin-bottom:24rpx}
+.hours-error-retry{display:inline-block;padding:16rpx 56rpx;background:var(--rescue-red);color:#fff;border-radius:40rpx;font-size:26rpx;font-weight:700}
 .hours-break-card{display:flex;justify-content:space-between;align-items:center;padding:28rpx;background:#fff;border:1px solid var(--line);border-radius:20rpx;margin-bottom:12rpx}
 .hours-break-name{font-size:26rpx;font-weight:600}
 .hours-break-min{font-family:var(--mono);font-size:26rpx;font-weight:700;color:var(--rescue-red)}

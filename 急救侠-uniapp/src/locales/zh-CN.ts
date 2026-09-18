@@ -706,5 +706,6 @@ export default {
     listTitle: '我的证明',
     verifyInputLabel: '证明编号',
     printHint: '请在浏览器中打印',
+    loadFailed: '加载服务证明失败',
   },
 }

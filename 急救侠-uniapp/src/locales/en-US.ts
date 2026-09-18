@@ -548,5 +548,6 @@ export default {
     listTitle: 'My certificates',
     verifyInputLabel: 'Certificate number',
     printHint: 'Please print from a browser',
+    loadFailed: 'Failed to load service certificates',
   },
 }
