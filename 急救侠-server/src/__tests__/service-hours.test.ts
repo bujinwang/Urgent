@@ -206,6 +206,35 @@ describe('F4 T01 · 任务侧归因 / 到达 / 离开 / 放弃（v1.2）', () =>
     expect(b.status).toBe('responded')
   })
 
+  it('★ T29b：按人闭合的**隔离守卫** —— A、B 都到达；A /complete ⇒ 仅 A 闭合，B 保持 arrived、无台账', async () => {
+    // 与 T29 的区别：T29 里 B「仅报名」是被 `arrived_at_ms IS NULL ⇒ no-op` 挡住的；
+    // 本用例让 B **也到达**，从而**只**由 `WHERE user_id = ?`（按人）这一机制挡住 B ——
+    // 这样「后人误删 user_id 过滤」这个缺陷才会被测出来（否则 T29 全绿而 bug 真实存在）。
+    addUserB()
+    await accept(tokenA())
+    await accept(tokenB())
+    await arrive(tokenA())
+    await arrive(tokenB())
+    backdate('user_001', { arrivedMin: 20 })
+    backdate('user_002', { arrivedMin: 15 })
+
+    const res = await complete(tokenA())
+    expect(res.body.data.closed).toBe(1)
+    expect(res.body.data.minutes).toBe(20)
+
+    // A：已闭合 + 已入账
+    const a = tvRow('user_001')
+    expect(a.ended_at_ms).toBeGreaterThan(0)
+    expect(a.status).toBe('left')
+    expect(countOf('volunteer_service_logs', " WHERE user_id = 'user_001'")).toBe(1)
+
+    // ★ B：必须**完全**不受 A 的动作影响 —— 仍 arrived、仍未闭合、无台账
+    const b = tvRow('user_002')
+    expect(b.ended_at_ms).toBeNull()
+    expect(b.status).toBe('arrived')
+    expect(countOf('volunteer_service_logs', " WHERE user_id = 'user_002'")).toBe(0)
+  })
+
   it('★ T31：按人闭合幂等 —— 同一人 /complete 两次 ⇒ ended 不被覆盖、时长不翻倍', async () => {
     await accept()
     await arrive()

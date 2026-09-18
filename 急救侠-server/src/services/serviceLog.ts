@@ -155,6 +155,11 @@ export interface AbandonParticipationInput {
  *
  * 幂等：`ended_at_ms IS NULL AND status <> 'voided'` 守卫 ⇒ 重复调用无副作用。已闭合（`left`）⇒ no-op。
  *
+ * ⚠️ **已知产品边界（本次不实现）**：`UNIQUE(task_id, user_id)` 保证一人一行，而本函数把该行置 `voided`
+ * 之后，`arriveParticipation` / `closeServiceForUser` 的 `status <> 'voided'` 守卫会**跳过**它 ⇒
+ * 同一志愿者**放弃后无法重新参与同一任务**（`/arrive` 与 `/complete` 均 no-op，永远拿不到该任务时长）。
+ * 「反悔想回去参与」是否要支持，待业务确认；此处仅记录现状，**不加额外逻辑**。
+ *
  * @returns `true` = 本次真正作了废。
  */
 export function abandonParticipation(input: AbandonParticipationInput): boolean {
