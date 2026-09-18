@@ -7,38 +7,59 @@ sequenceDiagram
     participant L as ServiceLog(helper)
     participant DB as volunteer_service_logs
 
-    Note over U,S: 现状：acceptMission() 只改本地 state，不调 API（设计 §1.1）
+    Note over U,S: 报名（acceptMission → /task/accept）
     U->>S: 点「接受·立即出发」
     S->>A: POST /task/accept {taskId}  (Bearer token)
     A->>A: user_id = req.auth?.userId ∥ openid  ← 只从 token（绝不读 body）
     alt 已登录
-        A->>TV: INSERT OR IGNORE (id, task_id, user_id, responded_at_ms=now)
+        A->>TV: INSERT OR IGNORE (responded_at_ms=now, status='responded')
         TV-->>A: changes=1（首次）/ 0（重复 accept）
-    else 游客（可选登录）
-        A-->>A: 无身份 ⇒ 跳过归因（保留"无需注册"急救流）
+    else 游客
+        A-->>A: 无身份 ⇒ 跳过（游客不产生记录，Q1）
     end
-    A->>A: UPDATE tasks SET status='active'
     A-->>S: { attributed:true }
 
-    U->>S: 任务结束（到达/结束）
+    Note over U,S: ★v1.2 到达（arrive() → /task/arrive，记「时长起点」）
+    U->>S: 跑动到现场（tick 归零）→ arrive()
+    S->>A: POST /task/arrive {taskId}
+    A->>A: user_id = req.auth?.userId ∥ openid
+    alt 已登录且存在本人、未到达的参与行
+        A->>TV: UPDATE SET arrived_at_ms=now, status='arrived' WHERE task_id=? AND user_id=? AND arrived_at_ms IS NULL
+        Note right of TV: 幂等：仅当 arrived IS NULL 才写 ⇒ 重复 arrive 不覆盖起点（T27）
+        TV-->>A: changes=1 / 0
+    else 游客 / 未报名 / 已到达
+        A-->>A: no-op（仍 200）
+    end
+    A-->>S: { arrived:true }
+
+    Note over U,S: ★v1.2 离开（「结束服务」→ /task/complete，按人闭合）
+    U->>S: arrived 页点「结束服务」
     S->>A: POST /task/complete {taskId}
     A->>A: user_id = req.auth?.userId ∥ openid
-    A->>TV: SELECT user_id, responded_at_ms WHERE task_id=? AND ended_at_ms IS NULL
-    loop 每位未闭合参与者
-        A->>TV: UPDATE task_volunteers SET ended_at_ms=now, status='closed' WHERE … AND ended_at_ms IS NULL
-        Note right of TV: 幂等：仅当 ended IS NULL 才写 ⇒ 二次 complete 影响 0 行（T18）
-        A->>L: closeService({userId, taskId, respondedAtMs, endedMs=now})
-        L->>L: durationMin = max(0, round((ended-started)/60000))；>480 ⇒ 封顶+status=pending
-        L->>DB: INSERT OR IGNORE (…)  ← 唯一索引 idx_vsl_dedup 兜底幂等
-        DB-->>L: changes=1/0
+    A->>TV: SELECT arrived_at_ms WHERE task_id=? AND user_id=? AND ended_at_ms IS NULL  ← ★仅本人
+    alt arrived_at_ms IS NULL（未到场）
+        A-->>A: no-op（未到达 ⇒ 恒不计入）
+    else 已到达且未闭合
+        A->>TV: UPDATE SET ended_at_ms=now, status='left' WHERE … AND ended_at_ms IS NULL
+        Note right of TV: 幂等：仅当 ended IS NULL ⇒ 二次 complete 影响 0 行（T31）
+        A->>L: closeServiceForUser({taskId, userId, endedMs=now})
+        L->>L: startedMs = ★arrived_at_ms（不是 responded_at_ms）；durationMin=round((ended−arrived)/60000)
+        L->>DB: INSERT OR IGNORE (started_at_ms=arrived_at_ms, ended_at_ms=now, …)
+        DB-->>L: changes=1/0（idx_vsl_dedup 兜底）
     end
-    A->>A: UPDATE tasks SET status='completed'
     A-->>S: { closed:N, minutes:M }
+
+    Note over U,S: ★v1.2 放弃（running 页 cancelMission → /task/abandon，不作废台账）
+    U->>S: running 页点「转给其他志愿者」
+    S->>A: POST /task/abandon {taskId}
+    A->>TV: UPDATE SET status='voided', voided_at_ms=now, void_reason='abandoned' WHERE task_id=? AND user_id=? AND ended_at_ms IS NULL
+    Note right of A: ★不写台账 ⇒ 放弃者 0 分钟，但留作废痕（Q2）
+    A-->>S: { voided:true }
 
     U->>S: 打开「我的服务时长」
     S->>A: GET /volunteer/service-hours/me
     A->>DB: 聚合 WHERE user_id=? AND ended IS NOT NULL AND is_drill=0 AND status='confirmed'
-    A-->>S: 总时长 + 分项 + 明细
+    A-->>S: 总时长 + 分项 + 明细（只含「到达过」的记录）
 
 ---
 

@@ -1,10 +1,11 @@
 # 设计：志愿服务时长台账 + 志愿服务记录证明（F4）
 
 > 上游：`volunteer-service-hours-prd.md`（v1.0，F4）
-> 版本：**v1.1** ｜ 状态：设计定稿（§10 八条已全决，无待回问项），待实现 ｜ 语言：中文
+> 版本：**v1.2** ｜ 状态：设计定稿（§10 八条已全决；§11 v1.2 时长口径修正已拍板），待重新实现 ｜ 语言：中文
 > 本文**只写 PRD 没定的东西**（架构、表结构、端点契约、调用流程、任务顺序、测试计划）。
 > 组织风格沿用同项目 `i18n-emergency-flow-design.md`（实测修正优先 + 代码取证 + 突变承重性）。
-> ⚠️ **v1.1 的两处关键更正**：断链范围从「task 侧」扩为「**6 个写型接口零接线**」（§1.1）；动员/演习是「**整条链路未实现**」而非「有表缺闭合」（§1.2）。修订记录见**附录 C**。
+> ⚠️ **v1.1 的两处关键更正**：断链范围从「task 侧」扩为「**6 个写型接口零接线**」（§1.1）；动员/演习是「**整条链路未实现**」而非「有表缺闭合」（§1.2）。
+> ⚠️ **★ v1.2 的关键更正（先读 §11）**：时长区间 = **「到达 → 离开」**（赶路不计入）；`startedMs` 取 **`arrived_at_ms`**（**不是** `responded_at_ms`）；放弃/退出 ⇒ **作废留痕、不入账**；`/complete` 改为**按人闭合**（堵搭便车）。修订记录见**附录 C**。
 
 ---
 
@@ -200,6 +201,11 @@ export function computeDurationMin(startedMs: number, endedMs: number | null): n
 - **绝不读 `req.body.duration_min`**（硬约束 #2 / T3）。
 - 封顶后置 `pending`：既满足 D2「超出需人工登记」，又让 §7 的 `T8`（pending 不进证明）成为**主路径**不变量。
 
+> ★★ **v1.2 修正（关键，详见 §11）**：`startedMs` **必须取「到达现场」时刻 `arrived_at_ms`，不是 `responded_at_ms`（报名时刻）**。
+> 用户 2026-09-17 拍板：**时长区间 = 到达现场 → 离开现场；赶路不计入**。`responded_at_ms` 仅是"报名"，**不参与计时**。
+> `arrived_at_ms IS NULL`（未到场）⇒ **恒不计入**（在**写入层**保证：未到达就不写台账行）。
+> ⚠️ **v1.0 的实现缺陷正是这一行**：`closeService()` 取了 `responded_at_ms` ⇒ 时长 = 报名→闭合，**可刷且语义倒置**（§11.1）。
+
 ---
 
 ## §4 数据结构与接口
@@ -255,19 +261,26 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_no ON service_certificates(cert_no);
 CREATE INDEX IF NOT EXISTS idx_scert_user ON service_certificates(user_id, issued_at_ms DESC);
 
 -- 表 3（Q3 选 a）：任务参与关系（照 drill_participants）
+-- ★ v1.2：区分三个时刻 —— 报名 responded_at_ms / 到达 arrived_at_ms / 离开 ended_at_ms
 CREATE TABLE IF NOT EXISTS task_volunteers (
   id               TEXT PRIMARY KEY,
   task_id          TEXT NOT NULL,               -- FK tasks(id)
   user_id          TEXT NOT NULL,               -- FK users(id)
-  responded_at_ms  INTEGER NOT NULL,
-  ended_at_ms      INTEGER,
-  status           TEXT NOT NULL DEFAULT 'responded', -- responded|closed
+  responded_at_ms  INTEGER NOT NULL,            -- 报名（**不计时**）
+  arrived_at_ms    INTEGER,                     -- ★ 到达现场（= 时长**起点**）；NULL = 未到场
+  ended_at_ms      INTEGER,                     -- 离开现场（= 时长**终点**）
+  status           TEXT NOT NULL DEFAULT 'responded', -- responded|arrived|left|voided
+  voided_at_ms     INTEGER,                     -- ★ 作废留痕（放弃/中途退出）
+  void_reason      TEXT NOT NULL DEFAULT '',    -- ★
   FOREIGN KEY (task_id) REFERENCES tasks(id),
   FOREIGN KEY (user_id) REFERENCES users(id),
   UNIQUE(task_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 ```
+> ★ **v1.2 表变更**：`task_volunteers` 新增 `arrived_at_ms` / `voided_at_ms` / `void_reason`，`status` 取值扩为
+> `responded | arrived | left | voided`。**走迁移 044**（3 条 `ALTER TABLE ... ADD COLUMN`，照迁移 038 的幂等写法；
+> 全新库因 canonical 已含这些列而 skipped）。**不改** `volunteer_service_logs` / `service_certificates` 结构。
 
 - **不加** `users.service_hours` / `volunteers.*` 冗余列（PRD §5.1 显式声明）：时长**一律从台账实时聚合**，杜绝双真值。`volunteers` 是**死表**（`seed.ts:135` 才写，与登录用户双轨）⇒ 时长**必须**挂 `users.id`。
 - **不新增** `users` 姓名/证件号列（Q2 / 硬约束）。
@@ -297,7 +310,9 @@ CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 | 6 | `GET` | `/api/org/:id/service-hours`（P1-6） | `authMiddleware` + 内联 admin/manager 校验 | query 同上 | 结构同 #1（**仅本机构成员**） | 200 / 401 / 403；跨机构 ⇒ **空集** |
 | 7 | `GET` | `/api/gov/dashboard`（P1-8） | `govMiddleware`（既有） | — | 追加 `serviceHours:{ totalMinutes, participantCount, byActivityType:[…] }` | 200 |
 | 8 | `POST` | `/api/task/accept`（**改写**） | **`optionalAuth`**（见 §10-Q1） | body: `taskId` | `{ attributed:boolean }` | 200 |
-| 9 | `POST` | `/api/task/complete`（**改写**） | **`optionalAuth`**（见 §10-Q1） | body: `taskId` | `{ closed:number, minutes:number }` | 200 |
+| 9 | `POST` | **`/api/task/arrive`**（**v1.2 新增**，§11.4） | **`optionalAuth`** | body: `taskId` | `{ arrived:boolean }` | 200 |
+| 10 | `POST` | `/api/task/complete`（**v1.2 改为「按人闭合」**，§11.4） | **`optionalAuth`** | body: `taskId` | `{ closed:number, minutes:number }` | 200 |
+| 11 | `POST` | **`/api/task/abandon`**（**v1.2 新增**，§11.4） | **`optionalAuth`** | body: `taskId`, `reason?` | `{ voided:boolean }` | 200 |
 | CLI | `npm run service:report` / `service:purge` | 运维 | **不开 HTTP** | `--days`/`--dry-run` | 见 §5.3 | exit 0/1/2 |
 
 **验收锚点**：
@@ -307,7 +322,7 @@ CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 - #4 **零 PII**：响应体**不含** `user_id`/`name`/`phone`/`userId`（T15，深扫断言，照 `role-split.test.ts`）。
 - #4 **限流**（Q7）：超过阈值 ⇒ **429**；限流器须在测试中 `force=true` 注入验证（照 `createSmsReportLimiter(force)` 先例）。
 - #4 作废后 ⇒ `status: 'revoked'`（T9 半段）；且该分钟数从**后续**证明中消失、原台账行**仍在**（不物理删）。
-- #8/#9 **游客响应不产生时长记录**（Q1，§10）：无 token 调 accept/complete ⇒ **无 `task_volunteers` 行、无台账行**，**仍返回 200**（不 401）。⚠️ 这是**约束的结果、不是缺陷**（不登录就没有 `user_id`，物理上无法归因）——**不得**据此改 `authMiddleware`，也不得录为 bug。
+- #8~#11 **游客不产生时长记录**（Q1，§10）：无 token 调 accept/arrive/complete/abandon ⇒ **无参与行、无台账行**，**仍返回 200**（不 401）。⚠️ 这是**约束的结果、不是缺陷**（不登录就没有 `user_id`，物理上无法归因）——**不得**据此改 `authMiddleware`，也不得录为 bug。
 
 ### 4.4 迁移通道（硬约束 #9，严格走既有 runner）
 
@@ -315,16 +330,19 @@ CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 |---|---|---|
 | Runner | `initDb()` 内 `migrations[]`，**启动时执行**，登记 `_migrations` | `db.ts:820-1011` |
 | 通道 | **canonical schema（新库）+ `migrations[]`（既有库）双写**，两处 DDL 逐字一致 | 同 `040`（`db.ts:967-984`） |
-| 编号 | **041 `add_task_volunteers` / 042 `add_volunteer_service_logs` / 043 `add_service_certificates`**（接续当前最大 `040`） | `db.ts:968` |
+| 编号 | **041 `add_task_volunteers` / 042 `add_volunteer_service_logs` / 043 `add_service_certificates`**（接续当前最大 `040`）；**v1.2 追加 044 `add_task_arrival_void`**（给 `task_volunteers` 加 `arrived_at_ms`/`voided_at_ms`/`void_reason`） | `db.ts:968` |
 | ⚠️ **必须改 `clearAll()`** | 把 3 张新表加进 `db.ts:1061` 的 `DELETE` 清单，否则**测试隔离污染**（T17） | 硬约束 + PRD §5.2 |
-| ⚠️ **必须实机验证升级路径** | 单测跑 `:memory:`，canonical 已建表 ⇒ 迁移**恒为 skipped，真实升级从未被验证**。须照 `NEXT_STEPS.md:609-621`：**复制真实库 → 剥离 041/042/043 产物 → 启真实服务 → 日志必须是 `Migration applied: 041/042/043`**（非 skipped）（T16，**在实机跑，`:memory:` 测不出**） |
+| ⚠️ **必须实机验证升级路径** | 单测跑 `:memory:`，canonical 已建表 ⇒ 迁移**恒为 skipped，真实升级从未被验证**。须照 `NEXT_STEPS.md:609-621`：**复制真实库 → 剥离 041/042/043/044 产物 → 启真实服务 → 日志必须是 `Migration applied: 041/042/043/044`**（非 skipped）（T16，**在实机跑，`:memory:` 测不出**） |
 | 回填 | **不做历史回填**（Q4 判定为臆造数据）⇒ `migrations[]` **无 `after` 回调** | Q4 |
 
 ---
 
 ## §5 程序调用流程
 
-### 5.1 时序图 ①：救援任务 `accept` → 时长入账（含幂等与闭合）
+### 5.1 时序图 ①：救援任务「报名 → 到达 → 离开」→ 时长入账（★ v1.2 重画）
+
+> ⚠️ **v1.2 关键更正**：v1.0 把「到达」与「结束」合成一个 `任务结束（到达/结束）` 动作 ⇒ **正是 §11.1 缺陷的源头**。
+> 现**拆成两个独立动作**：`到达`（`/task/arrive`，记**时长起点**）与 `离开`（`/task/complete`，记**时长终点**）；**赶路不计入**。
 
 ```mermaid
 sequenceDiagram
@@ -336,39 +354,60 @@ sequenceDiagram
     participant L as ServiceLog(helper)
     participant DB as volunteer_service_logs
 
-    Note over U,S: ⚠️ 现状：acceptMission() 只改本地 state，不调 API（§1.1）
+    Note over U,S: 报名（acceptMission → /task/accept）
     U->>S: 点「接受·立即出发」
     S->>A: POST /task/accept {taskId}  (Bearer token)
     A->>A: user_id = req.auth?.userId ∥ openid  ← 只从 token（绝不读 body）
     alt 已登录
-        A->>TV: INSERT OR IGNORE (id, task_id, user_id, responded_at_ms=now)
+        A->>TV: INSERT OR IGNORE (responded_at_ms=now, status='responded')
         TV-->>A: changes=1（首次）/ 0（重复 accept）
-    else 游客（可选登录）
-        A-->>A: 无身份 ⇒ 跳过归因（保留"无需注册"急救流）
+    else 游客
+        A-->>A: 无身份 ⇒ 跳过（游客不产生记录，Q1）
     end
-    A->>A: UPDATE tasks SET status='active'  （计数器不在本设计修复，见 §10-Q2）
     A-->>S: { attributed:true }
-    S->>S: missionAccepted=true（保持既有本地行为）
 
-    U->>S: 任务结束（到达/结束）
+    Note over U,S: ★到达（arrive() → /task/arrive，记「时长起点」）
+    U->>S: 跑动到现场（tick 归零）→ arrive()
+    S->>A: POST /task/arrive {taskId}
+    A->>A: user_id = req.auth?.userId ∥ openid
+    alt 已登录且存在本人、未到达的参与行
+        A->>TV: UPDATE SET arrived_at_ms=now, status='arrived' WHERE task_id=? AND user_id=? AND arrived_at_ms IS NULL
+        Note right of TV: ⚠️ 幂等：仅当 arrived IS NULL 才写 ⇒ 重复 arrive 不覆盖起点（T27）
+        TV-->>A: changes=1 / 0
+    else 游客 / 未报名 / 已到达
+        A-->>A: no-op（仍 200）
+    end
+    A-->>S: { arrived:true }
+    S->>S: missionPhase='arrived' → 跳 arrived 页
+
+    Note over U,S: ★离开（「结束服务」→ /task/complete，记「时长终点」，**按人闭合**）
+    U->>S: arrived 页点「结束服务」
     S->>A: POST /task/complete {taskId}
     A->>A: user_id = req.auth?.userId ∥ openid
-    A->>TV: SELECT user_id, responded_at_ms WHERE task_id=? AND ended_at_ms IS NULL
-    loop 每位未闭合参与者
-        A->>TV: UPDATE task_volunteers SET ended_at_ms=now, status='closed' WHERE … AND ended_at_ms IS NULL
-        Note right of TV: ⚠️ 幂等：仅当 ended IS NULL 才写 ⇒ 二次 complete 影响 0 行（T18）
-        A->>L: closeService({userId, taskId, respondedAtMs, endedMs=now})
-        L->>L: durationMin = max(0, round((ended-started)/60000))；>480 ⇒ 封顶+status=pending
-        L->>DB: INSERT OR IGNORE (…)  ← 唯一索引 idx_vsl_dedup 兜底幂等
-        DB-->>L: changes=1/0
+    A->>TV: SELECT arrived_at_ms WHERE task_id=? AND user_id=? AND ended_at_ms IS NULL  ← ★仅本人
+    alt arrived_at_ms IS NULL（未到场）
+        A-->>A: no-op（未到达 ⇒ 恒不计入，§11.2）
+    else 已到达且未闭合
+        A->>TV: UPDATE SET ended_at_ms=now, status='left' WHERE … AND ended_at_ms IS NULL
+        Note right of TV: 幂等：仅当 ended IS NULL ⇒ 二次 complete 影响 0 行（T18）
+        A->>L: closeServiceForUser({taskId, userId, endedMs=now})
+        L->>L: startedMs = ★arrived_at_ms（**不是 responded_at_ms**）；durationMin=round((ended−arrived)/60000)
+        L->>DB: INSERT OR IGNORE (started_at_ms=arrived_at_ms, ended_at_ms=now, …)
+        DB-->>L: changes=1/0（idx_vsl_dedup 兜底）
     end
-    A->>A: UPDATE tasks SET status='completed'
     A-->>S: { closed:N, minutes:M }
+
+    Note over U,S: 放弃（running 页 cancelMission → /task/abandon，★不作废台账）
+    U->>S: running 页点「转给其他志愿者」
+    S->>A: POST /task/abandon {taskId}
+    A->>TV: UPDATE SET status='voided', voided_at_ms=now, void_reason='abandoned' WHERE task_id=? AND user_id=? AND ended_at_ms IS NULL
+    Note right of A: ★不写台账 ⇒ 放弃者 0 分钟，但**留作废痕**（Q2）
+    A-->>S: { voided:true }
 
     U->>S: 打开「我的服务时长」
     S->>A: GET /volunteer/service-hours/me
     A->>DB: 聚合 WHERE user_id=? AND ended IS NOT NULL AND is_drill=0 AND status='confirmed'
-    A-->>S: 总时长 + 分项 + 明细
+    A-->>S: 总时长 + 分项 + 明细（只含「到达过」的记录）
 ```
 
 ### 5.2 时序图 ②：证明生成 → 编号验真（含零 PII 校验）
@@ -428,21 +467,24 @@ npm run service:purge [--days <N>] [--dry-run]
 ### **T01 · 台账地基 + 任务侧归因/闭合/入账（P0-1 + P0-2，★打头）** — Priority **P0** · 依赖：无
 
 - **做什么**：
-  1. `db.ts`：新增 3 张表 canonical schema + 索引；`migrations[]` 追加 **041/042/043**（逐字一致）；`clearAll()` 补 3 表。
-  2. `types/index.ts` / `types/rows.ts`：新增 `ActivityType` 枚举、台账/证明/参与 行类型与响应类型；复用 `success()/error()`。
-  3. `services/serviceLog.ts`（**新**）：`recordService()` / `closeService()` / `computeDurationMin()` / `MAX_SINGLE_MINUTES` / 聚合 helper（`getUserHours()`）——**唯一权威实现**（供 T02/T05 复用）。
-  4. `routes/task.ts`：`/accept`（`optionalAuth`，`INSERT OR IGNORE task_volunteers`）、`/complete`（闭合 + 写台账，**幂等**）。⚠️ **`volunteers_responded` 的既有非幂等行为保持不变**（§10-Q2），但**必须加一条测试固定它**（见验收）。
-  5. **前端调用点接线（§1.1 关键）**：`api/task.ts` 保持；`stores/task.ts` 的 `acceptMission()` 调 `acceptTaskApi(taskId)`；`finishMission()`/`arrive()` 结束时调 `completeTaskApi(taskId)`。
-- **改文件**：`急救侠-server/src/db.ts`、`src/types/index.ts`、`src/types/rows.ts`、`src/services/serviceLog.ts`(新)、`src/routes/task.ts`、`src/__tests__/task.test.ts`、`src/__tests__/service-hours.test.ts`(新)、`急救侠-uniapp/src/stores/task.ts`、`急救侠-uniapp/src/__tests__/stores/task.test.ts`
+  1. `db.ts`：新增 3 张表 canonical schema + 索引；`migrations[]` 追加 **041/042/043**（逐字一致）；**v1.2 追加迁移 044**（`task_volunteers` + `arrived_at_ms`/`voided_at_ms`/`void_reason`，见 §11.3）；`clearAll()` 补 3 表。
+  2. `types/index.ts` / `types/rows.ts`：新增 `ActivityType` 枚举、台账/证明/参与 行类型与响应类型；**v1.2 扩 `TaskVolunteer.status` 为 `responded|arrived|left|voided`**；复用 `success()/error()`。
+  3. `services/serviceLog.ts`：`recordService()` / `computeDurationMin()` / `MAX_SINGLE_MINUTES` / 聚合 helper（`getUserHours()`）；**v1.2**：把 **task-wide 的 `closeService()` 改为 `closeServiceForUser()`（按人闭合）**，并新增 `arriveParticipation()` / `abandonParticipation()`（§11.4）——**唯一权威实现**（供 T02/T05 复用）。
+  4. `routes/task.ts`：`/accept`（`optionalAuth`，`INSERT OR IGNORE`）；**v1.2 新增 `/arrive`（记到达）**、`/complete`（改为**按人闭合**，`startedMs=arrived_at_ms`）、**`/abandon`（作废留痕、不写台账）**。⚠️ **`volunteers_responded` 的既有非幂等行为保持不变**（§10-Q2），但**必须加一条测试固定它**（见验收）。
+  5. **前端调用点重映射（★ v1.2 核心，§11.5）**：`api/task.ts` 增 `arriveTaskApi` / `abandonTaskApi`；`stores/task.ts`：`acceptMission()`→`/accept`；**`arrive()`→`/arrive`（原错调 `/complete`）**；**新增 `endService()`→`/complete`**（供 arrived 页「结束服务」）；**新增 `abandonMission()`→`/abandon`**（供 running 页「放弃」）；`finishMission()` **降为纯本地重置（不再调任何 API）**；`declineMission()` 路径**不发请求**。
+- **改文件**：`急救侠-server/src/db.ts`、`src/types/index.ts`、`src/types/rows.ts`、`src/services/serviceLog.ts`、`src/routes/task.ts`、`src/__tests__/task.test.ts`、`src/__tests__/service-hours.test.ts`、`急救侠-uniapp/src/api/task.ts`、`src/stores/task.ts`、`src/pages/mission/arrived.vue`（**含文案变更，见下**）、`src/pages/mission/running.vue`、`src/pages/mission/index.vue`、`src/__tests__/stores/task.test.ts`
 - **验收标准**：
   - 同一用户对同一任务 accept 两次 ⇒ `task_volunteers` **仅 1 行**（T6 同类）。
-  - `/complete` 后该行**必有** `ended_at_ms`；`/complete` 重复调用 ⇒ 仍 1 行、`ended_at_ms` **不被第二次覆盖**、时长**不重复累加**（T18）。
-  - `duration_min` 恒等于服务端算法；body 传 `duration_min: 9999` **被忽略**（T3）。
-  - 写入端点 body 传 `userId:'victim'` ⇒ `user_id` 恒等于 token 身份（T2）。
-  - **可归因率 > 0 的端到端证明**：走 `useTaskStore.acceptMission()`（**不是直接打端点**）⇒ 库中出现该用户的参与行（**调用点守卫**，§7）。
-  - **游客不产生记录**（Q1）：无 token 调 accept/complete ⇒ 无参与行、无台账行，且**返回 200**（非 401）（T23）。
+  - **★ v1.2 时长口径**：`/complete` 后 `duration_min === round((arrived − responded?)…)` —— 准确说 **= round((`ended_at_ms` − `arrived_at_ms`)/60000)**，**与 `responded_at_ms` 无关**（T26）。传 `duration_min: 9999` 被忽略（T3）。
+  - **★ v1.2 未到场恒不计入**：只在 `/accept`、未调 `/arrive` 就 `/complete` ⇒ **无台账行、0 分钟**（T26）。
+  - **★ v1.2 幂等（到达）**：`/arrive` 重复调用 ⇒ `arrived_at_ms` **不被覆盖**（T27）。
+  - **★ v1.2 放弃**：`/abandon` ⇒ 参与行 `status='voided'` + `void_reason` 非空 + `voided_at_ms` 非空，且**无台账行**（0 分钟）（T28）。
+  - **★ v1.2 按人闭合（堵搭便车）**：A 已到达、B 仅报名；A `/complete` ⇒ **只有 A 入账**，B 仍 `arrived_at_ms IS NULL` 且**无台账**（T29）。
+  - **★ v1.2 调用点守卫**（§11.5）：`arrived.vue`「结束服务」⇒ 调 `/complete`；`running.vue`「放弃」⇒ 调 `/abandon`；`stores.arrive()` ⇒ 调 `/arrive`。**各删对应调用行 ⇒ 精确变红**（T30）。
+  - **游客不产生记录**（Q1）：无 token 调 accept/arrive/complete/abandon ⇒ 无参与行、无台账行，且**返回 200**（非 401）（T23）。
   - ⚠️ **`volunteers_responded` 既有行为固定测试**（Q2）：接线后该计数器**首次被真实调用**，其非幂等会实际暴露 ⇒ 必须有一条用例**断言其当前（非幂等）行为**并附可检索注释，防止后人误以为它可靠（T24）。
   - `PRAGMA table_info` 3 张表**均无**位置列（T12）；`clearAll()` 后 3 表为空（T17）。
+  - ⚠️ **UI 文案变更（T01 附加项）**：`arrived.vue` 的「返回首页」改为语义明确的「**结束服务并返回**」（`running.vue`/`index.vue` 的「已转给其他志愿者」保持）。mission/* 页面**本就未本地化**（不在 `i18n-scope.ts` 的 `SCOPE_FILES`）⇒ 该文案**保持纯中文、不做 `t()`**，避免"半本地化"。**若日后再动此文案，须一并评估把 mission/* 纳入 i18n 范围。**
 - **可并行**：否（T02/T05 皆依赖它）。
 
 ---
@@ -555,6 +597,7 @@ graph TD
 7. **零 PII**：政府看板只出**聚合**；验真端点**只出 5 字段**；响应体不得含 `userId`/`name`/`phone`（硬约束 #7）。
 8. **测试约定**：后端 `src/__tests__/*.test.ts` 跑 `:memory:`（用 `app` 做 `request()`）；前端 vitest（基线以当日实测为准）；突变一律 `cp` 备份 + `shasum -a256 -c` 还原；跑完全量**扫 `Errors` 行**（F2 §11.3）。
 9. **★ 禁止措辞（Q1/D8）**：任何 UI/CSV/PDF/i18n 值**不得**含「符合国家标准 / 国家标准 / 国标 / 官方 / 政府认可」。
+10. **★ 任务时长口径（v1.2，§11）**：`task_volunteers` 三时刻 —— `responded`（报名，**不计时**）/ `arrived`（**时长起点**）/ `ended`（**时长终点**）；`status ∈ responded|arrived|left|voided`。**闭合一律按人**（`user_id` 维度），**禁止 task-wide 闭合**。放弃/退出 ⇒ `voided` + `void_reason`，**不写台账**。
 
 ---
 
@@ -591,11 +634,18 @@ graph TD
 | **T23** | **游客响应不产生记录**（Q1）：无 token 调 accept/complete ⇒ 无参与/台账行且**返回 200** | 把 `optionalAuth` 改成 `authMiddleware`（游客被 401） | 游客用例红（**证明这是约束、不是可"修"的缺陷**） | 后端 |
 | **T24** | **`volunteers_responded` 既有非幂等行为被固定**（Q2） | 把计数器改成幂等重算 | 该固定用例红（**提醒**：修它=行为变更，须另开工单） | 后端 |
 | **T25** | **验真端点限流**（Q7）且**不误伤** `/me`+`POST` | 去掉限流器 / 把限流器挂到整个 `/api/volunteer` 前缀 | 限流用例红（两方向） | 后端 |
+| **T26** | ★ **v1.2 时长起点 = 到达**：`duration_min === round((ended − **arrived**)/60000)`；未到场 ⇒ 无台账 | 把 `closeServiceForUser` 的 `startedMs` 改回 `responded_at_ms` | 「时长 = ended−arrived」用例红（**本缺陷的回归守卫**） | 后端 |
+| **T27** | ★ **到达幂等**：`/arrive` 调两次 ⇒ `arrived_at_ms` 不被覆盖 | 去掉 `arrived_at_ms IS NULL` 守卫 | 起点不变断言红 | 后端 |
+| **T28** | ★ **放弃留痕且不计入**：`/abandon` ⇒ `status='voided'`+`void_reason`+`voided_at_ms`，且**无台账** | 让 `/abandon` 也写台账（或漏写 `void_reason`） | 「0 分钟」/「留痕非空」用例红（两方向） | 后端 |
+| **T29** | ★ **按人闭合**：A 到达、B 仅报名；A `/complete` ⇒ 仅 A 入账，B 无台账 | 把 `closeServiceForUser` 改回 task-wide 循环 | 「B 无台账」用例红（**堵第 4 类搭便车**） | 后端 |
+| **T30** | ★ **v1.2 调用点守卫**：`arrived.vue`→`/complete`；`running.vue`→`/abandon`；`stores.arrive()`→`/arrive` | 各删对应一行调用 | 三个调用点用例**分别**红（§11.5） | 前端 |
+| **T31** | ★ **v1.2 幂等闭合（按人）**：同一人 `/complete` 两次 ⇒ `ended_at_ms` 不被覆盖、时长不翻倍 | 去掉 `ended_at_ms IS NULL` 守卫 | 行数/时长断言红（**原 T18 的按人版**） | 后端 |
 
 **守卫承重性自检（本项目教训）**：
 - 「扫描器自身失效」类自检**必须能被突变咬住**（如「范围清单非空」断言要写成"应等于 N"而非 `>= 0`，F2 §9.4）。
 - 每加一层守卫，**先问"还有谁会咬住同一突变"**，避免把别人的功劳记到自己头上（F2 §9.4.1）。
 - ⚠️ **T23/T24 是"行为固定型"用例**：它们不是防回归，而是**防后人误判**（把"约束的结果"当 bug 修、把"既有缺陷"当可靠计数器用）。断言消息里须写明原因，照 `KNOWN-BUG` 标记法（F2 §13.2）。
+- ★ **T26–T31 是 v1.2 缺陷的"回归守卫"**：v1.0 的四类错误（可刷 / 语义倒置 / 退出即记 / 搭便车）**各对应至少一条**；其中 **T26 是本次缺陷的"主守卫"** —— 它把「到达才计时」钉死在实现层。⚠️ **T18 的语义已随 v1.2 变更**（从 task-wide 变 per-user，见 T31），旧断言须同步更新。
 
 ---
 
@@ -640,6 +690,97 @@ graph TD
 
 ---
 
+## §11 ★★ v1.2 增量设计：时长区间语义修正（「到达 → 离开」，赶路不计入）
+
+> 触发：team-lead 复核 T01 实现（`212271e` 后端 / `92f0c4a` 前端）时**证实一处设计级缺陷**：时长体系**可被刷、且语义倒置**。用户 2026-09-17 拍板修正口径。
+> ⚠️ **问题在设计，不在实现**：工程师的实现质量是好的（幂等、DB 约束去重、helper 集中、T18/T19/T23/T24 都真红）——**本次是增量修正，不重写地基**（`serviceLog` 唯一权威口径、`*_at_ms` 时间口径、迁移 runner 全部不变）。
+
+### 11.1 缺陷证据链（team-lead 逐条复现）
+
+根因：**设计只定义了公式 `ended − started`，没定义「服务开始」取哪一刻** ⇒ v1.0 的 `closeService()`（`services/serviceLog.ts:144-166`）取了 `responded_at_ms`（报名时刻），再叠加 §5.1 时序图写的 `任务结束（到达/结束）`，产生四类错误：
+
+| # | 触发 | 实际语义 | v1.0 行为 | 后果 |
+|---|---|---|---|---|
+| 1 | `running.vue:143-151` `cancelMission()`「已转给其他志愿者」 | **放弃** | 闭合 + 入账 | 时长 = 报名→放弃 ⇒ **可反复刷** |
+| 2 | `arrived.vue:64-67` `goHome()`「返回首页」 | **退出** | 闭合 + 入账 | 同上 |
+| 3 | `stores/task.ts:94-98` `arrive()` | 服务**开始** | 闭合 + 入账 | **语义倒置：赶路被计时、真正救人不再计** |
+| 4 | 报名后不去、由他人完成任务 | 未参与 | `closeService` 闭合**该任务下所有**未闭合行 | **搭便车：白得时长** |
+
+> 第 4 条最讽刺 —— §1.2 亲手写了「**报名 ≠ 出席**」，但实现里**没有任何出席判定**。**根因是把「任务级闭合」当成了「个人服务结束」**。
+
+### 11.2 已拍板口径（2026-09-17）
+
+| # | 决策 |
+|---|---|
+| **Q1** | **时长区间 = 「到达现场 → 离开现场」**。`arrive()` 记**服务开始**，arrived 页退出动作记**服务结束**。**赶路不计入**（报到 ≠ 服务）。未到场者自然无时长 ⇒ **顺带堵死第 4 条搭便车**。 |
+| **Q2** | **放弃 / 拒绝 / 中途退出 ⇒ 不计入时长，且参与行标为作废（`void_reason` 留痕）**。 |
+
+### 11.3 表结构变更（迁移 **044**）
+
+`task_volunteers` 从「两时刻」扩为「**三时刻 + 作废**」（DDL 见 §4.1）：
+`responded_at_ms`（报名，**不计时**）/ `arrived_at_ms`（★到达，**时长起点**）/ `ended_at_ms`（离开，**时长终点**）/ `status ∈ {responded, arrived, left, voided}` / `voided_at_ms` / `void_reason`。
+迁移 044 = 3 条 `ALTER TABLE task_volunteers ADD COLUMN`（幂等写法同 038；全新库 skipped）。
+
+### 11.4 端点定义（★ 新增 2 个；`/complete` 改为按人闭合）
+
+| 端点 | 鉴权 | 语义 | SQL 守卫（幂等/安全） |
+|---|---|---|---|
+| `POST /api/task/arrive`（**新**） | `optionalAuth`（同 accept，游客跳过且返 200） | 记**到达**（时长起点） | `UPDATE task_volunteers SET arrived_at_ms=?, status='arrived' WHERE task_id=? AND user_id=? AND **arrived_at_ms IS NULL**` ⇒ 重复上报**不覆盖起点**；对**本人**行操作（绝不 task-wide）。无本人行 ⇒ no-op |
+| `POST /api/task/complete`（**改**） | `optionalAuth` | 记**离开**（时长终点），**仅闭合本人、且仅当已到达** | `SELECT arrived_at_ms ... WHERE task_id=? AND **user_id=?** AND ended_at_ms IS NULL`；`arrived_at_ms IS NULL` ⇒ **no-op（未到场不计入）**；否则 `UPDATE ... SET ended_at_ms=?, status='left' WHERE ... AND ended_at_ms IS NULL` ⇒ 幂等；`recordService(startedAtMs=**arrived_at_ms**, endedAtMs=now)` |
+| `POST /api/task/abandon`（**新**） | `optionalAuth` | 放弃/中途退出 ⇒ **作废留痕、不写台账** | `UPDATE ... SET status='voided', voided_at_ms=?, void_reason=? WHERE task_id=? AND user_id=? AND ended_at_ms IS NULL` ⇒ 重复无副作用；**绝不** `recordService` |
+
+**入参/出参**：`arrive` `{taskId}`→`{arrived:boolean}`；`complete` `{taskId}`→`{closed,minutes}`；`abandon` `{taskId, reason?}`→`{voided:boolean}`。
+**通用**：`user_id = req.auth?.userId ∥ req.auth?.openid`（**只从 token**）；游客 ⇒ 恒 no-op、返 200（Q1 约束，非缺陷）。
+
+**`/complete` 的闭合面（回答 team-lead item 5）**：
+- **只能闭合「本人 + 已到达 + 未闭合」的行**。**未到达**的本人行 ⇒ **保持未闭合、不计入**（**不**自动作废 —— 因为"结束服务"只在"已到达"后才有意义；running 页的退出走 `/abandon`）。
+- 与 **§10-Q3b** 衔接：未到达 / 未闭合**都恒不计入**（§3.5 已固化）；但到达后未闭合的边界另见 §11.6。
+- **`tasks.status='completed'` 的全局更新**：v1.0 在 `/complete` 里顺手做（task-wide 心智）。v1.2 **保留但改为保守**：仅更新本人闭合时的任务状态（**不再**由「某人离开」隐式闭合他人参与行）。⚠️ 若后续要更准确的"事件级结束"，应另立信号（§11.6 的 P1）。
+
+### 11.5 ★ 前端调用点重映射（这正是本次缺陷的现场 —— 逐条给对应关系）
+
+| 调用点 | v1.0（错） | **v1.2（对）** |
+|---|---|---|
+| `stores/task.ts` `acceptMission()` | `acceptTaskApi()` → `/accept` | 不变 → `/accept`（报名） |
+| `stores/task.ts` `arrive()` | ❌ `completeTaskApi()` → `/complete` | ✅ **`arriveTaskApi()` → `/arrive`**（到达，记起点） |
+| `arrived.vue` `goHome()`「返回首页」 | `finishMission()` → 间接 `/complete` | ✅ **改走 `endService()` → `/complete`**（离开，记终点）+ 文案改「**结束服务并返回**」 |
+| `running.vue` `cancelMission()`「已转给其他志愿者」 | `finishMission()` → `/complete`（**误入账**） | ✅ **`abandonMission()` → `/abandon`**（作废留痕、不入账） |
+| `index.vue` `declineMission()`「无法前往」 | `finishMission()` → `/complete`（no 本人行，但触发 task-wide 闭合） | ✅ **只做本地重置，不发任何请求**（拒绝 ⇒ 无参与行）。⚠️ **确认**：本条在 v1.2 下**彻底安全**；v1.0 下它其实**会触发 task-wide 闭合**（team-lead 说"现状已安全"仅指"decliner 本人无行"这一半） |
+| `stores/task.ts` `finishMission()` | 调 `/complete` | ✅ **降为纯本地重置**（清 `missionAccepted`/`missionPhase`/`activeTask`），**不再发请求**；三个页面各自决定走 `endService()`/`abandonMission()`/不发 |
+
+> ⚠️ **`finishMission()` 是「3 页共用的退出语义」** —— v1.0 的缺陷正是把 3 种不同退出（**结束 / 放弃 / 拒绝**）都塞进同一个"闭合"动作。**这是本次要拆开的核心。**
+
+### 11.6 「到达后永不结束」边界的处置（回答 team-lead 的追问）
+
+用户到达后**永不按「结束服务」**（关 App / 换页 / 忘记）⇒ 该行 `status='arrived'`、`ended_at_ms IS NULL`。
+
+- **默认处置：不计入**（**安全方向**，与 §10-Q3b 一致）。理由：**没有结束时刻就不臆造时长**（Q3b 决议）；且因 `started_at_ms = arrived`、未闭合行根本不进聚合，**不存在被刷的可能**（宁少不多）。
+- **代价**：老实做完却忘了点"结束"的志愿者**拿不到这段时长**。这是**可接受的不精确**，但须在 UI 上降低概率（arrived 页把「结束服务」做成**主按钮**）。
+- **不采用**的做法：① 用**他人离开**去闭合（=重引入 task-wide 闭合 =搭便车）；② 用"报名时刻"兜底补时长（=Q3b 明确否定的臆造）。
+- **P1 兜底（可选，另立项）**：当**事件级**结束信号出现（120 到场交接 / 调度侧关闭任务）时，由**系统**把该任务下「已到达且未闭合」的行按**事件结束时刻**封顶闭合。**这是唯一允许的"非本人触发闭合"**，且必须有**事件级**信号为据（不是某个志愿者的动作）。**P0 不做**。
+
+### 11.7 v1.2 新增验收 / 突变（摘要，完整矩阵见 §8 的 **T26–T31**）
+
+- **T26** 时长 = `ended − arrived`（**不是** `responded`）；未到场 ⇒ 无台账。（**主守卫**）
+- **T27** `/arrive` 幂等：重复上报**不覆盖** `arrived_at_ms`。
+- **T28** `/abandon`：`void_reason` 留痕 + **0 分钟**（不写台账）。
+- **T29** **按人闭合**：A 到达、B 仅报名；A `/complete` ⇒ B **无台账**（堵搭便车）。
+- **T30** **调用点守卫**：`arrived.vue`→`/complete`、`running.vue`→`/abandon`、`stores.arrive()`→`/arrive`，**各删一行各变红**。
+- **T31** 按人闭合幂等（原 T18 的按人版）。
+
+### 11.8 影响面与"不重写地基"的边界
+
+| 层 | 是否改 | 说明 |
+|---|---|---|
+| `volunteer_service_logs` / `service_certificates` | **不改** | 唯一权威口径不变；`recordService`/聚合/证明/导出**零改动** |
+| `services/serviceLog.ts` | **增量** | `closeService()` → **`closeServiceForUser()`**（按人）；新增 `arriveParticipation()` / `abandonParticipation()`；`computeDurationMin()` 不变 |
+| `task_volunteers` | **加列**（迁移 044） | 仅 `arrived_at_ms` / `voided_at_ms` / `void_reason` |
+| `routes/task.ts` | **改 1 + 加 2** | `/complete` 改按人；新增 `/arrive`、`/abandon` |
+| 前端 `store` + 3 个 mission 页 | **改** | 见 §11.5（**本次缺陷现场**） |
+| T02/T03/T04/T05 | **不受影响** | 它们只读台账，台账语义未变 |
+
+---
+
 ## 附录 A：类图（数据结构与接口）
 
 ```mermaid
@@ -657,9 +798,12 @@ classDiagram
         +string id
         +string task_id
         +string user_id
-        +int responded_at_ms
-        +int ended_at_ms
-        +string status  %% responded|closed
+        +int responded_at_ms  %% 报名（不计时）
+        +int arrived_at_ms    %% ★v1.2 到达（=时长起点）
+        +int ended_at_ms      %% 离开（=时长终点）
+        +string status        %% responded|arrived|left|voided
+        +int voided_at_ms     %% ★v1.2 作废留痕
+        +string void_reason   %% ★v1.2
     }
     class VolunteerServiceLog {
         +string id
@@ -705,7 +849,9 @@ classDiagram
         +int MAX_SINGLE_MINUTES = 480
         +computeDurationMin(started, ended) int
         +recordService(input) string
-        +closeService(input) int
+        +arriveParticipation(taskId, userId) boolean   %% ★v1.2
+        +closeServiceForUser(taskId, userId, endedMs) CloseResult  %% ★v1.2（按人）
+        +abandonParticipation(taskId, userId, reason) boolean      %% ★v1.2
         +getUserHours(userId, page, pageSize) HoursView
         +buildBreakdown(userId, from, to) Breakdown
     }
@@ -762,4 +908,5 @@ classDiagram
 |---|---|
 | v1.0 | 初版（P0-1~P0-5 设计 + 5 任务分解 + §10 八条待明确） |
 | **v1.1** | ① §1.1 范围从「task 侧断线」**扩为「6 个写型接口零接线」**；② **新增 §1.2**：动员/演习**非「有表缺闭合」而是「整条链路未实现」**（原三档表措辞已更正）；③ **新增 §2.4**：P0 可信时长来源**只有救援任务**，并给出对 KPI / UI 的影响；④ §10 八条**全部已决**（Q1 `optionalAuth`+游客不产生记录 / Q7 限流 / Q8 不做），新增 §10bis 次要项；⑤ 任务验收补 **T23 游客不产生记录 / T24 计数器行为固定 / T25 验真限流**；⑥ T02 增限流器与测试文件。 |
+| **v1.2** | ★ **新增 §11 增量设计**：修正「时长区间语义」设计级缺陷（可刷 + 语义倒置 + 搭便车）。① 表 `task_volunteers` 加 `arrived_at_ms`/`voided_at_ms`/`void_reason`，`status` 扩为 4 值，**迁移 044**；② **新端点 `/task/arrive`、`/task/abandon`**，`/complete` **改为按人闭合**（`startedMs=arrived_at_ms`）；③ **§5.1 时序图重画**（到达/离开拆成两个动作）；④ **§3.5** 固化"起点=到达"；⑤ `closeService()`→`closeServiceForUser()`；⑥ **§11.5 前端调用点重映射**（`arrive()` 改调 `/arrive`；`finishMission()` 降为纯本地重置；新增 `endService()`/`abandonMission()`）；⑦ §6 T01 验收与 §8 增 **T26–T31**；⑧ `arrived.vue` 文案「返回首页」→「结束服务并返回」（标注为 T01 附加项）；⑨ §11.6 处置「到达后永不结束」边界。 |
 
