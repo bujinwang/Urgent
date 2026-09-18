@@ -117,6 +117,49 @@ export function recordService(input: RecordServiceInput): RecordServiceResult {
   return { id, inserted: info.changes === 1, durationMin, status }
 }
 
+/**
+ * 解析志愿者计入**机构聚合**时归属的机构（★ D-7）。
+ *
+ * 多对多、无主机构标记 ⇒ **确定性选一个**：优先取用户担任 `admin`/`manager` 的机构，
+ * 否则取 `joined_at` 最早加入的机构。无任何机构归属 ⇒ 返回 `''`
+ * （时长仍进**政府全局**聚合、不进任何机构聚合）。
+ *
+ * ⚠️ 归属**只能**从 `organization_members` 关系推导 —— 请求体传 `org_id` 违反「硬约束 #1」
+ * （归属不可信请求体，否则可伪造把时长记到别家机构）。本函数即唯一权威推导点。
+ */
+export function resolveUserOrgId(userId: string): string {
+  const row = get<{ org_id: string }>(
+    `SELECT org_id FROM organization_members
+     WHERE user_id = ?
+     ORDER BY (role IN ('admin','manager')) DESC, joined_at ASC
+     LIMIT 1`,
+    userId
+  )
+  return row?.org_id ?? ''
+}
+
+/**
+ * D-7 迁移回填：把 `org_id = ''` 的旧台账行补上**确定性**机构（与 {@link resolveUserOrgId} 同一规则）。
+ *
+ * 历史台账在 `org_id` 落地前写入，归属为空；本函数用同一规则回填，使存量时长也能被机构聚合计入
+ * （且只计入一次 —— 因为每行只解析出一个归属机构，不会因用户多机构而翻倍）。
+ *
+ * @returns 受影响（被补上 `org_id`）的行数。
+ */
+export function backfillServiceLogOrgId(): number {
+  // ★ `COALESCE(..., '')` 必需：`volunteer_service_logs.org_id` 是 `NOT NULL`，无机构用户的子查询返回 NULL
+  // ⇒ 直接 `SET org_id = (SELECT ...)` 会抛 `NOT NULL constraint failed`。COALESCE 让无机构行保持 ''
+  // （既满足「无机构用户保持 ''」不变量，也契合列 `DEFAULT ''`）。
+  const info = db.prepare(
+    `UPDATE volunteer_service_logs
+     SET org_id = COALESCE((SELECT om.org_id FROM organization_members om
+                  WHERE om.user_id = volunteer_service_logs.user_id
+                  ORDER BY (om.role IN ('admin','manager')) DESC, om.joined_at ASC LIMIT 1), '')
+     WHERE org_id = ''`
+  ).run()
+  return info.changes
+}
+
 /** `arriveParticipation()` 入参。 */
 export interface ArriveParticipationInput {
   taskId: string
@@ -266,6 +309,7 @@ export function closeServiceForUser(input: CloseServiceForUserInput): CloseServi
     startedAtMs: arrivedAtMs, // ★ 起点 = 到达，不是报名（T26）
     endedAtMs: input.endedMs,
     isDrill: false,
+    orgId: resolveUserOrgId(input.userId), // ★ D-7：写入确定性机构归属（勿伪造/改请求体）
     now: input.now,
   })
   return { closed: 1, minutes: res.durationMin ?? 0 }
