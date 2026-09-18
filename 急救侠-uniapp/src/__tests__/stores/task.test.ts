@@ -52,9 +52,9 @@ describe('Task Store（真实接口）', () => {
     expect(store.runningDistance).toBe(240)
   })
 
-  // ---- F4 T01 调用点守卫（§1.1）：删掉 store 里那一行真实调用 ⇒ 这些用例必须红 ----
+  // ---- F4 T01（v1.2）调用点守卫：删掉 store 里对应的那一行真实调用 ⇒ 用例必须红 ----
 
-  it('★ T19：acceptMission() 真实调用 acceptTaskApi（归因调用点守卫）', async () => {
+  it('★ T19：acceptMission() → POST /task/accept（报名归因）', async () => {
     const store = await mountStore()
     store.acceptMission()
     await new Promise((r) => setTimeout(r, 0))
@@ -63,30 +63,54 @@ describe('Task Store（真实接口）', () => {
     })
   })
 
-  it('★ 调用点守卫：arrive() 真实调用 completeTaskApi（闭合入账）', async () => {
+  it('★ T30：arrive() → POST /task/arrive（服务起点；不得再走 /complete）', async () => {
     const store = await mountStore()
     store.arrive()
     await new Promise((r) => setTimeout(r, 0))
     expect(vi.mocked(request)).toHaveBeenCalledWith({
+      url: '/task/arrive', method: 'POST', data: { taskId: 'task_001' },
+    })
+    // ▲ v1.2 回归守卫：到达绝不是「结束」——若改回 /complete，本断言变红
+    expect(vi.mocked(request)).not.toHaveBeenCalledWith({
       url: '/task/complete', method: 'POST', data: { taskId: 'task_001' },
     })
   })
 
-  it('★ 调用点守卫：finishMission() 真实调用 completeTaskApi（幂等，可重复）', async () => {
+  it('★ T30：endService() → POST /task/complete（服务终点，按人闭合）', async () => {
     const store = await mountStore()
-    store.finishMission()
+    store.endService()
     await new Promise((r) => setTimeout(r, 0))
     expect(vi.mocked(request)).toHaveBeenCalledWith({
       url: '/task/complete', method: 'POST', data: { taskId: 'task_001' },
     })
   })
 
-  it('无活跃任务时 acceptMission/finishMission 不发归因请求（不误报）', async () => {
+  it('★ T30：abandonMission() → POST /task/abandon（放弃留痕、不入账）', async () => {
+    const store = await mountStore()
+    store.abandonMission()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(vi.mocked(request)).toHaveBeenCalledWith({
+      url: '/task/abandon', method: 'POST', data: { taskId: 'task_001' },
+    })
+  })
+
+  it('★ v1.2：finishMission() 降为纯本地重置 —— 不发任何请求', async () => {
+    const store = await mountStore()
+    vi.mocked(request).mockClear()
+    store.finishMission()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(vi.mocked(request)).not.toHaveBeenCalled()
+    expect(store.activeTask).toBeNull()
+    expect(store.missionPhase).toBe('idle')
+  })
+
+  it('无活跃任务时 acceptMission/endService/abandonMission 不发请求（不误报）', async () => {
     const store = await mountStore()
     store.finishMission() // 清空 activeTask
     vi.mocked(request).mockClear()
     store.acceptMission()
-    store.finishMission()
+    store.endService()
+    store.abandonMission()
     await new Promise((r) => setTimeout(r, 0))
     expect(vi.mocked(request)).not.toHaveBeenCalled()
   })

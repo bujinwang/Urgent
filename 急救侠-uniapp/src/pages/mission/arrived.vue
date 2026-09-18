@@ -49,7 +49,7 @@
     <!-- 操作按钮 -->
     <view class="arrived-actions">
       <view class="arrived-btn-primary" @click="goAedDetail">查看 AED 操作指引</view>
-      <view class="arrived-btn-secondary" @click="goHome">返回首页</view>
+      <view class="arrived-btn-secondary" @click="goHome">结束服务并返回</view>
     </view>
   </view>
 </template>
@@ -61,7 +61,14 @@ import { voice } from '@/utils/voice'
 
 const taskStore = useTaskStore()
 
+/**
+ * 离开本页 = **结束服务**（★ v1.2）。
+ *
+ * 时长区间 = 「到达 → 离开」：本页是服务终点 ⇒ 退出即调用 `endService()` 记终点并按人闭合入账。
+ * ⚠️ 必须**先** `endService()`（其内部读 `activeTask.id`）再 `finishMission()`（会把 `activeTask` 清空）。
+ */
 function goHome() {
+  taskStore.endService()
   taskStore.finishMission()
   uni.switchTab({ url: '/pages/home/index' })
 }

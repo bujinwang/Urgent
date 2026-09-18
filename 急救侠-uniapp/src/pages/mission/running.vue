@@ -140,9 +140,16 @@ function startVoiceGuide() {
   ])
 }
 
+/**
+ * 放弃任务（转给他人）= **中途退出**（★ v1.2）。
+ *
+ * 语义：放弃 ⇒ 参与行作废留痕、**不计入时长** ⇒ 调 `abandonMission()` 走 `/task/abandon`。
+ * ⚠️ v1.0 曾借 `finishMission()` 隐式调 `/complete` 而**误入账**（赶路被计时）—— 此处已改。
+ */
 function cancelMission() {
   stopTimer()
   voice.stop()
+  taskStore.abandonMission()
   taskStore.finishMission()
   uni.showToast({ title: '已转给其他志愿者', icon: 'none' })
   setTimeout(() => {

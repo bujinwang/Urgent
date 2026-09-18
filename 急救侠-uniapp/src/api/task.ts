@@ -93,7 +93,27 @@ export async function acceptTaskApi(taskId: string) {
   return request({ url: '/task/accept', method: 'POST', data: { taskId } })
 }
 
-/** 完成任务（真实接口）。 */
+/**
+ * 上报「**到达现场**」（★ v1.2，= 服务时长起点）。
+ *
+ * 幂等：后端 `arrived_at_ms IS NULL` 守卫 ⇒ 重复上报不覆盖起点。
+ */
+export async function arriveTaskApi(taskId: string) {
+  return request({ url: '/task/arrive', method: 'POST', data: { taskId } })
+}
+
+/**
+ * 结束服务（★ v1.2，= 服务时长终点，**按人闭合**）。
+ *
+ * 语义：记「离开现场」并入账 `round((ended − arrived)/60000)`；未到场 ⇒ 不计入。
+ */
 export async function completeTaskApi(taskId: string) {
   return request({ url: '/task/complete', method: 'POST', data: { taskId } })
+}
+
+/**
+ * 放弃 / 中途退出（★ v1.2）：参与行作废留痕、**不写台账**（0 分钟）。
+ */
+export async function abandonTaskApi(taskId: string, reason?: string) {
+  return request({ url: '/task/abandon', method: 'POST', data: reason ? { taskId, reason } : { taskId } })
 }

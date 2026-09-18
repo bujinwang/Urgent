@@ -195,6 +195,13 @@ function acceptAndGo() {
   }, 600)
 }
 
+/**
+ * 拒绝任务（无法前往）= **退出**（★ v1.2）。
+ *
+ * 语义：拒绝者**从未报名**（无 `task_volunteers` 行）⇒ **不发任何请求**，只做本地重置。
+ * ⚠️ v1.0 此处借 `finishMission()` 隐式触发 task-wide 闭合，会**连带结算他人**（§11.1 缺陷）；
+ * `finishMission()` 现已降为**纯本地重置**，本条因此彻底安全。
+ */
 function declineMission() {
   taskStore.finishMission()
   uni.showToast({ title: '已转给其他志愿者', icon: 'none' })
