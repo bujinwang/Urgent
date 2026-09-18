@@ -263,6 +263,24 @@ docker run --rm -v jiujiaxia_server-data:/data -v "$PWD":/backup alpine \
   tar czf /backup/jiujiaxia-db-$(date +%F).tar.gz -C /data .
 ```
 
+### 8.1 保留期清理（**运维待办** —— 需自行挂 timer/crontab）
+
+保留期清理是**运维侧脚本**，**不暴露任何 HTTP 接口**（与 `sos:purge` 同性质）⇒ **落点在代码之外**，
+须由运维在主机上挂 systemd timer / crontab：
+
+```bash
+# SOS 留痕（默认保留期 90 天）
+$DC exec -T server npm run sos:purge --
+
+# 志愿服务【台账】：★ 默认不删任何东西（台账长期保留 D7）；--confirm 才真删
+$DC exec -T server npm run service:purge -- --dry-run
+```
+
+- ⚠️ **证明记录（`service_certificates`）永不被清理** —— 它是**权益凭证**（设计 D7）；`service:purge`
+  **没有任何**删除证明的代码路径。
+- ⚠️ `service:purge` **默认只报数、不删**；真删须**显式** `--days <N> --confirm`。运维挂 timer 时务必先
+  `--dry-run` 确认影响面，再决定是否加 `--confirm`。
+
 ---
 
 ## 9. 本机生产同构自测（macOS / colima，上线前）
