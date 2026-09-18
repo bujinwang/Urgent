@@ -74,6 +74,36 @@ CREATE TABLE IF NOT EXISTS service_certificates (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_no ON service_certificates(cert_no);
 CREATE INDEX IF NOT EXISTS idx_scert_user ON service_certificates(user_id, issued_at_ms DESC);`
 
+/**
+ * 迁移 045（★ v1.3，§4.4 / §11.9）：`service_certificates` 防重复签发。
+ *
+ * ⚠️ **必须「先去重、再建唯一索引」** —— 旧行为**允许**同 `(user_id, period_from_ms, period_to_ms)`
+ * 重复签发 `active` 证明；若直接 `CREATE UNIQUE INDEX`，会因**既有重复行**而**失败**（迁移报错、启动崩）。
+ * 故先执行一次性 `UPDATE`：同组多条 `active`，**保留 `issued_at_ms` 最早的一条**，其余置 `revoked`
+ * （软删留痕，不物理删）。**全库无重复 ⇒ 该 UPDATE 影响 0 行（幂等）**，重启即收敛。
+ *
+ * ⚠️ 本索引**刻意不放进 canonical schema**：canonical 在 migrations **之前**执行，若把唯一索引放那里，
+ * 含重复行的既有库会在 canonical 阶段就崩、**根本没机会**跑到本迁移的去重步骤。⇒ 只在本迁移里建。
+ * 全新库无重复 ⇒ 本迁移直接建索引成功；既有库则先去重再建。
+ */
+export const MIGRATION_045_SQL = `UPDATE service_certificates
+SET status = 'revoked',
+    revoked_at_ms = COALESCE(revoked_at_ms, issued_at_ms),
+    revoke_reason = 'auto-dedup (migration 045)'
+WHERE status = 'active'
+  AND id NOT IN (
+    SELECT id FROM (
+      SELECT id,
+             ROW_NUMBER() OVER (
+               PARTITION BY user_id, period_from_ms, period_to_ms
+               ORDER BY issued_at_ms ASC, id ASC
+             ) AS rn
+      FROM service_certificates WHERE status = 'active'
+    ) WHERE rn = 1
+  );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_active_dedup
+  ON service_certificates(user_id, period_from_ms, period_to_ms) WHERE status = 'active';`
+
 /** 表 3（Q3 选 a）：任务参与关系（照 `drill_participants`，唯一差异：时间用 `_ms`）。
  *
  * ★ v1.2（§11.3）：区分「三时刻」—— `responded_at_ms`（报名，**不计时**）/
@@ -1091,6 +1121,12 @@ export function initDb(options: { silent?: boolean } = {}) {
       sql: `ALTER TABLE task_volunteers ADD COLUMN arrived_at_ms INTEGER;
             ALTER TABLE task_volunteers ADD COLUMN voided_at_ms INTEGER;
             ALTER TABLE task_volunteers ADD COLUMN void_reason TEXT NOT NULL DEFAULT '';`,
+    },
+    {
+      id: '045_add_service_cert_active_dedup',
+      description: 'dedupe duplicate active service_certificates then add partial unique index idx_scert_active_dedup',
+      // ★ v1.3：先去重再建唯一索引（顺序不可换，详见 `MIGRATION_045_SQL` 注释）。
+      sql: MIGRATION_045_SQL,
     },
   ]
 

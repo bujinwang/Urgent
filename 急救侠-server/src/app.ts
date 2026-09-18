@@ -65,10 +65,26 @@ app.use(express.json({ limit: '1mb' }))
 // Initialize DB
 initDb()
 
-// Rate limiters (skip in test / dev-memory mode)
-const isTestMode = process.env.DB_PATH === ':memory:' || process.env.NODE_ENV === 'test'
+// Rate limiters —— 工厂已抽到 `middleware/rateLimit.ts`（避 router↔app 循环依赖，见该模块头注释）。
+// 此处 import + **转发导出**：既有单测从 '../app' import 这些符号，保持向后兼容。
+import {
+  isTestMode,
+  ANON_LIMITS,
+  SMS_REPORT_LIMIT,
+  createSmsReportLimiter,
+  createHourlyIpLimiter,
+  SERVICE_CERT_VERIFY_HOURLY_LIMIT,
+} from './middleware/rateLimit'
 
-const authLimiter = isTestMode
+export {
+  ANON_LIMITS,
+  SMS_REPORT_LIMIT,
+  createSmsReportLimiter,
+  createHourlyIpLimiter,
+  SERVICE_CERT_VERIFY_HOURLY_LIMIT,
+}
+
+const authLimiter = isTestMode()
   ? (req: any, _res: any, next: any) => next()
   : rateLimit({
       windowMs: 15 * 60 * 1000,  // 15 分钟
@@ -78,7 +94,7 @@ const authLimiter = isTestMode
       legacyHeaders: false,
     })
 
-const pushSendLimiter = isTestMode
+const pushSendLimiter = isTestMode()
   ? (req: any, _res: any, next: any) => next()
   : rateLimit({
       windowMs: 15 * 60 * 1000,
@@ -89,7 +105,7 @@ const pushSendLimiter = isTestMode
     })
 
 /** 政府登录限流（沿用测试豁免模式） */
-const govLoginLimiter = isTestMode
+const govLoginLimiter = isTestMode()
   ? (req: any, _res: any, next: any) => next()
   : rateLimit({
       windowMs: 15 * 60 * 1000,
@@ -99,82 +115,7 @@ const govLoginLimiter = isTestMode
       legacyHeaders: false,
     })
 
-/** 阿里云短信状态报告回调：限流参数（导出以便单测断言）。 */
-export const SMS_REPORT_LIMIT = { windowMs: 60 * 1000, max: 60 } as const
-
-/** 阿里云短信状态报告回调限流中间件（公开端点，沿用测试豁免模式）。
- * `force=true` 时**绕过测试豁免**，返回真实限流器（供测试注入验证）。
- * 阈值可用 env `SMS_REPORT_MINUTE_LIMIT` 覆盖（与其它限流器一致）。 */
-export function createSmsReportLimiter(force = false) {
-  if (isTestMode && !force) return (req: any, _res: any, next: any) => next()
-  const n = parseInt(process.env.SMS_REPORT_MINUTE_LIMIT || '', 10)
-  const max = Number.isFinite(n) && n > 0 ? n : SMS_REPORT_LIMIT.max
-  return rateLimit({
-    windowMs: SMS_REPORT_LIMIT.windowMs,
-    max,
-    message: { code: -1, message: '请求过于频繁，请稍后再试' },
-    standardHeaders: true,
-    legacyHeaders: false,
-  })
-}
-
 const smsReportLimiter = createSmsReportLimiter()
-
-/**
- * 匿名端点的**按 IP 小时限流**（复用测试豁免模式）；`force=true` 绕过豁免（供测试）。
- * 阈值可用 env 覆盖（缺省用 `def`）。仅**限频**，**不加登录要求**（保持"急救现场无需注册"）。
- */
-export function createHourlyIpLimiter(envKey: string, def: number, force = false) {
-  if (isTestMode && !force) return (req: any, _res: any, next: any) => next()
-  const n = parseInt(process.env[envKey] || '', 10)
-  const max = Number.isFinite(n) && n > 0 ? n : def
-  return rateLimit({
-    windowMs: 60 * 60 * 1000,
-    max,
-    message: { code: -1, message: '操作过于频繁，请稍后再试' },
-    standardHeaders: true,
-    legacyHeaders: false,
-  })
-}
-
-/**
- * 阈值缺省值（导出以便单测断言）。
- *
- * `sosEvent` = 120 次/小时/IP，明显高于其它匿名端点，是**唯一的"故意放宽"**，理由（详见设计文档 §4）：
- * 1. 本端点**无任何外部调用**（不发短信、不推送、不写盘）⇒ **无放大效应**，滥用风险有界在磁盘增长。
- * 2. 上报是旁路且失败静默 ⇒ 撞限流的代价是"丢一条记录"，而阈值定低损失的是**最需要留痕**的那部分
- *    （共享出口 IP 的医院/学校/企业 NAT，以及网络抖动）。
- * 3. 与 `inquire`（5 次/小时）不同，合法调用频率**不由客户端控制**：一次真实急救 = 一次用户主动触发，
- *    而同一出口 IP 背后可能站着成百上千人。
- */
-export const ANON_LIMITS = { mediaUpload: 10, inquire: 5, sosEvent: 120 } as const
-
-/** 服务证明**验真**端点默认阈值（次/小时/IP，Q7；导出以便单测断言）。 */
-export const SERVICE_CERT_VERIFY_HOURLY_LIMIT = 60
-
-/**
- * 服务证明**验真**端点的按 IP 小时限流（Q7）。`force=true` 绕过测试豁免（供测试注入），
- * 照 `createSmsReportLimiter` 先例。
- *
- * ⚠️ **只作用于公开验真路径** `GET /service-certificates/:certNo` —— **绝不**误伤同前缀的
- * `GET /service-certificates/me` 与 `POST /service-certificates`（T25）。
- *
- * ⚠️ **不能**直接把限流器挂到 `app.use('/api/volunteer/service-certificates', limiter)`：
- * Express 的**前缀匹配**会让 `/me` 与 POST 也被限流（**已实测**：中间件对 `GET /me`、
- * `POST /`、`GET /<certNo>` 三者都会触发）。故加一层「仅验真」判定：
- * 挂载点下 `req.path` 为 `'/'`（POST 集合）/ `'/me'` / `'/<certNo>'`，
- * 只有 **GET 且非 `/`、非 `/me`** 才是公开验真。
- */
-export function createServiceCertVerifyLimiter(force = false) {
-  const limiter = createHourlyIpLimiter('SERVICE_CERT_VERIFY_HOURLY_LIMIT', SERVICE_CERT_VERIFY_HOURLY_LIMIT, force)
-  return (req: any, res: any, next: any) => {
-    const isVerify = req.method === 'GET' && req.path !== '/' && req.path !== '/me'
-    if (!isVerify) return next()
-    return limiter(req, res, next)
-  }
-}
-
-const serviceCertVerifyLimiter = createServiceCertVerifyLimiter()
 
 // Routes
 app.use('/api/auth', authLimiter, authRouter)
@@ -186,8 +127,9 @@ app.use('/api/aed', aedRouter)
 app.use('/api/news', newsRouter)
 app.use('/api/learn', learnRouter)
 app.use('/api/volunteer', volunteerRouter)
-// F4 T02：验真限流器必须挂在其路由之前；工厂内**只对公开验真路径**生效（不误伤 /me、POST）。
-app.use('/api/volunteer/service-certificates', serviceCertVerifyLimiter)
+// F4 T02/T03：验真端点的**按 IP 限流**是**路由级**中间件，挂在 `serviceHoursRouter` 内那一条
+// `GET /service-certificates/:certNo` 上（★ v1.3 §11.10）——**不再**在此处 `app.use(prefix, …)`
+// 前缀挂载（那会误伤同前缀的 `/me` 与 POST）。
 app.use('/api/volunteer', serviceHoursRouter)
 app.use('/api/records', recordsRouter)
 app.use('/api/cases', casesRouter)

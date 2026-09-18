@@ -1,30 +1,33 @@
-/**
- * T02 · 服务证明**验真端点**按 IP 限流（T25 / Q7）。
- *
- * 两个方向都要断言（§8 T25）：
- * 1. 公开验真路径超阈值 ⇒ **429**；
- * 2. **不误伤**同前缀的 `GET /service-certificates/me` 与 `POST /service-certificates`（否则即为
- *    「把限流器挂到整个前缀」的回归 —— 设计明确禁止）。
- *
- * 测试模式下限流被豁免，故用 `createServiceCertVerifyLimiter(true)` **强制真实限流器**，
- * 并按本仓既定做法**显式绑定 127.0.0.1**（同 anon-rate-limit.test.ts）。
- */
+import './setup' // 副作用：DB_PATH=':memory:' + initDb（验真处理器会查库）
 import { describe, it, expect, afterEach } from 'vitest'
 import request from 'supertest'
 import express from 'express'
 import type { Server } from 'http'
-import { createServiceCertVerifyLimiter, SERVICE_CERT_VERIFY_HOURLY_LIMIT } from '../app'
-import { serviceHoursRouter } from '../routes/serviceHours'
+import {
+  createHourlyIpLimiter,
+  SERVICE_CERT_VERIFY_LIMIT_ENV,
+  SERVICE_CERT_VERIFY_HOURLY_LIMIT,
+} from '../middleware/rateLimit'
+import { createServiceHoursRouter } from '../routes/serviceHours'
 
-const ENV = 'SERVICE_CERT_VERIFY_HOURLY_LIMIT'
+/**
+ * T32（★ v1.3）· 验真端点的**路由级限流**只作用于 `GET /service-certificates/:certNo`。
+ *
+ * 两个方向（§8 T32）：
+ * 1. 公开验真路径超阈值 ⇒ **429**；
+ * 2. **不误伤**同前缀的 `GET /service-certificates/me` 与 `POST /service-certificates`。
+ *
+ * v1.3 起限流器是**路由级中间件**（`router.get('/:certNo', verifyLimiter, handler)`），
+ * 不再依赖 `app.use(prefix, …)` 或 `req.path` 语义。测试经工厂 `createServiceHoursRouter(limiter)`
+ * 注入 `force=true` 的真实限流器（测试模式下默认限流被豁免，见 rateLimit.ts）。
+ */
+const ENV = SERVICE_CERT_VERIFY_LIMIT_ENV
 let server: Server | undefined
 
-/** 复刻 `app.ts` 的真实挂载：验真限流器在前，`serviceHoursRouter` 在后。 */
 function makeServer(): Server {
   const app = express()
   app.use(express.json())
-  app.use('/api/volunteer/service-certificates', createServiceCertVerifyLimiter(true))
-  app.use('/api/volunteer', serviceHoursRouter)
+  app.use('/api/volunteer', createServiceHoursRouter(createHourlyIpLimiter(ENV, SERVICE_CERT_VERIFY_HOURLY_LIMIT, true)))
   server = app.listen(0, '127.0.0.1')
   return server
 }
@@ -35,7 +38,7 @@ afterEach(() => {
   delete process.env[ENV]
 })
 
-describe('T02 · 验真端点限流（T25）', () => {
+describe('T32 · 验真端点路由级限流（v1.3）', () => {
   it('默认阈值为 60/小时（常量）', () => {
     expect(SERVICE_CERT_VERIFY_HOURLY_LIMIT).toBe(60)
   })
@@ -43,7 +46,6 @@ describe('T02 · 验真端点限流（T25）', () => {
   it('公开验真路径超阈值 ⇒ 429', async () => {
     process.env[ENV] = '2'
     const srv = makeServer()
-    // 未知编号 ⇒ 404，但限流器在处理器之前计数 ⇒ 阈值内为 404，超阈值 429
     expect((await request(srv).get('/api/volunteer/service-certificates/VS-X1')).status).toBe(404)
     expect((await request(srv).get('/api/volunteer/service-certificates/VS-X2')).status).toBe(404)
     const over = await request(srv).get('/api/volunteer/service-certificates/VS-X3')

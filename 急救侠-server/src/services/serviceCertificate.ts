@@ -17,6 +17,8 @@ import type {
   ServiceCertificateView,
   ServiceCertificateListItem,
   ServiceCertificateVerifyView,
+  ServiceHoursBreakdownItem,
+  CertificateRecordStatus,
 } from '../types'
 import type { ServiceCertificateRow } from '../types/rows'
 
@@ -74,11 +76,46 @@ export interface IssueCertificateInput {
 }
 
 /**
+ * 取「同人 + 同区间」的既有 `active` 证明视图（★ v1.3 幂等签发用）。
+ * `breakdown` 从 `breakdown_json` 还原（既有的快照）。
+ */
+function activeCertView(userId: string, fromMs: number, toMs: number): ServiceCertificateView | null {
+  const row = get<Pick<ServiceCertificateRow,
+    'cert_no' | 'period_from_ms' | 'period_to_ms' | 'total_minutes' | 'breakdown_json' | 'issued_at_ms' | 'status'>>(
+    `SELECT cert_no, period_from_ms, period_to_ms, total_minutes, breakdown_json, issued_at_ms, status
+     FROM service_certificates
+     WHERE user_id = ? AND period_from_ms = ? AND period_to_ms = ? AND status = 'active'
+     LIMIT 1`,
+    userId, fromMs, toMs
+  )
+  if (!row) return null
+  let breakdown: ServiceHoursBreakdownItem[] = []
+  try { breakdown = JSON.parse(row.breakdown_json || '[]') } catch { breakdown = [] }
+  return {
+    certNo: row.cert_no,
+    periodFromMs: row.period_from_ms,
+    periodToMs: row.period_to_ms,
+    totalMinutes: row.total_minutes,
+    breakdown,
+    issuedAtMs: row.issued_at_ms,
+    status: 'active',
+  }
+}
+
+/**
  * 签发一份证明（§5.2：区间聚合 → 生成编号 → 落库）。
+ *
+ * ★ v1.3 **幂等签发**：同 `(user_id, period_from_ms, period_to_ms)` 已有 `active` 证明时，
+ * **直接返回既有证明**（不新建、不换编号）。该不变量由 DB 的**部分唯一索引** `idx_scert_active_dedup`
+ * 兜底（并发下撞索引 ⇒ 回捞既有）。若既有证明已 `revoked`，则**允许新建**（新编号、同 `totalMinutes`）。
  *
  * @returns 证明对象；**区间内无可用服务记录（`total === 0`）⇒ `null`**（路由据此返回 400）。
  */
 export function issue(input: IssueCertificateInput): ServiceCertificateView | null {
+  // 幂等：已有 active ⇒ 原样返回既有（不新建、不换编号）
+  const existing = activeCertView(input.userId, input.fromMs, input.toMs)
+  if (existing) return existing
+
   // 唯一权威口径：只统计「已闭合 ∧ is_drill=0 ∧ status='confirmed' ∧ started_at_ms ∈ [from, to)」。
   const { totalMinutes, breakdown } = buildBreakdown(input.userId, input.fromMs, input.toMs)
   if (totalMinutes <= 0) return null
@@ -109,9 +146,11 @@ export function issue(input: IssueCertificateInput): ServiceCertificateView | nu
         status: 'active',
       }
     } catch (e) {
-      // 撞库 ⇒ 重试；其余错误上抛（绝不吞异常）
-      if (isUniqueViolation(e) && attempt < CERT_NO_MAX_ATTEMPTS - 1) continue
-      throw e
+      if (!isUniqueViolation(e)) throw e // 非唯一冲突 ⇒ 上抛，绝不吞
+      // 唯一冲突有两种来源：① `cert_no` 撞库 ⇒ 换号重试；② `idx_scert_active_dedup`（并发）⇒ 回捞既有。
+      const dup = activeCertView(input.userId, input.fromMs, input.toMs)
+      if (dup) return dup
+      // 否则是 cert_no 撞库 ⇒ 继续循环换号
     }
   }
   // 理论上不可达（循环内要么 return 要么 throw）；兜底显式报错，不静默。
@@ -160,34 +199,47 @@ export function verify(certNo: string): ServiceCertificateVerifyView | null {
   }
 }
 
-/**
- * 作废证明（**软删**，硬约束 #6）。
- *
- * 语义（T9）：① 证明本身 `status='revoked'` + `revoked_at_ms` + `revoke_reason` 留痕（**不物理删**，
- * 验真仍能查到「存在且已撤销」）；② 该证明覆盖区间内的台账行**软删**（`status='voided'` + 留痕）
- * ⇒ 该分钟数从**后续**证明中消失，但**原台账行仍在**（不物理删）。
- *
- * @returns `true` = 本次真正作废（仅 `active` 可作废；不存在 / 已作废 ⇒ `false`）。
- */
-export function revoke(certId: string, reason = '', now: number = Date.now()): boolean {
-  const cert = get<Pick<ServiceCertificateRow,
-    'user_id' | 'period_from_ms' | 'period_to_ms' | 'status'>>(
-    `SELECT user_id, period_from_ms, period_to_ms, status FROM service_certificates WHERE id = ?`,
-    certId
-  )
-  if (!cert || cert.status !== 'active') return false
+/** `revokeForUser()` 结果。`outcome` 供路由映射 HTTP 状态码。 */
+export type RevokeOutcome = 'revoked' | 'already_revoked' | 'not_found' | 'forbidden'
 
-  const tx = db.transaction(() => {
-    db.prepare(
-      `UPDATE service_certificates SET status = 'revoked', revoked_at_ms = ?, revoke_reason = ?
-       WHERE id = ? AND status = 'active'`
-    ).run(now, reason, certId)
-    // 台账**软删**（留痕、不物理删）：使该分钟数从后续证明中消失（T9 后半）。
-    db.prepare(
-      `UPDATE volunteer_service_logs SET status = 'voided', voided_at_ms = ?, void_reason = ?
-       WHERE user_id = ? AND started_at_ms >= ? AND started_at_ms < ? AND status = 'confirmed'`
-    ).run(now, reason || 'certificate_revoked', cert.user_id, cert.period_from_ms, cert.period_to_ms)
-  })
-  tx()
-  return true
+/** `revokeForUser()` 返回。 */
+export interface RevokeForUserResult {
+  outcome: RevokeOutcome
+  certNo: string
+  /** 作废/已作废时给出最终状态。 */
+  status?: CertificateRecordStatus
+}
+
+/**
+ * 本人撤销自己的证明（★ v1.3 **语义 B**，§11.9）。
+ *
+ * ★ **只作废「证明本身」，台账完全不动** —— 「作废」在常识里是「**这张纸无效了**」，
+ * **不是**「这段服务没发生」。故：`status='revoked'` + `revoked_at_ms` + `revoke_reason` 留痕（**不物理删**），
+ * **绝不**触碰 `volunteer_service_logs`。
+ * ⇒ 该区间时长**不受影响**、**仍可被后续新证明统计**（T34 权益主守卫）。
+ *
+ * 鉴权在**服务层**做归属校验（端点只负责取 token 身份）：
+ * - 编号不存在 ⇒ `not_found`（路由 404）
+ * - **非本人** ⇒ `forbidden`（路由 403；**先于**状态判断，确保非本人永远拿不到 200）
+ * - 已作废 ⇒ `already_revoked`（幂等，路由仍 200）
+ * - 其余 ⇒ 真正作废，返回 `revoked`
+ *
+ * @param userId 调用者身份（**只来自 token**）
+ * @param certNo 证明编号
+ * @param reason 作废原因（留痕）
+ */
+export function revokeForUser(userId: string, certNo: string, reason = '', now: number = Date.now()): RevokeForUserResult {
+  const row = get<Pick<ServiceCertificateRow, 'user_id' | 'status'>>(
+    `SELECT user_id, status FROM service_certificates WHERE cert_no = ?`,
+    certNo
+  )
+  if (!row) return { outcome: 'not_found', certNo }
+  if (row.user_id !== userId) return { outcome: 'forbidden', certNo }
+  if (row.status !== 'active') return { outcome: 'already_revoked', certNo, status: 'revoked' }
+
+  db.prepare(
+    `UPDATE service_certificates SET status = 'revoked', revoked_at_ms = ?, revoke_reason = ?
+     WHERE cert_no = ? AND status = 'active'`
+  ).run(now, reason, certNo)
+  return { outcome: 'revoked', certNo, status: 'revoked' }
 }

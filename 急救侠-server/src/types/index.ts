@@ -722,6 +722,12 @@ export interface ServiceCertificateVerifyView {
   status: CertificateRecordStatus
 }
 
+/** `POST /api/volunteer/service-certificates/:certNo/revoke` 的 `data`（★ v1.3 本人自撤）。 */
+export interface RevokeCertificateResult {
+  certNo: string
+  status: CertificateRecordStatus
+}
+
 /** `POST /api/task/accept` 的 `data`。`attributed=false` = 游客或重复 accept（未新增参与行）。 */
 export interface AcceptTaskResult {
   attributed: boolean
