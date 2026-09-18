@@ -17,3 +17,12 @@ caddy-root.crt
 
 # vitest 配置打包临时产物（进程被中断时会残留）
 *.timestamp-*.mjs
+
+# ★ 环境变量 / 密钥文件：绝不入库。
+# 本仓库为 **PUBLIC**，这里任何一次 git add -A 都会把密钥公开给所有人。
+# 生产栈 compose 引用的就是仓库根 `.env`（docker-compose.prod.yml），
+# 而 server 侧另有自己的 .gitignore（已忽略 急救侠-server/.env）。
+.env
+.env.*
+# 例外：样例模板必须入库 —— 部署接线要以它为清单（根与 server 各一份）
+!.env.example
