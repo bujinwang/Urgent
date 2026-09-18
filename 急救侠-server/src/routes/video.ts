@@ -33,8 +33,41 @@ const upload = multer({
 
 export const videoRouter = Router()
 
+/**
+ * 分页参数钳制（★ P0-2）。
+ *
+ * 此前 `size` 直接取 `req.query.size` 且**无上限** ⇒ 传 `?size=999999` 可在一次请求里
+ * 拉回整张 `video_posts`（公开端点上没有比这更便宜的全表拖库 / 轻量化 DoS 手段）。
+ * `page` 同样未做校验 ⇒ `page=-1` 会算出负 `OFFSET`（SQLite 下退化为 0，语义错乱）。
+ *
+ * 这里统一：非正整数 / 非数字 ⇒ 回落默认值；`size` 再钳到 `[1, MAX_PAGE_SIZE]`。
+ */
+const DEFAULT_PAGE_SIZE = 10
+const MAX_PAGE_SIZE = 50
+
+/** 把任意 query 值解析为**正整数**，非法值回落 `fallback`。 */
+function toPositiveInt(raw: unknown, fallback: number): number {
+  const n = Number.parseInt(String(raw ?? ''), 10)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+/** 页码：非法 ⇒ 第 1 页。 */
+function clampPage(raw: unknown): number {
+  return toPositiveInt(raw, 1)
+}
+
+/** 每页条数：非法 ⇒ 默认值；合法但超上限 ⇒ 上限（★ 本次修复的核心）。 */
+function clampSize(raw: unknown): number {
+  return Math.min(toPositiveInt(raw, DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
+}
+
 // ---- 视频上传 ----
-videoRouter.post('/upload', (req, res) => {
+// ★ P0-2：此前本端点**不鉴权** ⇒ 任何人可匿名上传文件（免费文件托管，且落盘无界：
+// 单次上限 1GB × 无限次）。现要求登录；`authMiddleware` 先于 multer 执行，
+// 未带 token 时直接 401，**不会**进入写盘分支。
+videoRouter.post('/upload', authMiddleware, (req, res) => {
+  const userId = identityOf(req)
+  if (!userId) return res.status(401).json(error('未登录'))
   upload.single('video')(req, res, (err) => {
     if (err) return res.status(400).json(error(err.message))
     if (!req.file) return res.status(400).json(error('请选择视频文件'))
@@ -47,20 +80,23 @@ videoRouter.post('/upload', (req, res) => {
   })
 })
 
+// ★ P0-2：**保持匿名可读** —— 这是公开内容流，前端有游客浏览场景（刻意不加 authMiddleware）。
+// 但 `size`/`page` 必须钳制（见 {@link clampSize}），否则 `?size=999999` 一次拉全表。
 videoRouter.get('/recommend', (req, res) => {
   try {
-    const page = parseInt(req.query.page as string) || 1
-    const size = parseInt(req.query.size as string) || 10
+    const page = clampPage(req.query.page)
+    const size = clampSize(req.query.size)
     const offset = (page - 1) * size
     const rows = all<VideoPostRow & { score: number }>('SELECT *,(view_count*0.3+like_count*0.5+share_count*0.2) as score FROM video_posts ORDER BY score DESC,created_at DESC LIMIT ? OFFSET ?', size, offset)
     res.json(success({ items: rows.map(formatVideo), page, hasMore: rows.length === size }))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
+// ★ P0-2：**保持匿名可读**（公开内容流，同 `/recommend`），仅钳制分页参数。
 videoRouter.get('/category/:cat', (req, res) => {
   try {
-    const page = parseInt(req.query.page as string) || 1
-    const size = parseInt(req.query.size as string) || 10
+    const page = clampPage(req.query.page)
+    const size = clampSize(req.query.size)
     const rows = all<VideoPostRow>('SELECT * FROM video_posts WHERE category=? ORDER BY created_at DESC LIMIT ? OFFSET ?', req.params.cat, size, (page-1)*size)
     res.json(success({ items: rows.map(formatVideo), page, hasMore: rows.length === size }))
   } catch (e: any) { res.status(500).json(error(e.message)) }
@@ -78,15 +114,30 @@ videoRouter.post('/', authMiddleware, (req, res) => {
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-videoRouter.post('/:id/view', (req, res) => {
-  try { db.prepare('UPDATE video_posts SET view_count=view_count+1 WHERE id=?').run(req.params.id); res.json(success(null)) } catch (e: any) { res.status(500).json(error(e.message)) }
+// ★ P0-2：此前**不鉴权** ⇒ 匿名可无限刷播放量（`view_count` 是推荐排序权重之一，
+// 见 `/recommend` 的 score 公式 ⇒ 可把任意视频刷上榜）。现加登录门槛。
+// ⚠️ P1 待办：本批次**只加登录门槛**，**未做**「同一用户对同一视频只计一次」的去重
+// （需要新增 `video_likes(user_id, video_id)` 唯一表 ⇒ 属 P1）。因此**已登录用户仍可重复刷**
+// 播放量/点赞数，只是从「匿名无限刷」收敛为「实名可刷、可追溯」。
+videoRouter.post('/:id/view', authMiddleware, (req, res) => {
+  try {
+    const userId = identityOf(req)
+    if (!userId) return res.status(401).json(error('未登录'))
+    db.prepare('UPDATE video_posts SET view_count=view_count+1 WHERE id=?').run(req.params.id); res.json(success(null))
+  } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-videoRouter.post('/:id/like', (req, res) => {
-  try { db.prepare('UPDATE video_posts SET like_count=like_count+1 WHERE id=?').run(req.params.id); res.json(success(null)) } catch (e: any) { res.status(500).json(error(e.message)) }
+// ★ P0-2：同上（匿名刷点赞数 ⇒ 数据造假）。去重属 P1，见上方 `/:id/view` 注释。
+videoRouter.post('/:id/like', authMiddleware, (req, res) => {
+  try {
+    const userId = identityOf(req)
+    if (!userId) return res.status(401).json(error('未登录'))
+    db.prepare('UPDATE video_posts SET like_count=like_count+1 WHERE id=?').run(req.params.id); res.json(success(null))
+  } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
 // ---- 评论 ----
+// ★ P0-2：**保持匿名可读** —— 公开评论流（游客浏览场景），刻意不加 authMiddleware。
 videoRouter.get('/:id/comments', (req, res) => {
   try {
     const rows = all<VideoCommentRow>('SELECT * FROM video_comments WHERE video_id=? ORDER BY created_at DESC LIMIT 50', req.params.id)

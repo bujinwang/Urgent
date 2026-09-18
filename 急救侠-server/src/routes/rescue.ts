@@ -82,6 +82,46 @@ function isOrgManagerOf(callerId: string, targetUserId: string): boolean {
   return (row?.c ?? 0) > 0
 }
 
+/**
+ * 参与者判定（★ P0-2）：调用者是否属于该「救援事件」。
+ *
+ * 满足任一即为参与者：
+ * ① **平台管理员**（{@link isPlatformAdmin}）；
+ * ② **动员发起者**：`emergency_mobilizations.id = taskId AND leader_id = callerId`；
+ * ③ **已响应的动员志愿者**：`mobilization_volunteers(mobilization_id=taskId, user_id=callerId)`；
+ * ④ **已接受任务的救援志愿者**：`task_volunteers(task_id=taskId, user_id=callerId)`。
+ *
+ * ⚠️ **为什么 ④ 不能省**（动手前已查证，勿照路径名想当然）：
+ * `task_media.task_id` 与 `live_sessions.task_id` 都**没有外键**（schema 里是自由 TEXT），
+ * 且**与 `emergency_mobilizations.id` 不是同一套 id** ——
+ * 唯一的真实调用方 `急救侠-uniapp/src/pages/rescue/task-detail.vue` 把
+ * `useTaskStore().tasks[0].id`（即 **`tasks` 表**的 `task_001`）当作 `taskId` 传给
+ * `/rescue/mobilizations/:taskId/media` 与 `/rescue/live/:taskId`。
+ * 也就是说：路由路径写作 `mobilizations`，实际流量却是 `tasks` 的 id 空间。
+ * 只判 ②③ 会让**真实流量里的合法参与者全部 403**，故 ④ 是主判据、②③ 是路径口径兜底。
+ */
+function isMobilizationParticipant(taskId: string, callerId: string): boolean {
+  if (!taskId || !callerId) return false
+  if (isPlatformAdmin(callerId)) return true
+  // ② 动员发起者
+  const mob = get<{ leader_id: string }>(
+    'SELECT leader_id FROM emergency_mobilizations WHERE id = ?', taskId
+  )
+  if (mob?.leader_id === callerId) return true
+  // ③ 已响应的动员志愿者
+  const mv = get<{ c: number }>(
+    'SELECT COUNT(*) AS c FROM mobilization_volunteers WHERE mobilization_id = ? AND user_id = ?',
+    taskId, callerId
+  )
+  if ((mv?.c ?? 0) > 0) return true
+  // ④ 已接受任务的救援志愿者（`tasks` id 空间，实际流量口径）
+  const tv = get<{ c: number }>(
+    'SELECT COUNT(*) AS c FROM task_volunteers WHERE task_id = ? AND user_id = ?',
+    taskId, callerId
+  )
+  return (tv?.c ?? 0) > 0
+}
+
 rescueRouter.post('/certification', authMiddleware, (req, res) => {
   try {
     // ★ P0-1： userId 不再取自 body（可伪造 ⇒ 可替他人提交认证），一律 token 派生。
@@ -147,6 +187,10 @@ rescueRouter.post('/mobilize', authMiddleware, (req, res) => {
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
+// ★ P0-2：**这是有意保留的「公开读」**，不是漏网之鱼 —— 救援动员是**公开招募**，
+// 志愿者必须能看见列表才能响应（收紧会直接摧毁「响应动员」这条主链路）。
+// 因此这里只保留登录门槛，不做参与者过滤。
+// 返回值也刻意只映射出 `address`（字符串）而**不含 `lat`/`lng`** ⇒ 精确定位不随列表外泄。
 rescueRouter.get('/mobilizations', authMiddleware, (_req, res) => {
   try {
     const rows = all<EmergencyMobilizationRow>('SELECT * FROM emergency_mobilizations ORDER BY created_at DESC LIMIT 20')
@@ -202,6 +246,14 @@ rescueRouter.post('/mobilizations/:id/respond', authMiddleware, (req, res) => {
 
 rescueRouter.get('/mobilizations/:id/volunteers', authMiddleware, (req, res) => {
   try {
+    const callerId = identityOf(req)
+    if (!callerId) return res.status(401).json(error('未登录'))
+    // ★ P0-2：此前**任意登录用户**传任意 `id` 即可读到**任意动员的志愿者名单**
+    // （谁响应了哪场救援 —— 行踪 + 社交关系）。现限定为参与者（发起者 / 已响应志愿者 / 平台管理员）。
+    // 先判权限、再取记录：无权限者连「该动员是否存在」都不该探到 ⇒ 一律 403（而非 404）。
+    if (!isMobilizationParticipant(req.params.id, callerId)) {
+      return res.status(403).json(error('无权查看该动员的志愿者名单，仅参与者或平台管理员可查看'))
+    }
     const rows = all<MobilizationVolunteerRow>('SELECT * FROM mobilization_volunteers WHERE mobilization_id=?', req.params.id)
     res.json(success(rows.map((r: MobilizationVolunteerRow) => ({ userId: r.user_id, userName: r.user_name, status: r.status, respondedAt: r.responded_at }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
@@ -233,6 +285,15 @@ rescueRouter.get('/team', authMiddleware, (req, res) => {
 // GET /api/rescue/mobilizations/:taskId/media
 rescueRouter.get('/mobilizations/:taskId/media', authMiddleware, (req, res) => {
   try {
+    const callerId = identityOf(req)
+    if (!callerId) return res.status(401).json(error('未登录'))
+    // ★★ P0-2 · **本批最高危**：返回体含 `lat`/`lng`，即**现场志愿者的实时 GPS**。
+    // 此前任意登录用户传任意 `taskId` 即可拿到他人的实时位置（人身安全级别泄露）。
+    // 现限定为参与者（见 {@link isMobilizationParticipant} 的 id 空间说明）。
+    // 先判权限、再取记录 ⇒ 无权限者探不到「该 taskId 是否存在」（403 而非 404/空数组）。
+    if (!isMobilizationParticipant(req.params.taskId, callerId)) {
+      return res.status(403).json(error('无权查看该任务的现场动态，仅参与者或平台管理员可查看'))
+    }
     const rows = all<TaskMediaRow>('SELECT * FROM task_media WHERE task_id = ? ORDER BY created_at DESC LIMIT 50', req.params.taskId)
     res.json(success(rows.map((r: TaskMediaRow) => ({
       id: r.id, taskId: r.task_id,
@@ -246,6 +307,13 @@ rescueRouter.get('/mobilizations/:taskId/media', authMiddleware, (req, res) => {
 // GET /api/rescue/live/:taskId
 rescueRouter.get('/live/:taskId', authMiddleware, (req, res) => {
   try {
+    const callerId = identityOf(req)
+    if (!callerId) return res.status(401).json(error('未登录'))
+    // ★ P0-2：直播会话与现场动态同源（`live_sessions.task_id` 同为 `tasks` id 空间），
+    // 此前任意登录用户可枚举任意 taskId 的在线直播者。同样限定为参与者。
+    if (!isMobilizationParticipant(req.params.taskId, callerId)) {
+      return res.status(403).json(error('无权查看该任务的直播会话，仅参与者或平台管理员可查看'))
+    }
     const rows = all<LiveSessionRow>("SELECT * FROM live_sessions WHERE task_id=? AND ended_at IS NULL ORDER BY started_at DESC", req.params.taskId)
     res.json(success(rows.map((r: LiveSessionRow) => ({ id:r.id,taskId:r.task_id,userId:r.user_id,userName:r.user_name,userAvatar:r.user_avatar,deviceInfo:r.device_info,startedAt:r.started_at }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
