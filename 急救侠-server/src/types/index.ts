@@ -644,8 +644,11 @@ export type ServiceSourceType = z.infer<typeof ServiceSourceType>
 export const ServiceLogStatus = z.enum(['pending', 'confirmed', 'voided'])
 export type ServiceLogStatus = z.infer<typeof ServiceLogStatus>
 
-/** 任务参与状态：`responded`（已接受未闭合）/ `closed`（已闭合）。 */
-export const TaskVolunteerStatus = z.enum(['responded', 'closed'])
+/**
+ * 任务参与状态（★ v1.2 扩为 4 值，§11.3）。
+ * `responded`（已报名未到）/ `arrived`（已到达，计时中）/ `left`（已离开，已闭合）/ `voided`（放弃/作废）。
+ */
+export const TaskVolunteerStatus = z.enum(['responded', 'arrived', 'left', 'voided'])
 export type TaskVolunteerStatus = z.infer<typeof TaskVolunteerStatus>
 
 /** 证明记录状态：`active` / `revoked`（软删，仍可查到「存在且已撤销」）。 */
@@ -687,10 +690,30 @@ export interface AcceptTaskResult {
   attributed: boolean
 }
 
-/** `POST /api/task/complete` 的 `data`。`closed` = 本次真正闭合的参与行数（幂等：重复调用恒 0）。 */
+/**
+ * `POST /api/task/arrive` 的 `data`（★ v1.2）。
+ * `arrived=true` = 本次真正写入到达时刻；`false` = 游客 / 未报名 / 重复上报（起点不被覆盖）。
+ */
+export interface ArriveTaskResult {
+  arrived: boolean
+}
+
+/**
+ * `POST /api/task/complete` 的 `data`。
+ * `closed` = 本次真正闭合的参与行数（**按人**；幂等：重复调用恒 0；未到场 ⇒ 0）。
+ * `minutes` = 本次入账分钟之和（= `round((ended − arrived)/60000)`）。
+ */
 export interface CompleteTaskResult {
   closed: number
   minutes: number
+}
+
+/**
+ * `POST /api/task/abandon` 的 `data`（★ v1.2）。
+ * `voided=true` = 本次真正作废了本人参与行（放弃/中途退出 ⇒ 不写台账）。
+ */
+export interface AbandonTaskResult {
+  voided: boolean
 }
 
 // ---- API Response ----

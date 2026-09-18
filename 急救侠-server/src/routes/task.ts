@@ -3,7 +3,7 @@ import db, { get, all } from '../db'
 import { success, error, RescueTask } from '../types'
 import type { TaskRow } from '../types/rows'
 import { optionalAuth } from '../middleware/auth'
-import { genId, closeService } from '../services/serviceLog'
+import { genId, closeServiceForUser, arriveParticipation, abandonParticipation } from '../services/serviceLog'
 
 export const taskRouter = Router()
 
@@ -79,19 +79,64 @@ taskRouter.post('/accept', optionalAuth, (req, res) => {
 })
 
 /**
- * `POST /api/task/complete` —— 完成任务、闭合参与行、写入服务时长台账（§5.1 时序）。
+ * `POST /api/task/arrive` —— 记「**到达现场**」（★ v1.2，= 时长起点；§11.4）。
  *
- * 鉴权：`optionalAuth`（§10-Q1）；游客不产生任何记录，仍返回 200。
+ * 鉴权：`optionalAuth`；游客 ⇒ no-op、返 200（Q1 约束，非缺陷）。
+ * 幂等（T27）：`arrived_at_ms IS NULL` 守卫 ⇒ 重复上报**不覆盖起点**。
+ * 只作用于**本人**行（绝不 task-wide）。
+ */
+taskRouter.post('/arrive', optionalAuth, (req, res) => {
+  try {
+    const { taskId } = req.body
+    const uid = (req as any).auth?.userId || (req as any).auth?.openid
+    const arrived = uid ? arriveParticipation({ taskId, userId: uid, arrivedMs: Date.now() }) : false
+    res.json(success({ arrived }, '已到达'))
+  } catch (e: any) {
+    res.status(500).json(error(e.message || '服务器错误'))
+  }
+})
+
+/**
+ * `POST /api/task/complete` —— 记「**离开现场**」（★ v1.2 = 时长终点；§11.4）。
  *
- * 幂等（T18）：闭合由 `closeService()` 的 `ended_at_ms IS NULL` 守卫 + `idx_vsl_dedup`
- * 双重保证 ⇒ 重复调用影响 0 行、`ended_at_ms` 不被覆盖、时长**不重复累加**。
+ * 鉴权：`optionalAuth`；游客 ⇒ no-op、返 200（Q1）。
+ * **按人闭合**（`user_id`）：只闭合本人「已到达且未闭合」的行 —— 修掉 v1.0 的 task-wide 连带缺陷
+ * （堵「搭便车」，T29）。**未到场**（`arrived_at_ms IS NULL`）⇒ no-op、不写台账（T26）。
+ * 幂等（T31）：`ended_at_ms IS NULL` 守卫 ⇒ 重复调用影响 0 行。
+ *
+ * `tasks.status='completed'` 仅在**本人真正闭合**（`closed > 0`）时更新（v1.2「保守」口径，§11.4）——
+ * 不再由「某人离开」隐式关闭他人参与行。
  */
 taskRouter.post('/complete', optionalAuth, (req, res) => {
   try {
     const { taskId } = req.body
-    db.prepare("UPDATE tasks SET status = 'completed' WHERE id = ?").run(taskId)
-    const { closed, minutes } = closeService({ taskId, endedMs: Date.now() })
-    res.json(success({ closed, minutes }, '任务已完成'))
+    const uid = (req as any).auth?.userId || (req as any).auth?.openid
+    const result = uid
+      ? closeServiceForUser({ taskId, userId: uid, endedMs: Date.now() })
+      : { closed: 0, minutes: 0 }
+    if (result.closed > 0) {
+      db.prepare("UPDATE tasks SET status = 'completed' WHERE id = ?").run(taskId)
+    }
+    res.json(success({ closed: result.closed, minutes: result.minutes }, '任务已完成'))
+  } catch (e: any) {
+    res.status(500).json(error(e.message || '服务器错误'))
+  }
+})
+
+/**
+ * `POST /api/task/abandon` —— 记「**放弃 / 中途退出**」（★ v1.2，§11.4）。
+ *
+ * 鉴权：`optionalAuth`；游客 ⇒ no-op、返 200（Q1）。
+ * 语义：参与行标为 `voided` + `void_reason` 留痕，**绝不写台账**（Q2：放弃 ⇒ 不计入时长，T28）。
+ */
+taskRouter.post('/abandon', optionalAuth, (req, res) => {
+  try {
+    const { taskId, reason } = req.body
+    const uid = (req as any).auth?.userId || (req as any).auth?.openid
+    const voided = uid
+      ? abandonParticipation({ taskId, userId: uid, reason: typeof reason === 'string' ? reason : undefined })
+      : false
+    res.json(success({ voided }, '已放弃'))
   } catch (e: any) {
     res.status(500).json(error(e.message || '服务器错误'))
   }

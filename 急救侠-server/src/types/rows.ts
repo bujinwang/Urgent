@@ -912,13 +912,21 @@ export interface ServiceCertificateRow {
   revoke_reason: string
 }
 
-/** `task_volunteers` row — 任务参与关系（照 `drill_participants`，时间用 `_ms`）。 */
+/** `task_volunteers` row — 任务参与关系（照 `drill_participants`，时间用 `_ms`）。
+ *
+ * ★ v1.2：三时刻 —— `responded_at_ms`（报名）/ `arrived_at_ms`（到达=时长起点）/ `ended_at_ms`（离开=终点）。
+ */
 export interface TaskVolunteerRow {
   id: string
   task_id: string
   user_id: string
   responded_at_ms: number
-  /** `null` = 未闭合。闭合由 `/task/complete` 回写（**仅当 `ended IS NULL`**，保证幂等）。 */
+  /** ★ v1.2：到达现场（= 时长**起点**）；`null` = 未到场（恒不计入时长）。 */
+  arrived_at_ms: number | null
+  /** `null` = 未闭合。闭合由 `/task/complete` 按人回写（**仅当 `ended IS NULL`**，保证幂等）。 */
   ended_at_ms: number | null
   status: TaskVolunteerStatus
+  /** ★ v1.2：作废留痕（放弃/中途退出）。 */
+  voided_at_ms: number | null
+  void_reason: string
 }

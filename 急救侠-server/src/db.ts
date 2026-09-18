@@ -74,15 +74,23 @@ CREATE TABLE IF NOT EXISTS service_certificates (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_no ON service_certificates(cert_no);
 CREATE INDEX IF NOT EXISTS idx_scert_user ON service_certificates(user_id, issued_at_ms DESC);`
 
-/** 表 3（Q3 选 a）：任务参与关系（照 `drill_participants`，唯一差异：时间用 `_ms`）。 */
+/** 表 3（Q3 选 a）：任务参与关系（照 `drill_participants`，唯一差异：时间用 `_ms`）。
+ *
+ * ★ v1.2（§11.3）：区分「三时刻」—— `responded_at_ms`（报名，**不计时**）/
+ * `arrived_at_ms`（★到达，**时长起点**）/ `ended_at_ms`（离开，**时长终点**）；
+ * `status ∈ responded|arrived|left|voided`；作废留痕 `voided_at_ms`/`void_reason`。
+ */
 const DDL_TASK_VOLUNTEERS = `
 CREATE TABLE IF NOT EXISTS task_volunteers (
   id               TEXT PRIMARY KEY,
   task_id          TEXT NOT NULL,                -- FK tasks(id)
   user_id          TEXT NOT NULL,                -- FK users(id)
-  responded_at_ms  INTEGER NOT NULL,
-  ended_at_ms      INTEGER,
-  status           TEXT NOT NULL DEFAULT 'responded', -- responded|closed
+  responded_at_ms  INTEGER NOT NULL,             -- 报名（**不计时**）
+  arrived_at_ms    INTEGER,                      -- ★ 到达现场（= 时长起点）；NULL = 未到场
+  ended_at_ms      INTEGER,                      -- 离开现场（= 时长终点）
+  status           TEXT NOT NULL DEFAULT 'responded', -- responded|arrived|left|voided
+  voided_at_ms     INTEGER,                      -- ★ 作废留痕（放弃/中途退出）
+  void_reason      TEXT NOT NULL DEFAULT '',     -- ★
   FOREIGN KEY (task_id) REFERENCES tasks(id),
   FOREIGN KEY (user_id) REFERENCES users(id),
   UNIQUE(task_id, user_id)
@@ -1073,6 +1081,16 @@ export function initDb(options: { silent?: boolean } = {}) {
       id: '043_add_service_certificates',
       description: 'create service_certificates (issued certificates; unique cert_no)',
       sql: DDL_SERVICE_CERTIFICATES,
+    },
+    {
+      id: '044_add_task_arrival_void',
+      description: 'add arrived_at_ms/voided_at_ms/void_reason to task_volunteers (v1.2: duration = arrived→left)',
+      // ★ v1.2（§11.3）：时长区间改为「到达 → 离开」，`task_volunteers` 需扩列。
+      // 幂等：canonical schema 已含这三列 ⇒ 全新库此 ALTER 会因「duplicate column」被外层
+      // catch 记为 skipped（与迁移 038 同机制）；既有 v1.0 库则真正补列并记入 `_migrations`。
+      sql: `ALTER TABLE task_volunteers ADD COLUMN arrived_at_ms INTEGER;
+            ALTER TABLE task_volunteers ADD COLUMN voided_at_ms INTEGER;
+            ALTER TABLE task_volunteers ADD COLUMN void_reason TEXT NOT NULL DEFAULT '';`,
     },
   ]
 

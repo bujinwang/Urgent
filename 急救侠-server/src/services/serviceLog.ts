@@ -117,57 +117,109 @@ export function recordService(input: RecordServiceInput): RecordServiceResult {
   return { id, inserted: info.changes === 1, durationMin, status }
 }
 
-/** `closeService()` 入参。 */
-export interface CloseServiceInput {
+/** `arriveParticipation()` 入参。 */
+export interface ArriveParticipationInput {
   taskId: string
-  /** 闭合时刻（epoch 毫秒）；由路由层用 `Date.now()` 传入，便于测试注入。 */
+  /** 身份，**必须**由调用方从 token 派生。 */
+  userId: string
+  /** 到达时刻（epoch 毫秒，= 时长起点）。 */
+  arrivedMs: number
+}
+
+/**
+ * 记「**到达现场**」（★ v1.2，= 时长起点；§11.4）。
+ *
+ * 幂等（T27）：`UPDATE ... WHERE arrived_at_ms IS NULL` 守卫 ⇒ 重复上报**不覆盖起点**。
+ * 只作用于**本人**行（`user_id` 过滤），绝不 task-wide；无本人行 / 已到达 / 已作废 ⇒ no-op。
+ *
+ * @returns `true` = 本次真正写入到达时刻。
+ */
+export function arriveParticipation(input: ArriveParticipationInput): boolean {
+  const info = db.prepare(
+    `UPDATE task_volunteers SET arrived_at_ms = ?, status = 'arrived'
+     WHERE task_id = ? AND user_id = ? AND arrived_at_ms IS NULL AND status <> 'voided'`
+  ).run(input.arrivedMs, input.taskId, input.userId)
+  return info.changes === 1
+}
+
+/** `abandonParticipation()` 入参。 */
+export interface AbandonParticipationInput {
+  taskId: string
+  userId: string
+  reason?: string
+  now?: number
+}
+
+/**
+ * 记「**放弃 / 中途退出**」（★ v1.2，§11.4）：参与行标为 `voided` 并留痕，**绝不写台账**（Q2）。
+ *
+ * 幂等：`ended_at_ms IS NULL AND status <> 'voided'` 守卫 ⇒ 重复调用无副作用。已闭合（`left`）⇒ no-op。
+ *
+ * @returns `true` = 本次真正作了废。
+ */
+export function abandonParticipation(input: AbandonParticipationInput): boolean {
+  const info = db.prepare(
+    `UPDATE task_volunteers SET status = 'voided', voided_at_ms = ?, void_reason = ?
+     WHERE task_id = ? AND user_id = ? AND ended_at_ms IS NULL AND status <> 'voided'`
+  ).run(input.now ?? Date.now(), input.reason ?? 'abandoned', input.taskId, input.userId)
+  return info.changes === 1
+}
+
+/** `closeServiceForUser()` 入参。 */
+export interface CloseServiceForUserInput {
+  taskId: string
+  userId: string
+  /** 离开时刻（epoch 毫秒，= 时长终点）。 */
   endedMs: number
   now?: number
 }
 
-/** `closeService()` 结果。重复调用恒为 `{ closed: 0, minutes: 0 }`。 */
-export interface CloseServiceResult {
+/** `closeServiceForUser()` 结果。重复调用 / 未到场恒为 `{ closed: 0, minutes: 0 }`。 */
+export interface CloseServiceForUserResult {
   closed: number
   minutes: number
 }
 
 /**
- * 闭合某任务的**全部未闭合参与行**并为每人写一条台账（§5.1 时序）。
+ * 按人闭合「**本人 + 已到达 + 未闭合**」的参与行并写一条台账（★ v1.2，§11.4 / T26）。
  *
- * 幂等（T18）：`UPDATE ... WHERE ended_at_ms IS NULL` 守卫 ⇒
- * 二次调用更新 **0 行** ⇒ 不写重复台账、时长不翻倍、`ended_at_ms` 不被覆盖。
- * 台账侧另有 `idx_vsl_dedup` 兜底（即便并发也只落一行）。
+ * ⚠️ **只作用于本人**（`user_id` 过滤）—— 修复 v1.0 的 task-wide 连带缺陷：
+ * 任何一个人的动作**不得**给该任务下其他人结算时长（堵「搭便车」，T29）。
  *
- * @returns `closed` = 本次真正闭合的参与行数；`minutes` = 本次入账分钟之和。
+ * ⚠️ **时长起点 = `arrived_at_ms`（到达），不是 `responded_at_ms`（报名）**（Q1/T26）。
+ * `arrived_at_ms IS NULL`（未到场）⇒ **no-op、不写台账**（未到场恒不计入）。
+ *
+ * 幂等（T31）：`ended_at_ms IS NULL` 守卫 ⇒ 二次调用影响 0 行，`ended_at_ms` 不被覆盖、时长不翻倍。
  */
-export function closeService(input: CloseServiceInput): CloseServiceResult {
-  const rows = all<{ user_id: string; responded_at_ms: number }>(
-    'SELECT user_id, responded_at_ms FROM task_volunteers WHERE task_id = ? AND ended_at_ms IS NULL',
-    input.taskId
+export function closeServiceForUser(input: CloseServiceForUserInput): CloseServiceForUserResult {
+  const row = get<{ arrived_at_ms: number | null }>(
+    `SELECT arrived_at_ms FROM task_volunteers
+     WHERE task_id = ? AND user_id = ? AND ended_at_ms IS NULL AND status <> 'voided'`,
+    input.taskId, input.userId
   )
+  if (!row) return { closed: 0, minutes: 0 }
 
-  let closed = 0
-  let minutes = 0
-  for (const row of rows) {
-    const upd = db.prepare(
-      "UPDATE task_volunteers SET ended_at_ms = ?, status = 'closed' WHERE task_id = ? AND user_id = ? AND ended_at_ms IS NULL"
-    ).run(input.endedMs, input.taskId, row.user_id)
-    if (upd.changes !== 1) continue // 竞态 / 已被闭合 ⇒ 不重复入账
+  const arrivedAtMs = row.arrived_at_ms
+  // 未到场（无到达时刻）⇒ 恒不计入，不闭合、不写台账（§11.2 Q1 / §11.4）。
+  if (arrivedAtMs == null) return { closed: 0, minutes: 0 }
 
-    const res = recordService({
-      userId: row.user_id,
-      activityType: 'rescue_task',
-      sourceType: 'system',
-      sourceRef: input.taskId,
-      startedAtMs: row.responded_at_ms,
-      endedAtMs: input.endedMs,
-      isDrill: false,
-      now: input.now,
-    })
-    closed += 1
-    minutes += res.durationMin ?? 0
-  }
-  return { closed, minutes }
+  const upd = db.prepare(
+    `UPDATE task_volunteers SET ended_at_ms = ?, status = 'left'
+     WHERE task_id = ? AND user_id = ? AND ended_at_ms IS NULL AND status <> 'voided'`
+  ).run(input.endedMs, input.taskId, input.userId)
+  if (upd.changes !== 1) return { closed: 0, minutes: 0 }
+
+  const res = recordService({
+    userId: input.userId,
+    activityType: 'rescue_task',
+    sourceType: 'system',
+    sourceRef: input.taskId,
+    startedAtMs: arrivedAtMs, // ★ 起点 = 到达，不是报名（T26）
+    endedAtMs: input.endedMs,
+    isDrill: false,
+    now: input.now,
+  })
+  return { closed: 1, minutes: res.durationMin ?? 0 }
 }
 
 /** 台账行 → 对外的明细项（字段名 camelCase 化）。 */
