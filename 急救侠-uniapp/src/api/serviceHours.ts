@@ -87,6 +87,12 @@ export interface ServiceHoursParams {
   activityType?: string
 }
 
+/** 抛出给调用方的错误（带业务码 + HTTP 状态码，供页面区分 `404 不存在` 与 `网络/其它失败`）。 */
+export interface ServiceHoursApiError extends Error {
+  code?: number
+  statusCode?: number
+}
+
 /** 统一调用：业务码非 0 或无 data 时抛出明确错误（不静默兜底）。 */
 async function callData<T>(options: {
   url: string
@@ -94,7 +100,12 @@ async function callData<T>(options: {
   data?: Record<string, unknown>
 }): Promise<T> {
   const res = await requestFull<T>(options)
-  if (res.code !== 0 || res.data === undefined) throw new Error(res.message || '请求失败')
+  if (res.code !== 0 || res.data === undefined) {
+    const err = new Error(res.message || '请求失败') as ServiceHoursApiError
+    err.code = res.code
+    err.statusCode = res.statusCode
+    throw err
+  }
   return res.data
 }
 

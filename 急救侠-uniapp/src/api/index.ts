@@ -61,6 +61,12 @@ export interface FullResponse<T> {
   code: number
   data?: T
   message: string
+  /**
+   * ★ HTTP 状态码（**透传自 `uni.request`**）。业务码非 0 时用于**区分**：
+   * `404`（资源确实不存在）vs 其它（网络/500）—— 调用方据此给出**不同**文案，
+   * 避免把"网络失败"显示成"不存在"（误导）。
+   */
+  statusCode?: number
 }
 
 /**
@@ -80,7 +86,7 @@ export async function requestFull<T>(options: RequestOptions): Promise<FullRespo
         ...header,
       },
     })
-    return res.data as FullResponse<T>
+    return { ...(res.data as FullResponse<T>), statusCode: (res as { statusCode?: number }).statusCode }
   } catch (e: any) {
     console.warn('[API] 请求失败:', e.errMsg || e.message)
     return { code: -1, message: (e && (e.errMsg || e.message)) || '网络错误' }
