@@ -1143,15 +1143,14 @@ export function initDb(options: { silent?: boolean } = {}) {
       description: 'backfill org_id on existing volunteer_service_logs (D-7: deterministic single org)',
       // ★ D-7：机构聚合去重。旧台账行 `org_id` 为空 ⇒ 用与 `serviceLog.resolveUserOrgId` **同一规则**
       // （优先 admin/manager，否则最早加入）回填确定性机构，使存量时长也能被机构聚合计入且不翻倍。
-      // ★ 首行 `ALTER TABLE ... ADD COLUMN org_id` 是**防御 pre-042 遗留库**（缺列时 `UPDATE` 会 "no such column"）；
-      // 列已存在（全新库 / 已升 042）时 ALTER 抛 "duplicate column"，被迁移运行器 try/catch 记为 skipped（不致命）。
-      // ⚠️ 已知边界：`db.exec(m.sql)` 在同一次调用内顺序执行，ALTER 抛错会令整段（含下方 UPDATE）中止，
-      // 故 042+ 库该迁移整体被 skip 且 `_migrations` 不记录 ⇒ 历史空行不会经此回填（详见交付报告，待评估是否拆分语句）。
       // ★ `COALESCE(..., '')` 必需：`org_id` 是 `NOT NULL`，无机构用户的子查询返回 NULL ⇒ 直接 `SET org_id = (SELECT ...)`
       // 会抛 `NOT NULL constraint failed`；COALESCE 让无机构行保持 ''（契合列 `DEFAULT ''`）。
+      // ★ 本迁移**只做 UPDATE，不加 ADD COLUMN**：`volunteer_service_logs.org_id` 由 canonical DDL（db.ts:44）
+      // 与迁移 042 共同保证已存在；任何被当前代码初始化的库（全新或已升 042）都有该列，无需补。
+      // 迁移运行器把 `db.exec(m.sql)` 整体包在 try/catch，若在此混入 ALTER，列已存在时 ALTER 抛
+      // "duplicate column" 会让整段（含 UPDATE）被 skip 且 `_migrations` 不写入 ⇒ 回填永久失效，故严禁混用。
       // 幂等：`WHERE org_id = ''` ⇒ 已回填的行不再变动；全新库本就无空 org_id 行 ⇒ 0 changes（仍记入 `_migrations`）。
-      sql: `ALTER TABLE volunteer_service_logs ADD COLUMN org_id TEXT NOT NULL DEFAULT '';
-            UPDATE volunteer_service_logs
+      sql: `UPDATE volunteer_service_logs
             SET org_id = COALESCE((SELECT om.org_id FROM organization_members om
                          WHERE om.user_id = volunteer_service_logs.user_id
                          ORDER BY (om.role IN ('admin','manager')) DESC, om.joined_at ASC LIMIT 1), '')
