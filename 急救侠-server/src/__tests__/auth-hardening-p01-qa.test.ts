@@ -510,6 +510,29 @@ describe('P0-1 鉴权加固 · 独立对抗性复核', () => {
     expect(certificateCount('u_mem')).toBe(0)
   })
 
+  /**
+   * ★ 本条是**本轮独立复核挖出的越权缺陷**（`POST /org/:id/certificates` 只校验调用者角色、
+   * 不校验发证目标是否本机构成员 ⇒ 机构 admin 可给**任意用户**发证，实测 200 且真建行）
+   * 的**独立回归守卫**。`eb57bc2` 已修（新增 `targetMembership` 校验）。
+   *
+   * 夹具刻意让**调用者完全合法**（org_1 的 admin + 目标 `u_stranger` 是真实用户），
+   * 唯一能拦住它的就是"目标属于本机构"这一条 ⇒ 精准隔离该校验。
+   */
+  it('S5e（★ 本轮独立复核挖出的越权 · 回归守卫）：机构 admin 给**非本机构成员**发证 ⇒ 403 且零行', async () => {
+    addUser('u_mgr')
+    addUser('u_mem')
+    addUser('u_stranger') // ★ 不在 org_1 的真实用户
+    addOrg('org_1', '救援队', 'u_mgr')
+    addMember('org_1', 'u_mgr', 'admin')
+    addMember('org_1', 'u_mem', 'member')
+
+    const res = await request(server).post('/api/org/org_1/certificates')
+      .set('Authorization', tk('u_mgr')) // 调用者合法（org_1 admin）
+      .send({ userId: 'u_stranger', type: 'cpr', issueDate: '2026-01-01', expiryDate: '2027-01-01' })
+    expect(res.status).toBe(403)
+    expect(certificateCount('u_stranger')).toBe(0) // ★ 伪造链路被打断：不得建行
+  })
+
   // ===========================================================================
   // §6 名单不再退化 / 无界
   // ===========================================================================
