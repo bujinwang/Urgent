@@ -29,6 +29,25 @@ export default {
   },
 
   /**
+   * P0-2：救援任务「**仅参与者可见**」类端点被 403 时的**权限说明**。
+   *
+   * ⚠️ 403 在这些端点上是**正常的权限状态，不是故障**：非该任务参与者调用
+   * `media` / `live` 会被服务端**按设计**拒绝。因此文案必须说清"**谁能做**"，
+   * 不能笼统说"操作失败"（否则用户会反复重试一个注定被拒的操作）。
+   * 对应调用点：`pages/rescue/task-detail.vue`。
+   */
+  permission: {
+    taskParticipant: {
+      /** 读现场动态（`GET .../media`）被 403 ⇒ 空态文案。 */
+      readMedia: '仅参与该任务的志愿者可查看现场更新',
+      /** 发现场更新（`POST .../media`）被 403 ⇒ toast 文案。 */
+      writeMedia: '仅参与该任务的志愿者可发布现场更新',
+      /** 开/关直播（`POST /live/:taskId/start`、`POST /live/end/:id`）被 403 ⇒ toast 文案。 */
+      live: '仅参与该任务的志愿者可开启或结束直播',
+    },
+  },
+
+  /**
    * 语音文本与计数词。
    *
    * `cprNumbers` 是**数组**：`wordForCpr(n)` 按索引取词，`n > 10` 时回落 `String(n)`。

@@ -12,7 +12,9 @@
     </view>
 
     <view class="stitle">📡 现场动态</view>
-    <view v-if="mediaList.length===0" class="empty">暂无现场更新</view>
+    <!-- ★ 空态区分「真的没有更新」与「无权限查看」：403 是**正常的权限状态**，
+         不能显示成"暂无现场更新"（那等于告诉用户"现场什么都没发生"）。 -->
+    <view v-if="mediaList.length===0" class="empty">{{mediaEmptyText}}</view>
     <view v-for="m in mediaList" :key="m.id" class="mi">
       <view class="mh"><text class="ma">{{m.userAvatar||'?'}}</text><text class="mn">{{m.userName}}</text><text class="mt">{{typeLabel(m.type)}}</text><text class="mtm">{{m.createdAt?.slice(11,16)}}</text></view>
       <text class="mc" v-if="m.content">{{m.content}}</text>
@@ -29,9 +31,15 @@
 </template>
 <script setup lang="ts">
 import { uniInputValue } from '@/types/uni-events'
-import { ref,onMounted,computed } from 'vue';import { useUserStore } from '@/stores/user';import { useTaskStore } from '@/stores/task';import { request } from '@/api/index'
+import { ref,onMounted,computed } from 'vue';import { useUserStore } from '@/stores/user';import { useTaskStore } from '@/stores/task';import { requestFull } from '@/api/index'
+import { useI18n } from 'vue-i18n'
+import { notifyIfFailed, isForbidden, showToast } from '@/utils/action-feedback'
+const { t } = useI18n()
 const s=useUserStore(),ts=useTaskStore()
 const taskId=ref(''),task=ref<any>(null),mediaList=ref<any[]>([]),msg=ref(''),isLive=ref(false),liveCount=ref(0),liveId=ref('')
+/** `GET media` 返回 403（**非该任务参与者**）⇒ 空态改显示权限说明，而不是"暂无现场更新"。 */
+const mediaForbidden=ref(false)
+const mediaEmptyText=computed(()=>mediaForbidden.value?t('permission.taskParticipant.readMedia'):'暂无现场更新')
 const progressPct=computed(()=>{if(!task.value||task.value.volunteersNeeded===0)return 0;return Math.min(100,Math.round((task.value.volunteersResponded/task.value.volunteersNeeded)*100))})
 function sceneLabel(s:string){return {outdoor:'户外',office:'办公',road:'道路'}[s]||s}
 function typeLabel(t:string){return {text:'💬',photo:'📸',video:'🎬',status:'📊'}[t]||t}
@@ -42,31 +50,71 @@ onMounted(()=>{
   loadTask();loadMedia()
 })
 async function loadTask(){const t=ts.tasks.find(t=>t.id===taskId.value);if(t)task.value=t}
-async function loadMedia(){try{mediaList.value=await request({url:`/rescue/mobilizations/${taskId.value}/media`})}catch{}}
+/**
+ * 拉取现场动态。
+ *
+ * ★ P0-2：`GET .../media` 加了「仅该任务参与者可见」。原写法 `mediaList = await request(...)`
+ * 在 403 时返回 **undefined**（`request()` 只 warn 不抛）⇒ 模板的 `mediaList.length===0`
+ * **对 undefined 取 length ⇒ 渲染期 TypeError ⇒ 整页失效**（不是"空列表"，是白屏/崩溃）。
+ *
+ * 现在：一律给出数组（403 ⇒ `[]` + 空态权限说明，其它失败 ⇒ `[]` + 可见提示）。
+ */
+async function loadMedia(){
+  const res=await requestFull<any[]>({url:`/rescue/mobilizations/${taskId.value}/media`})
+  if(res&&res.code===0){mediaForbidden.value=false;mediaList.value=res.data??[];return}
+  mediaList.value=[]
+  // 403 是**权限状态**不是故障 ⇒ 用空态文案说明（不弹 toast，避免每次进页面都弹）
+  mediaForbidden.value=isForbidden(res)
+  if(!mediaForbidden.value)showToast(t('common.actionFailed'))
+}
 async function send(){
   if(!msg.value.trim())return
   const p=s.profile
   // ★ P0-1：`userId` 由服务端从 token 派生，不再从 body 取（userName/userAvatar 服务端仍读取 ⇒ 保留）
-  await request({url:`/rescue/mobilizations/${taskId.value}/media`,method:'POST',data:{userName:p.name,userAvatar:p.avatar,type:'text',content:msg.value}})
+  const res=await requestFull({url:`/rescue/mobilizations/${taskId.value}/media`,method:'POST',data:{userName:p.name,userAvatar:p.avatar,type:'text',content:msg.value}})
+  // ★ 失败 ⇒ **保留**输入框内容：救援现场一条现场更新被打回却被清空，是不可接受的
+  if(notifyIfFailed(res,{forbiddenMessage:t('permission.taskParticipant.writeMedia')}))return
   msg.value='';loadMedia()
 }
 async function takePhoto(){
   uni.chooseImage({count:1,sourceType:['camera','album'],success:async(res:any)=>{
     const p=s.profile
-    await request({url:`/rescue/mobilizations/${taskId.value}/media`,method:'POST',data:{userName:p.name,userAvatar:p.avatar,type:'photo',mediaUrl:res.tempFilePaths[0],content:'📸'}})
+    const r=await requestFull({url:`/rescue/mobilizations/${taskId.value}/media`,method:'POST',data:{userName:p.name,userAvatar:p.avatar,type:'photo',mediaUrl:res.tempFilePaths[0],content:'📸'}})
+    if(notifyIfFailed(r,{forbiddenMessage:t('permission.taskParticipant.writeMedia')}))return
     loadMedia()
   }})
 }
 function preview(url:string){uni.previewImage({urls:[url]})}
 
-async function loadLive(){try{const r=await request<unknown[]>({url:`/rescue/live/${taskId.value}`});liveCount.value=r.length}catch{}}
+/**
+ * 拉取直播人数。
+ *
+ * ★ 原写法 `liveCount = r.length`：403 时 `r` 是 undefined ⇒ `.length` 抛 TypeError
+ * 被 `catch{}` 吞掉 ⇒ 恒显示"0 人直播"（静默）。现在按 code 判定，非法一律 0。
+ */
+async function loadLive(){
+  const res=await requestFull<unknown[]>({url:`/rescue/live/${taskId.value}`})
+  if(res&&res.code===0){liveCount.value=res.data?.length??0;return}
+  liveCount.value=0
+  // 403（非参与者）是权限状态 ⇒ 只显示 0；其它失败才提示"没取到"
+  if(!isForbidden(res))showToast(t('common.actionFailed'))
+}
 async function toggleLive(){
   const p=s.profile
   if(isLive.value){
-    if(liveId.value) await request({url:`/rescue/live/end/${liveId.value}`,method:'POST'});isLive.value=false;liveId.value='';liveCount.value=Math.max(0,liveCount.value-1);loadMedia()
+    if(!liveId.value){isLive.value=false;return}
+    const res=await requestFull({url:`/rescue/live/end/${liveId.value}`,method:'POST'})
+    // ★ 失败 ⇒ 状态**保持**在直播中（服务端会话还在）：原写法无条件 `isLive=false`，
+    // 界面说"已结束"而服务端仍在推流 ⇒ 用户再也停不掉它。
+    if(notifyIfFailed(res,{forbiddenMessage:t('permission.taskParticipant.live')}))return
+    isLive.value=false;liveId.value='';liveCount.value=Math.max(0,liveCount.value-1);loadMedia()
   }else{
-    const r=await request<any>({url:`/rescue/live/${taskId.value}/start`,method:'POST',data:{userName:p.name,userAvatar:p.avatar,deviceInfo:'mobile'}})
-    isLive.value=true;liveId.value=r.id;liveCount.value++;loadMedia()
+    // ★ 最脏的一处原写法：`isLive=true; liveId=r.id` —— 403 时 `r` 是 undefined ⇒ `r.id`
+    // 抛 TypeError，而 UI **已**乐观置 true ⇒ 界面停在"⏹ 结束"、服务端却根本没有直播会话，
+    // 状态**永久错乱**（用户再点只会去 end 一个不存在的 id）。现在：**先判 code 再改 UI**。
+    const res=await requestFull<{id?:string}>({url:`/rescue/live/${taskId.value}/start`,method:'POST',data:{userName:p.name,userAvatar:p.avatar,deviceInfo:'mobile'}})
+    if(notifyIfFailed(res,{forbiddenMessage:t('permission.taskParticipant.live')}))return
+    isLive.value=true;liveId.value=res.data?.id||'';liveCount.value++;loadMedia()
   }
 }
 

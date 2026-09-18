@@ -27,6 +27,15 @@ export default {
     languageEn: 'English',
   },
 
+  /** P0-2: permission explanations for the task-scoped ("participants only") rescue endpoints. */
+  permission: {
+    taskParticipant: {
+      readMedia: 'Only volunteers taking part in this task can view live updates',
+      writeMedia: 'Only volunteers taking part in this task can post live updates',
+      live: 'Only volunteers taking part in this task can start or end the live stream',
+    },
+  },
+
   voice: {
     cprNumbers: ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'],
     /** Human-rescue breath count, first utterance (zh counterpart: '一零零一'). */

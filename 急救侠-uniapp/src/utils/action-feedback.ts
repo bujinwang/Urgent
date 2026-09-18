@@ -41,19 +41,35 @@ export function showToast(title: string): void {
   uni.showToast({ title, icon: 'none' })
 }
 
+/** `notifyIfFailed()` 的可选参数（**不改**已有的单参调用形态）。 */
+export interface NotifyOptions {
+  /**
+   * 403 时的**专用**文案（i18n key 的已翻译结果）。
+   *
+   * 为什么需要：P0-2 给救援 `media` / `live` 加了「仅该任务参与者」作用域，
+   * 此时的 403 是**正常的权限状态**而非故障 —— 说"无权执行此操作"太笼统，
+   * 用户不知道"要成为参与者才能发"。故允许调用点给出**说明性**文案。
+   */
+  forbiddenMessage?: string
+}
+
 /**
  * 判定一次写操作的结果，**失败时立刻给出可见提示**。
  *
  * @param res `requestFull()` 的返回值（`code===0` 视为成功）。
+ * @param options 可指定的 403 专用文案（见 `NotifyOptions.forbiddenMessage`）。
  * @returns `true` ⇒ **已提示失败**，调用方必须 `return`
  *          （不得再弹成功 toast、不得推进成功分支）；`false` ⇒ 成功。
  */
-export function notifyIfFailed(res: WriteResult | null | undefined): boolean {
+export function notifyIfFailed(
+  res: WriteResult | null | undefined,
+  options?: NotifyOptions,
+): boolean {
   if (res && res.code === 0) return false
   // ★ 区分「无权限」与「其它失败」：403 说“无权”，否则说“失败请重试”——
   //   一律说“失败”会让用户反复重试一个注定被拒的操作（误导）。
   if (isForbidden(res)) {
-    showToast(t('common.noPermission'))
+    showToast(options?.forbiddenMessage || t('common.noPermission'))
   } else {
     showToast(t('common.actionFailed'))
   }

@@ -44,9 +44,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { request } from '@/api'
+import { request, requestFull } from '@/api'
+import { notifyIfFailed } from '@/utils/action-feedback'
 
-const API = '/api/community' // 仅用于本批未加固的端点（/nearby、/groups、/groups/:id/join）
 const userStore = useUserStore()
 const tab = ref<'nearby'|'groups'|'msgs'>('nearby')
 const nearby = ref<any[]>([])
@@ -67,14 +67,23 @@ const messageThreads = computed(() => {
   return [...threads.values()]
 })
 
+/**
+ * 读列表：P0-2 起 `/community/nearby` 与 `/community/groups` 都要求登录，
+ * 而裸 `fetch` **不带 `Authorization`** ⇒ 一律 401；原写法还用 `catch{}` 空吞 ⇒
+ * 用户只看到"附近没有志愿者 / 暂无群组"，**以为真的没数据**（静默降级）。
+ *
+ * 现在：改用 `requestFull` 判业务码，失败**必须有可见反馈**（403 说"无权"，
+ * 其它说"失败请重试"），列表置空 —— 空列表本身不再伪装成"确实没有"。
+ */
 async function loadNearby() {
-  try {
-    const r = await fetch(`${API}/nearby?lat=22.517&lng=113.947&radius=10000`).then(r=>r.json())
-    nearby.value = (r.data||[]).filter((v:any)=>v.userId!==userStore.profile.id)
-  } catch(e){}
+  const res = await requestFull<any[]>({ url:'/community/nearby?lat=22.517&lng=113.947&radius=10000' })
+  if (notifyIfFailed(res)) { nearby.value = []; return }
+  nearby.value = (res.data||[]).filter((v:any)=>v.userId!==userStore.profile.id)
 }
 async function loadGroups() {
-  try{const r=await fetch(`${API}/groups`).then(r=>r.json());groups.value=r.data||[]}catch(e){}
+  const res = await requestFull<any[]>({ url:'/community/groups' })
+  if (notifyIfFailed(res)) { groups.value = []; return }
+  groups.value = res.data||[]
 }
 // ★ P0-1：`GET /community/messages` 已改为只返回**调用者本人**的私信，**不再接受 `?userId=`**
 // （此前换任意 userId 即可读他人私信正文）。身份由 token 决定 ⇒ 去掉 query，并改用 request。
@@ -82,30 +91,52 @@ async function loadMessages() {
   try{ allMessages.value = await request<any[]>({ url:'/community/messages' }) ?? [] }catch(e){}
 }
 
+/**
+ * 发私信（联系志愿者 / 回复会话共用）。
+ *
+ * ★ P0-2：原来是无条件 `showToast('已发送')` —— `request()` 在 401/403 时
+ * **只 `console.warn` 不抛错** ⇒ 服务端根本没收下，界面却说已发送（假成功）。
+ * 现在先判 code，成功才弹。
+ */
+async function sendMessage(toUserId: string, content: string): Promise<void> {
+  // ★ P0-1：`fromUserId` 由服务端从 token 派生，不再从 body 取（留着会误导以为生效）
+  const res = await requestFull({
+    url:'/community/messages', method:'POST',
+    data:{ fromUserName:userStore.profile.name, toUserId, content },
+  })
+  if (notifyIfFailed(res)) return
+  uni.showToast({title:'已发送',icon:'none'})
+}
+
 function contactUser(v: any) {
-  uni.showModal({ title: `联系 ${v.userName}`, editable: true, placeholderText: '输入消息', success: async (res) => {
-    if (res.confirm && res.content) {
-      // ★ P0-1：`fromUserId` 由服务端从 token 派生，不再从 body 取（留着会误导以为生效）
-      await request({ url:'/community/messages', method:'POST', data:{ fromUserName:userStore.profile.name, toUserId:v.userId, content:res.content } })
-      uni.showToast({title:'已发送',icon:'none'})
-    }
+  uni.showModal({ title: `联系 ${v.userName}`, editable: true, placeholderText: '输入消息', success: (res) => {
+    if (res.confirm && res.content) void sendMessage(v.userId, res.content)
   }})
 }
 function openGroup(g: any) {
-  uni.showModal({ title: g.name, content: `${g.description}\n${g.memberCount} 名成员`, confirmText: '加入', cancelText: '关闭', success: async (res) => {
-    if (res.confirm) {
-      await fetch(`${API}/groups/${g.id}/join`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:userStore.profile.id,userName:userStore.profile.name})})
-      uni.showToast({title:'已加入',icon:'none'})
-    }
+  uni.showModal({ title: g.name, content: `${g.description}\n${g.memberCount} 名成员`, confirmText: '加入', cancelText: '关闭', success: (res) => {
+    if (res.confirm) void joinGroup(g)
   }})
 }
+/**
+ * 加入群组。
+ *
+ * ★ P0-2 最典型的一处：原来是**裸 `fetch`**（无 token）+ 无条件 `showToast('已加入')`
+ * ⇒ 端点加鉴权后会变成"加群从未发生，界面报已加入"，且**永远不可自愈**
+ * （用户以为已在群里，不会再点第二次）。现在改成 `requestFull` + `notifyIfFailed`。
+ */
+async function joinGroup(g: any): Promise<void> {
+  // ★ `userId` 已由服务端从 token 派生（死字段，留着会误导以为生效）⇒ 只传展示名
+  const res = await requestFull({
+    url:`/community/groups/${g.id}/join`, method:'POST',
+    data:{ userName:userStore.profile.name },
+  })
+  if (notifyIfFailed(res)) return
+  uni.showToast({title:'已加入',icon:'none'})
+}
 function openChat(thread: any) {
-  uni.showModal({ title: `与 ${thread.peerName} 的对话`, content: `最近消息: ${thread.lastContent}`, confirmText: '回复', cancelText: '关闭', editable: true, placeholderText: '输入回复', success: async (res) => {
-    if (res.confirm && res.content) {
-      // ★ P0-1：`fromUserId` 由服务端从 token 派生，不再从 body 取
-      await request({ url:'/community/messages', method:'POST', data:{ fromUserName:userStore.profile.name, toUserId:thread.peerId, content:res.content } })
-      uni.showToast({title:'已发送',icon:'none'})
-    }
+  uni.showModal({ title: `与 ${thread.peerName} 的对话`, content: `最近消息: ${thread.lastContent}`, confirmText: '回复', cancelText: '关闭', editable: true, placeholderText: '输入回复', success: (res) => {
+    if (res.confirm && res.content) void sendMessage(thread.peerId, res.content)
   }})
 }
 

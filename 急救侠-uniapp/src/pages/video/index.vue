@@ -165,7 +165,8 @@
 
 <script setup lang="ts">
 import { uniInputValue } from '@/types/uni-events'
-import { ref,onMounted } from 'vue';import { useUserStore } from '@/stores/user';import { request, BASE_URL } from '@/api/index'
+import { ref,onMounted } from 'vue';import { useUserStore } from '@/stores/user';import { request, requestFull, BASE_URL } from '@/api/index'
+import { notifyIfFailed } from '@/utils/action-feedback'
 const s=useUserStore()
 const tabs=[{key:'recommend',label:'推荐'},{key:'rescue',label:'救援'},{key:'training',label:'教学'},{key:'animal',label:'动物'},{key:'daily',label:'日常'}]
 const cats=['rescue','training','animal','daily']
@@ -204,8 +205,31 @@ function goProfile(userId?:string){
   uni.showToast({title:'用户主页开发中',icon:'none'})
 }
 
-async function recordView(v:any){try{await request({url:`/video/${v.id}/view`,method:'POST'});v.viewCount++}catch{}}
-async function doLike(v:any){try{await request({url:`/video/${v.id}/like`,method:'POST'});v.likeCount++;v.liked=true}catch{}}
+/**
+ * 观看计数（后台埋点）。
+ *
+ * ★ P0-2：`/video/:id/view` 已要求登录，失败**不再**本地自增 —— 原写法
+ * `v.viewCount++` 无条件执行 ⇒ 服务端从未记录，数字却是"成功"的样子（假成功）。
+ * 埋点失败**不打扰**用户（不弹 toast），但也**绝不**伪造数字。
+ */
+async function recordView(v:any){
+  if(!v?.id)return
+  const res=await requestFull({url:`/video/${v.id}/view`,method:'POST'})
+  if(res?.code!==0)return
+  v.viewCount=(v.viewCount||0)+1
+}
+/**
+ * 点赞。
+ *
+ * ★ P0-2：原来是 `v.likeCount++; v.liked=true` 无条件执行（乐观自增 + 全屏页还会
+ * 播放爱心动画）⇒ 服务端从未记录，用户看到"已赞"，刷新即消失。现在先判 code。
+ */
+async function doLike(v:any){
+  if(!v?.id)return
+  const res=await requestFull({url:`/video/${v.id}/like`,method:'POST'})
+  if(notifyIfFailed(res))return
+  v.likeCount=(v.likeCount||0)+1;v.liked=true
+}
 function playVideo(v:any){
   if(!v.videoUrl){uni.showToast({title:'视频源不可用',icon:'none'});return}
   const i=videos.value.findIndex(x=>x.id===v.id)
@@ -261,18 +285,22 @@ async function submitComment(){
   if(!txt||cmtSubmitting.value)return
   cmtSubmitting.value=true
   const p=s.profile
+  const v=videos.value[fsIndex.value]
   try{
-    await request({
-      url:`/video/${videos.value[fsIndex.value].id}/comment`,
+    const res=await requestFull({
+      url:`/video/${v?.id}/comment`,
       method:'POST',
       // ★ P0-1：`userId` 由服务端从 token 派生，不再从 body 取（userName/userAvatar 服务端仍读取 ⇒ 保留）
       data:{userName:p.name,userAvatar:p.avatar,content:txt}
     })
+    // ★ 失败 ⇒ **保留**输入框内容、不插入本地假评论、不自增计数：
+    // 原写法会让评论"凭空出现"（含 id:'tmp'）而刷新后消失，用户以为发成功了。
+    if(notifyIfFailed(res))return
     cmtText.value=''
     cmts.value.unshift({id:'tmp',userId:p.id,userName:p.name,userAvatar:p.avatar,content:txt,createdAt:new Date().toISOString()})
-    if(videos.value[fsIndex.value])videos.value[fsIndex.value].commentCount=(videos.value[fsIndex.value].commentCount||0)+1
+    if(v)v.commentCount=(v.commentCount||0)+1
     openComments()
-  }catch{}finally{cmtSubmitting.value=false}
+  }finally{cmtSubmitting.value=false}
 }
 
 // 触摸事件 — 处理滑动切换 & 双击点赞
@@ -333,17 +361,30 @@ async function publish(){
     uploadState.value='uploading'
     uploadProgress.value=0
 
-    const videoRes = await new Promise<{code:number;data:any;message:string}>((resolve,reject)=>{
-      const task=uni.uploadFile({
-        url: BASE_URL+'/video/upload',
-        filePath: selVideo.value!.path,
-        name:'video',
-        formData:{duration:String(Math.round(selVideo.value!.duration))},
-        success:(r)=>{try{resolve(JSON.parse(r.data as string))}catch{reject(new Error('解析上传结果失败'))}},
-        fail:reject,
+    // ★ P0-2：`/video/upload` 已要求登录，而 `uni.uploadFile` **不会**复用 api 层的
+    // 通用 header ⇒ 必须**显式**带 token，否则一律 401；且原写法没有 try/catch，
+    // 401 会被当成上传成功继续走"发布"，最后弹「已发布」（彻头彻尾的假成功）。
+    const token=uni.getStorageSync('jwt_token')
+    let videoRes:{code:number;data:any;message:string}
+    try{
+      videoRes = await new Promise<{code:number;data:any;message:string}>((resolve,reject)=>{
+        const task=uni.uploadFile({
+          url: BASE_URL+'/video/upload',
+          filePath: selVideo.value!.path,
+          name:'video',
+          header: token?{Authorization:`Bearer ${token}`}:{},
+          formData:{duration:String(Math.round(selVideo.value!.duration))},
+          success:(r)=>{try{resolve(JSON.parse(r.data as string))}catch{reject(new Error('解析上传结果失败'))}},
+          fail:reject,
+        })
+        task?.onProgressUpdate?.((r)=>{uploadProgress.value=r.progress})
       })
-      task.onProgressUpdate((r)=>{uploadProgress.value=r.progress})
-    })
+    }catch(e:any){
+      // 网络失败 / 401 的 `{code:401}` 都会走到这里 ⇒ 必须可见，且**保留**用户已选的视频与标题
+      uploadState.value='fail'
+      uni.showToast({title:'上传失败: '+((e&&(e.errMsg||e.message))||'网络错误'),icon:'none'})
+      return
+    }
 
     if(videoRes.code!==0){
       uploadState.value='fail'
@@ -356,7 +397,7 @@ async function publish(){
   // Step 2: 发布视频帖
   const p=s.profile
   const ur=uploadResult.value
-  await request({
+  const res=await requestFull({
     url:'/video',method:'POST',
     data:{
       userName:p.name,userAvatar:p.avatar,
@@ -367,7 +408,9 @@ async function publish(){
       category:pubCat.value,
     }
   })
-
+  // ★ 失败 ⇒ **不**关闭弹窗、**不**清空标题/描述（原写法 `cancelPub()` 会把用户输入全丢），
+  // 并给出可见提示；成功才弹「已发布」。
+  if(notifyIfFailed(res))return
   uni.showToast({title:'已发布',icon:'success'})
   cancelPub()
   activeTab.value='recommend';page.value=1;load()
