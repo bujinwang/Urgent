@@ -58,14 +58,22 @@ describe('T02 · 服务证明（签发 / 列表 / 验真 / 作废）', () => {
     expect(emptyPeriod.status).toBe(400)
   })
 
-  it('POST 成功：certNo 形如 VS-YYYYMMDD-XXXXXX、totalMinutes 正确、分项之和相等', async () => {
+  it('POST 成功：certNo 形如 VS-YYYYMMDD-XXXXXX、totalMinutes 正确、分项之和相等（且 T4/T7/T8 不计入证明）', async () => {
     log('user_001', 'rescue_task', 30)
     log('user_001', 'rescue_task', 45)
+    // —— 以下三种**不得**进入证明（T4/T7/T8）——
+    refSeq += 1
+    recordService({ userId: 'user_001', activityType: 'manual', sourceRef: `cref_${refSeq}`, startedAtMs: BASE, endedAtMs: BASE + 100 * 60000, status: 'pending', now: 1 }) // pending
+    refSeq += 1
+    recordService({ userId: 'user_001', activityType: 'drill', sourceRef: `cref_${refSeq}`, startedAtMs: BASE, endedAtMs: BASE + 100 * 60000, isDrill: true, now: 1 })     // 演习
+    refSeq += 1
+    recordService({ userId: 'user_001', activityType: 'rescue_task', sourceRef: `cref_${refSeq}`, startedAtMs: BASE, endedAtMs: null, now: 1 })                        // 未闭合
+
     const res = await request(server).post('/api/volunteer/service-certificates').set(auth(userToken('user_001'))).send({ periodFromMs: FROM, periodToMs: TO })
     expect(res.status).toBe(200)
     const d = res.body.data
     expect(d.certNo).toMatch(/^VS-\d{8}-[0-9A-Z]{6}$/)
-    expect(d.totalMinutes).toBe(75)
+    expect(d.totalMinutes).toBe(75) // 100(pending)+100(drill)+未闭合 均被排除
     expect(d.status).toBe('active')
     expect(d.periodFromMs).toBe(FROM)
     expect(d.periodToMs).toBe(TO)
