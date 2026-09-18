@@ -121,6 +121,10 @@ describe('T05 · 政府看板 serviceHours（零 PII / 冷启动 null）', () =>
     expect(blob).not.toContain('user_001')
     expect(blob).not.toContain('陆远') // seedTestData 的 user_001 姓名
     expect(blob).not.toContain('phone')
+    // 补缺 #9（QA 自承的盲区）：除了**键名**，再扫**值形态** —— 响应里不得出现形如中国手机号的值。
+    // ⚠️ 必须加**数字边界** `(?<!\d)…(?!\d)`：否则 13 位 epoch 毫秒（如 `1700000000000`）里会
+    // 命中一段 11 位子串、造成**假阳性**（本用例初版即踩到）。属**弱**断言，但成本极低。
+    expect(blob, 'gov 响应不得含手机号形态的值').not.toMatch(/(?<!\d)1[3-9]\d{9}(?!\d)/)
   })
 })
 
