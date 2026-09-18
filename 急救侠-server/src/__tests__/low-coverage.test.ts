@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
-import { server, seedTestData } from './setup'
+import { server, seedTestData, userToken } from './setup'
 
 /**
  * Low-coverage route files: add 1–2 happy-path tests per file
@@ -38,9 +38,11 @@ describe('Low-coverage: drill routes', () => {
   beforeEach(() => { seedTestData() })
 
   it('POST /api/drill/events creates a drill', async () => {
+    // ★ P0-1：organizerId 不再取自 body（可伪造），组织者恒为 **token 身份**（此处 user_001）。
     const res = await request(server)
       .post('/api/drill/events')
-      .send({ title: 'Test Drill', organizerId: 'user_001', date: '2025-06-01' })
+      .set('Authorization', `Bearer ${userToken('user_001')}`)
+      .send({ title: 'Test Drill', date: '2025-06-01' })
     expect(res.status).toBe(200)
     expect(res.body.code).toBe(0)
   })
@@ -80,7 +82,10 @@ describe('Low-coverage: rescue routes', () => {
   beforeEach(() => { seedTestData() })
 
   it('GET /api/rescue/mobilizations returns list', async () => {
-    const res = await request(server).get('/api/rescue/mobilizations')
+    // ★ P0-1：rescue 全文件端点均已挂 authMiddleware，需带合法 token。
+    const res = await request(server)
+      .get('/api/rescue/mobilizations')
+      .set('Authorization', `Bearer ${userToken('user_001')}`)
     expect(res.status).toBe(200)
     expect(Array.isArray(res.body.data)).toBe(true)
   })

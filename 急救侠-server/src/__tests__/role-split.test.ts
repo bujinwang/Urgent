@@ -159,23 +159,33 @@ describe('判定点 4-5：队伍能力只认队伍角色', () => {
   })
 
   it('④ /api/rescue/mobilize：队长可发起，平台管理员（非队长）不行', async () => {
+    // ★ P0-1：身份一律从 token 派生（硬约束 #1），**不再**由 body 的 `leaderId` 决定调用者。
+    // 用例语义不变：仍是「**调用者自身**的队伍角色」决定能否发起动员。
     const byLeader = await request(server)
       .post('/api/rescue/mobilize')
-      .send({ title: '演练动员', leaderId: 'u_' + PHONE_LEADER, volunteersNeeded: 2 })
+      .set('Authorization', `Bearer ${tokens.leader}`)
+      .send({ title: '演练动员', volunteersNeeded: 2 })
     expect(byLeader.body.code).toBe(0)
 
     const byAdmin = await request(server)
       .post('/api/rescue/mobilize')
-      .send({ title: '非法动员', leaderId: 'u_' + PHONE_ADMIN, volunteersNeeded: 2 })
+      .set('Authorization', `Bearer ${tokens.admin}`)
+      .send({ title: '非法动员', volunteersNeeded: 2 })
     expect(byAdmin.body.code).toBe(-1)
     expect(byAdmin.body.message).toContain('只有认证救援领导者')
   })
 
   it('⑤ /api/rescue/team：按队长（队伍角色）取队伍，平台管理员（非队长）取不到', async () => {
-    const byLeader = await request(server).get('/api/rescue/team').query({ leaderId: 'u_' + PHONE_LEADER })
+    // ★ P0-1：队长不再由 `query.leaderId` 指定（可伪造 ⇒ 可看他人队伍），改由 token 身份决定。
+    // 用例语义不变：「调用者本人」必须是认证领导者，才能取到自己的队伍花名册。
+    const byLeader = await request(server)
+      .get('/api/rescue/team')
+      .set('Authorization', `Bearer ${tokens.leader}`)
     expect(byLeader.body.code).toBe(0)
 
-    const byAdmin = await request(server).get('/api/rescue/team').query({ leaderId: 'u_' + PHONE_ADMIN })
+    const byAdmin = await request(server)
+      .get('/api/rescue/team')
+      .set('Authorization', `Bearer ${tokens.admin}`)
     expect(byAdmin.body.code).toBe(-1)
   })
 })
