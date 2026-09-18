@@ -152,3 +152,85 @@ describe('T05 · 台账保留期清理：只碰台账，★绝不碰证明（D7 
     expect((db.prepare('SELECT COUNT(*) AS c FROM volunteer_service_logs').get() as { c: number }).c).toBe(1) // 未删
   })
 })
+
+// ---------------------------------------------------------------------------
+// ★★ T41（v1.6，§4.5-③）gov 全局口径「跨机构不翻倍」
+//
+// 口径（设计写死，防两套算法漂移）：
+//   - gov 总时长 = `SUM(duration_min)` **直接对台账、只算一次**（**不得**经「各机构汇总相加」）；
+//   - gov 人次   = `COUNT(DISTINCT user_id)`（**去重**）。
+//
+// 反事实夹具：`u_multi` 同时属于 `orgA`、`orgB`，且有两份已闭合台账（30 + 20 = 50 分钟）。
+// 按 (a)「按成员」口径，他的时长会在**两个机构报表里各出现一次**（视图重复，非重复计），
+// 所以「把各机构相加」会得到 50 + 50 = 100 ⇒ gov 数字**翻倍**。本用例专咬这条路。
+// ---------------------------------------------------------------------------
+describe('★★ T41 · gov 全局口径：一人同属 A、B 两机构 ⇒ 不翻倍（v1.6 §4.5-③）', () => {
+  beforeEach(() => {
+    seedTestData()
+    addUser('u_adminA', '管理员A'); addUser('u_adminB', '管理员B'); addUser('u_multi', '跨机构者')
+    addOrg('orgA', '机构A', 'u_adminA'); addMember('orgA', 'u_adminA', 'admin'); addMember('orgA', 'u_multi', 'member')
+    addOrg('orgB', '机构B', 'u_adminB'); addMember('orgB', 'u_adminB', 'admin'); addMember('orgB', 'u_multi', 'member')
+    // u_multi 的**两份**台账（30 + 20 = 50 分钟）；两个 admin 无台账（保证差异只来自 u_multi）。
+    seedLog('u_multi', 'rescue_task', 30)
+    seedLog('u_multi', 'drill', 20)
+  })
+
+  it('gov.totalMinutes = 台账之和（50，**不 ×2**）；participantCount = 1（**去重**）', async () => {
+    const { token } = seedGovViewer()
+    const sh = (await request(server).get('/api/gov/dashboard').set(auth(token))).body.data.serviceHours
+
+    expect(sh).not.toBeNull()
+    expect(sh.totalMinutes).toBe(50)
+    expect(sh.totalMinutes).not.toBe(100) // ★ 按「各机构相加」会得 100（A、B 都含该人）
+    expect(sh.participantCount).toBe(1)
+    expect(sh.participantCount).not.toBe(2) // ★ 不去重的「按成员」会得 2
+  })
+
+  it('(a) 按成员口径的预期重复：A、B 两机构各自报表**都含**该人（各 50 分钟）', async () => {
+    const a = (await request(server).get('/api/org/orgA/service-hours').set(auth(userToken('u_adminA')))).body.data
+    const b = (await request(server).get('/api/org/orgB/service-hours').set(auth(userToken('u_adminB')))).body.data
+
+    for (const d of [a, b]) {
+      expect(d.totalMinutes).toBe(50)
+      expect(d.total).toBe(1) // 该机构内**去重**人数
+      expect(d.items.map((i: { userId: string }) => i.userId)).toContain('u_multi')
+    }
+    // 两机构报表相加 = 100（视图重复）—— 与 gov 全局 50 的对比，正是「不经机构相加」的理由。
+    expect(a.totalMinutes + b.totalMinutes).toBe(100)
+    expect(a.totalMinutes + b.totalMinutes).not.toBe(0) // 防止上方 50+50 因两侧都空而"碰巧"成立
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ★★ T42（v1.6，§4.5-④）gov `null` 判据 = 「**有无台账行**」，不是「分钟数是否为 0」
+//
+// 问题：`started_at_ms == ended_at_ms`（已确认但零时长）的行 ⇒ `/me` 返回 total=0 且 breakdown 有 1 项，
+// 而 gov 曾因 `totalMinutes <= 0` 返回 `null` ⇒ **同一份数据、两端点结论相反**。
+// 统一后：**无计数行 ⇒ `null`；有行 ⇒ 返回对象（`totalMinutes` 可为 0）**。
+// ---------------------------------------------------------------------------
+describe('★★ T42 · gov serviceHours 零时长行判据统一（v1.6 §4.5-④）', () => {
+  beforeEach(() => { seedTestData() })
+
+  it('仅一条**零时长**（started==ended）已确认行 ⇒ 返回对象而非 null（totalMinutes:0, participantCount:1）', async () => {
+    recordService({
+      userId: 'user_001', activityType: 'rescue_task', sourceRef: 'gov_zero',
+      startedAtMs: BASE, endedAtMs: BASE, now: 1, // ★ 0 分钟（事实：他确实参与过）
+    })
+    const { token } = seedGovViewer()
+    const sh = (await request(server).get('/api/gov/dashboard').set(auth(token))).body.data.serviceHours
+
+    expect(sh).not.toBeNull() // ★ 判据 = 「有无台账行」，不是「分钟数是否为 0」
+    expect(sh.totalMinutes).toBe(0) // 0 分钟是一个事实，不得折成 null
+    expect(sh.participantCount).toBe(1)
+    // 零时长行**仍可见于分项**（count=1），与 `/me` 的 breakdown 口径一致
+    expect(sh.byActivityType).toEqual([
+      { activityType: 'rescue_task', minutes: 0, count: 1 },
+    ])
+  })
+
+  it('无任何计数台账 ⇒ null（与上一条互为反方向，证明判据真的看「有无行」）', async () => {
+    const { token } = seedGovViewer()
+    const sh = (await request(server).get('/api/gov/dashboard').set(auth(token))).body.data.serviceHours
+    expect(sh).toBeNull()
+  })
+})
