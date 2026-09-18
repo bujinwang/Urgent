@@ -6,7 +6,7 @@ import { defineComponent, h } from 'vue'
 import { applyNavTitle, useLocalizedNavTitle } from '@/utils/nav-title-locale'
 import { setLocale } from '@/i18n'
 import { messages } from '@/locales'
-import { SCOPE_FILES } from '@/__tests__/i18n-scope'
+import { SCOPE_FILES, stripComments } from '@/__tests__/i18n-scope'
 
 /**
  * F2 P1b —— **原生导航栏标题**随语言切换的独立守卫。
@@ -143,7 +143,8 @@ describe('P1b：原生导航栏标题本地化', () => {
 
     const missing: string[] = []
     for (const rel of checked) {
-      const src = fs.readFileSync(path.resolve(process.cwd(), rel), 'utf8')
+      // ⚠️ 先**剥离注释**再判定：否则「注释里提到 useLocalizedNavTitle(」会造成假阴性。
+      const src = stripComments(fs.readFileSync(path.resolve(process.cwd(), rel), 'utf8'))
       if (!src.includes('useLocalizedNavTitle(')) missing.push(rel)
     }
     expect(missing, `以下「已本地化 + 标准导航栏」页面未接 useLocalizedNavTitle：${missing.join(', ')}`).toEqual([])
