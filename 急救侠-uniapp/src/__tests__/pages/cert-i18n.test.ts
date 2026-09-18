@@ -127,14 +127,16 @@ describe('P1a：我的页（cert）文案本地化 + 语言切换入口', () => 
     it('★ 静态入口网格标题：zh → en 立即生效', async () => {
       wrapper = await mountCert()
       const labels = () => wrapper!.findAll('.cert-action-label').map((n) => n.text())
-      expect(labels()).toEqual(
-        Object.values(messages['zh-CN'].mine.actions).slice(0, 7),
-      )
+      // F4 T04：入口网格新增 2 项（「我的服务时长」/「我的服务证明」）⇒ 共 9 项（org 项不渲染）。
+      const expected = (loc: (typeof LOCALES)[number]) => [
+        ...Object.values(messages[loc].mine.actions).slice(0, 7),
+        messages[loc].hours.title,
+        messages[loc].serviceCert.title,
+      ]
+      expect(labels()).toEqual(expected('zh-CN'))
 
       setLocale('en-US'); await nextTick()
-      expect(labels()).toEqual(
-        Object.values(messages['en-US'].mine.actions).slice(0, 7),
-      )
+      expect(labels()).toEqual(expected('en-US'))
     })
   })
 
@@ -143,7 +145,7 @@ describe('P1a：我的页（cert）文案本地化 + 语言切换入口', () => 
   // -------------------------------------------------------------------------
   describe('★ 内容完整性：渲染值 === locale 值', () => {
     for (const loc of LOCALES) {
-      it(`★ [${loc}] 统计三格 + 顶部 7 个入口标题 === locale 值`, async () => {
+      it(`★ [${loc}] 统计三格 + 顶部 9 个入口标题 === locale 值`, async () => {
         setLocale(loc)
         wrapper = await mountCert()
         const m = messages[loc].mine
@@ -151,7 +153,11 @@ describe('P1a：我的页（cert）文案本地化 + 语言切换入口', () => 
         expect(wrapper.findAll('.profile-stat-label').map((n) => n.text()))
           .toEqual([m.statRescues, m.statPoints, m.statCerts])
         expect(wrapper.findAll('.cert-action-label').map((n) => n.text()))
-          .toEqual(Object.values(m.actions).slice(0, 7))
+          .toEqual([
+            ...Object.values(m.actions).slice(0, 7),
+            messages[loc].hours.title,
+            messages[loc].serviceCert.title,
+          ])
       })
 
       it(`★ [${loc}] 游客分支：CTA 标题 / 说明 / 按钮 === locale 值`, async () => {

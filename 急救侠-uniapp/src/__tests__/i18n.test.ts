@@ -179,6 +179,9 @@ describe('静态扫描：范围清单内不得出现未定义 / 裸 key', () => 
     'src/pages/drill/index.vue',
     // P1a 补：「我的」页已双语化，全部 `mine.*` 键都必须被"用了但没定义"守卫覆盖。
     'src/pages/cert/index.vue',
+    // F4 T04：两新页的 `hours.*` / `serviceCert.*` 键必须被"用了但没定义"守卫覆盖。
+    'src/pages/volunteer/hours.vue',
+    'src/pages/volunteer/certificates.vue',
     'src/components/SosButton/index.vue',
     'src/components/StepTimer/index.vue',
     'src/components/Metronome/index.vue',
