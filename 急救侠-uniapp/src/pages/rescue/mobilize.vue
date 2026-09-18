@@ -41,27 +41,32 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { request } from '@/api'
 
-const API = '/api/rescue'
 const userStore = useUserStore()
 const mobilizations = ref<any[]>([])
 const showCreate = ref(false)
 const form = ref({ title:'', description:'', address:'深圳湾公园', type:'rescue', volunteersNeeded:5 })
 
+// ★ P0-1：rescue 全文件端点已要求登录（authMiddleware），裸 fetch 不带 Authorization ⇒ 401，
+// 且这里被 try/catch 兜住 ⇒ 会**静默**降级成空列表（用户只看到"没数据"）。改用 `request`（自动带 token）。
 async function load() {
-  try{const r=await fetch(`${API}/mobilizations`).then(r=>r.json());mobilizations.value=r.data||[]}catch(e){}
+  try{ mobilizations.value = await request<any[]>({ url:'/rescue/mobilizations' }) ?? [] }catch(e){}
 }
 async function respond(m: any) {
-  await fetch(`${API}/mobilizations/${m.id}/respond`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:userStore.profile.id,userName:userStore.profile.name})})
+  // `userId` 已由服务端从 token 派生，不再从 body 取（留着会被误导以为生效）
+  await request({ url:`/rescue/mobilizations/${m.id}/respond`, method:'POST', data:{ userName:userStore.profile.name } })
   uni.showToast({title:'已响应',icon:'none'});load()
 }
 async function approve(m: any) {
-  await fetch(`${API}/mobilizations/${m.id}/approve`, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({approvedBy:'admin'})})
+  // 审批现限平台管理员/机构管理员；`approvedBy` 也由服务端取调用者身份
+  await request({ url:`/rescue/mobilizations/${m.id}/approve`, method:'PUT' })
   uni.showToast({title:'已批准',icon:'none'});load()
 }
 async function createMob() {
   const f = form.value
-  await fetch(`${API}/mobilize`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...f,leaderId:userStore.profile.id,leaderName:userStore.profile.name,lat:22.517,lng:113.947})})
+  // `leaderId` 由服务端从 token 派生；`leaderName` 服务端仍从 body 读取入账 ⇒ 保留
+  await request({ url:'/rescue/mobilize', method:'POST', data:{ ...f, leaderName:userStore.profile.name, lat:22.517, lng:113.947 } })
   showCreate.value=false;uni.showToast({title:'已发起',icon:'none'});load()
 }
 function statusColor(s: string) { return {pending:'#F59E0B',active:'#34D277',completed:'#8E8E8E'}[s]||'#6B7280' }

@@ -44,8 +44,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { request } from '@/api'
 
-const API = '/api/community'
+const API = '/api/community' // 仅用于本批未加固的端点（/nearby、/groups、/groups/:id/join）
 const userStore = useUserStore()
 const tab = ref<'nearby'|'groups'|'msgs'>('nearby')
 const nearby = ref<any[]>([])
@@ -75,14 +76,17 @@ async function loadNearby() {
 async function loadGroups() {
   try{const r=await fetch(`${API}/groups`).then(r=>r.json());groups.value=r.data||[]}catch(e){}
 }
+// ★ P0-1：`GET /community/messages` 已改为只返回**调用者本人**的私信，**不再接受 `?userId=`**
+// （此前换任意 userId 即可读他人私信正文）。身份由 token 决定 ⇒ 去掉 query，并改用 request。
 async function loadMessages() {
-  try{const r=await fetch(`${API}/messages?userId=${userStore.profile.id}`).then(r=>r.json());allMessages.value=r.data||[]}catch(e){}
+  try{ allMessages.value = await request<any[]>({ url:'/community/messages' }) ?? [] }catch(e){}
 }
 
 function contactUser(v: any) {
   uni.showModal({ title: `联系 ${v.userName}`, editable: true, placeholderText: '输入消息', success: async (res) => {
     if (res.confirm && res.content) {
-      await fetch(`${API}/messages`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fromUserId:userStore.profile.id,fromUserName:userStore.profile.name,toUserId:v.userId,content:res.content})})
+      // ★ P0-1：`fromUserId` 由服务端从 token 派生，不再从 body 取（留着会误导以为生效）
+      await request({ url:'/community/messages', method:'POST', data:{ fromUserName:userStore.profile.name, toUserId:v.userId, content:res.content } })
       uni.showToast({title:'已发送',icon:'none'})
     }
   }})
@@ -98,7 +102,8 @@ function openGroup(g: any) {
 function openChat(thread: any) {
   uni.showModal({ title: `与 ${thread.peerName} 的对话`, content: `最近消息: ${thread.lastContent}`, confirmText: '回复', cancelText: '关闭', editable: true, placeholderText: '输入回复', success: async (res) => {
     if (res.confirm && res.content) {
-      await fetch(`${API}/messages`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fromUserId:userStore.profile.id,fromUserName:userStore.profile.name,toUserId:thread.peerId,content:res.content})})
+      // ★ P0-1：`fromUserId` 由服务端从 token 派生，不再从 body 取
+      await request({ url:'/community/messages', method:'POST', data:{ fromUserName:userStore.profile.name, toUserId:thread.peerId, content:res.content } })
       uni.showToast({title:'已发送',icon:'none'})
     }
   }})
