@@ -272,23 +272,38 @@ describe('F4 T04 独立验证 · 自补项', () => {
   })
 
   // -------------------------------------------------------------------------
-  // KNOWN-BUG：两新页的**原生导航栏标题**未本地化（en 下仍显示中文）。
-  // 缺陷：pages.json 的 `navigationBarTitleText` 是静态中文（"我的服务时长"/"我的服务证明"），
-  //      且两页均**未**调 `useLocalizedNavTitle()`（无 `nav.hours`/`nav.serviceCert` 键）
-  //      ⇒ 语言切到 en 后，页内 appbar 已英文，但原生标题栏仍是中文。
-  // 为何四层守卫全盲：① 裸 CJK 源码扫描只扫 `.vue`（不含 `pages.json`）；
-  //      ② 渲染快照（VTU）不渲染原生 chrome；③ `nav-title-locale.test.ts` 的调用点守卫只枚举 3 页。
-  // 修复时必须：① 加 `nav.hours`/`nav.serviceCert`（zh+en）；② 两页 setup 调
-  //      `useLocalizedNavTitle('nav.hours')` / `('nav.serviceCert')`；
-  //      ③ **把本用例反转为**「切 en 后 `uni.setNavigationBarTitle` 收到对应英文标题」。
+  // FIXED（原 KNOWN-BUG）：两新页的**原生导航栏标题**已本地化。
+  //
+  // 原缺陷：`pages.json` 的 `navigationBarTitleText` 是静态中文，且两页**未**调
+  //        `useLocalizedNavTitle()`（无 `nav.hours`/`nav.serviceCert` 键）
+  //        ⇒ en 下页内 appbar 已英文、原生标题栏仍中文。
+  // 修复：`pages.json` **保留中文**作首屏默认；两页 setup 均调 `useLocalizedNavTitle()`；
+  //        locales 新增 `nav.hours` / `nav.serviceCert`（zh 与 `pages.json` **逐字一致**）。
+  // 由**哪条守卫守住**（原四层全盲，现补第 ⑤ 层，均在 `nav-title-locale.test.ts`）：
+  //   ③ 调用点枚举由 3 页 → **5 页**（删任一新页那行 ⇒ ③ 红）；
+  //   ④ `nav` 键集断言由 NAV_PAGES 派生 ⇒ **恰好 5**；
+  //   ⑤ ★【新层】`pages.json × 接入一致性`：自动跟随 `SCOPE_FILES`，
+  //      凡「已本地化 + 标准原生标题栏」的页面必须接线（删任一新页那行 ⇒ ⑤ 红）。
   // -------------------------------------------------------------------------
-  it('KNOWN-BUG: 两新页未同步原生导航栏标题（en 下原生标题栏仍为中文）', () => {
-    for (const f of ['src/pages/volunteer/hours.vue', 'src/pages/volunteer/certificates.vue']) {
-      expect(READ(f), `${f} 当前未调 useLocalizedNavTitle（修复后本断言须反转）`).not.toContain('useLocalizedNavTitle')
+  it('FIXED: 两新页已同步原生导航栏标题（两页均接线 + nav 键存在 + zh 与 pages.json 逐字一致）', () => {
+    const pages = JSON.parse(READ('src/pages.json')) as {
+      pages: Array<{ path: string; style?: { navigationBarTitleText?: string } }>
     }
-    // 无 nav.hours / nav.serviceCert 键（既有 nav 域仅 aedIndex/drill/mine）
-    expect('hours' in messages['zh-CN'].nav).toBe(false)
-    expect('serviceCert' in messages['zh-CN'].nav).toBe(false)
+    const titleOf = (p: string) => pages.pages.find((x) => x.path === p)?.style?.navigationBarTitleText
+
+    for (const [file, key, pagePath] of [
+      ['src/pages/volunteer/hours.vue', 'nav.hours', 'pages/volunteer/hours'],
+      ['src/pages/volunteer/certificates.vue', 'nav.serviceCert', 'pages/volunteer/certificates'],
+    ] as const) {
+      expect(READ(file), `${file} 应接线`).toContain(`useLocalizedNavTitle('${key}')`)
+      const short = key.replace('nav.', '')
+      const zh = (messages['zh-CN'].nav as Record<string, string>)[short]
+      const en = (messages['en-US'].nav as Record<string, string>)[short]
+      expect(zh, `${key} zh 缺失`).toBeTruthy()
+      expect(en, `${key} en 缺失`).toBeTruthy()
+      expect(en, `${key} 的 en 不应照抄 zh`).not.toBe(zh)
+      expect(zh, `${key} 的 zh 须与 pages.json 的 navigationBarTitleText 逐字一致`).toBe(titleOf(pagePath))
+    }
   })
 
   it('★ cert「我的」页游客态：两入口链接渲染，点击可达', async () => {
