@@ -50,6 +50,18 @@ function insertMessage(id: string, fromUserId: string, toUserId: string, content
     .run(id, fromUserId, fromUserId, toUserId, content)
 }
 
+/**
+ * ★ P0-2 夹具补登记：把 `userId` 登记为某救援任务的参与者（`task_volunteers`）。
+ *
+ * P0-2 起 rescue 的**写侧**（开直播 / 发现场动态）也要求参与者身份 —— 非参与者一律 403。
+ * 用例 ⑨/⑩/⑪/⑫ 的**断言意图**是「冒名被阻断 / 归属校验」，与「A 是不是参与者」无关
+ * ⇒ 这里只补一条参与行让 A 具备发布资格，断言一字不改。
+ */
+function enrollTaskVolunteer(taskId: string, userId: string): void {
+  db.prepare('INSERT OR IGNORE INTO task_volunteers (id, task_id, user_id, responded_at_ms, status) VALUES (?,?,?,?,?)')
+    .run('tv_' + taskId + '_' + userId, taskId, userId, Date.now(), 'responded')
+}
+
 /** 直接落一条视频评论（绕过接口，用于构造"他人评论"）。 */
 function insertComment(id: string, videoId: string, userId: string, content = '评论内容'): void {
   db.prepare('INSERT INTO video_comments (id, video_id, user_id, user_name, user_avatar, content) VALUES (?,?,?,?,?,?)')
@@ -255,6 +267,7 @@ describe('P0-1 · 冒充被阻断：持 A 的 token 却传 B 的身份', () => {
   })
 
   it('⑪ rescue POST /live/:taskId/start：body 传 userId=B ⇒ 主播仍是 A', async () => {
+    enrollTaskVolunteer('task_001', 'u_alice') // ★ P0-2：写侧需参与者身份，A 取得发布资格
     const res = await request(server)
       .post('/api/rescue/live/task_001/start')
       .set('Authorization', `Bearer ${userToken('u_alice')}`)
@@ -266,6 +279,7 @@ describe('P0-1 · 冒充被阻断：持 A 的 token 却传 B 的身份', () => {
   })
 
   it('⑫ rescue POST /mobilizations/:taskId/media：body 传 userId=B ⇒ 作者仍是 A（含 GPS）', async () => {
+    enrollTaskVolunteer('task_001', 'u_alice') // ★ P0-2：写侧需参与者身份，A 取得发布资格
     const res = await request(server)
       .post('/api/rescue/mobilizations/task_001/media')
       .set('Authorization', `Bearer ${userToken('u_alice')}`)
@@ -576,6 +590,7 @@ describe('P0-1 · 本人自助正常路径仍通过（不能改坏正常功能�
   })
 
   it('⑨ rescue POST /live/end/:sessionId：主播本人 ⇒ 200', async () => {
+    enrollTaskVolunteer('task_001', 'u_alice') // ★ P0-2：开直播需参与者身份
     await request(server)
       .post('/api/rescue/live/task_001/start')
       .set('Authorization', `Bearer ${userToken('u_alice')}`)
@@ -589,6 +604,7 @@ describe('P0-1 · 本人自助正常路径仍通过（不能改坏正常功能�
   })
 
   it('⑩ rescue live/end：他人 ⇒ 403，直播未结束', async () => {
+    enrollTaskVolunteer('task_001', 'u_alice') // ★ P0-2：开直播需参与者身份（u_bob 不登记 ⇒ 仍 403）
     await request(server)
       .post('/api/rescue/live/task_001/start')
       .set('Authorization', `Bearer ${userToken('u_alice')}`)

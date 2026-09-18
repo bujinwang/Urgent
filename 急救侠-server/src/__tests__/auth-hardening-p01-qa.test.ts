@@ -92,6 +92,29 @@ function insertMobilization(leaderId: string): string {
   return id
 }
 
+/**
+ * 建一条救援任务（`task_volunteers.task_id` 对 `tasks.id` **有外键** ⇒ 父行必须先存在）。
+ * 这条外键正是「media/live 的 `taskId` 属于 `tasks` id 空间」的**schema 级证据**。
+ */
+function insertTask(id: string): void {
+  db.prepare(
+    `INSERT INTO tasks (id, type, address, distance, lat, lng, volunteers_needed, status, created_at)
+     VALUES (?,?,?,?,?,?,?,?,?)`
+  ).run(id, 'cpr', '某地', 100, 22.5, 113.9, 3, 'active', new Date().toISOString())
+}
+
+/**
+ * ★ P0-2 夹具补登记：把 `userId` 登记为某救援任务的参与者（`task_volunteers`）。
+ *
+ * P0-2 起 rescue 的**写侧**（开直播 / 发现场动态）也要求参与者身份 —— 非参与者一律 403。
+ * 这两个用例（S2j/S2k）的**断言意图**是「冒名被阻断：记录仍记在 A 名下、B 侧零变化」，
+ * 与「A 是不是参与者」无关 ⇒ 这里只补一条参与行让 A 具备发布资格，断言一字不改。
+ */
+function insertTaskVolunteer(taskId: string, userId: string): void {
+  db.prepare('INSERT OR IGNORE INTO task_volunteers (id, task_id, user_id, responded_at_ms, status) VALUES (?,?,?,?,?)')
+    .run(rid('tv'), taskId, userId, Date.now(), 'responded')
+}
+
 function addOrg(id: string, name: string, adminUserId: string): void {
   db.prepare('INSERT INTO organizations (id, name, admin_user_id) VALUES (?,?,?)').run(id, name, adminUserId)
 }
@@ -315,6 +338,7 @@ describe('P0-1 鉴权加固 · 独立对抗性复核', () => {
   })
 
   it('S2j：A 开直播塞 body.userId=B ⇒ 主播记在 A 名下，B 零直播行', async () => {
+    insertTask('task_x'); insertTaskVolunteer('task_x', A) // ★ P0-2：写侧需参与者身份，A 取得发布资格
     const res = await request(server).post('/api/rescue/live/task_x/start')
       .set('Authorization', tk(A)).send({ userId: B })
     expect(res.status).toBe(200)
@@ -323,6 +347,7 @@ describe('P0-1 鉴权加固 · 独立对抗性复核', () => {
   })
 
   it('S2k：A 发现场动态塞 body.userId=B ⇒ 记在 A 名下，B 零动态', async () => {
+    insertTask('task_x'); insertTaskVolunteer('task_x', A) // ★ P0-2：写侧需参与者身份，A 取得发布资格
     const res = await request(server).post('/api/rescue/mobilizations/task_x/media')
       .set('Authorization', tk(A)).send({ content: 'x', userId: B })
     expect(res.status).toBe(200)
