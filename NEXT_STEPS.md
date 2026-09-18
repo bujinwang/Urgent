@@ -397,6 +397,32 @@ node scripts/smoke.mjs --base https://<域名>     # 生产（不跳过 TLS 校�
 
 ---
 
+### F4 期顺带发现的**既有隐患**（2026-09-17，非 F4 引入，未修）
+
+**① `user.profile` 可能被污染成 `null` ⇒ 全部裸访问点会抛**
+
+- **现象**：全仓有大量**裸访问** `userStore.profile.id` / `.name` / `.points` / `.tier`，
+  **模板里也有**：`pages/cert/index.vue:5` 的 `{{ user.profile.name }}`、
+  `pages/volunteer/index.vue:6` 的 `user.profile.points.toLocaleString()`、
+  `pages/aed/index.vue:21/27/174`；store 侧 `stores/aed.ts:49-50`、`stores/volunteer.ts:30-33`。
+- **根因（一处"类型谎言"）**：`api/user.ts:33` 声明 `fetchProfile(): Promise<UserProfile>`（**声称非空**），
+  但它只是 `request<UserProfile>(...)` 的直通 —— 当响应 `data` 为空/null 时**运行时返回 `null`**，
+  而 **TS 类型把这个可能掩盖了**。`stores/user.ts:36` 的 `profile.value = await fetchProfile()`
+  会把这个 `null` **直接覆盖掉初值**（`:23` 的 `{ ...GUEST_PROFILE }`）
+  ⇒ 之后**所有**裸访问点（含模板渲染）抛异常。
+- **现状：潜伏**（从未触发过，所以没人发现）—— 一旦后端某个响应返回 `data: null` 即引爆。
+- **最小修复（堵污染源，一行优于改几十个访问点）**：
+  `stores/user.ts:36` → `profile.value = (await fetchProfile()) ?? { ...GUEST_PROFILE }`
+  （或让 `fetchProfile` 自身兜底）。
+- **发现者**：F4 T04 的实现方 —— **报告但未顺手改**（纪律正确：不在本任务范围，且改动面大）。
+
+**② `org_id` 从未写入台账**（F4 设计 D-7）
+`closeServiceForUser()` → `recordService()` **不传 `orgId`** ⇒ `volunteer_service_logs.org_id` 恒为空串。
+后果：机构汇总只能退化为"按成员"口径（同一人的时长会在其**每个所属机构**报表里各出现一次）。
+政府侧若要求"不重复"，须先写入 `org_id` —— 已记为 **F4 设计 §9 的 D-7（P1/另立）**。
+
+---
+
 ## 🚧 P2 产品能力补全 · 进行中
 
 ### ✅ P2-7 AED 责任人实时联动 + 远程解锁（已完成，2026-09-11）
