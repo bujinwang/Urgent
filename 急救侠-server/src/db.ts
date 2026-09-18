@@ -1138,6 +1138,20 @@ export function initDb(options: { silent?: boolean } = {}) {
       // 既有库则真正补列并记入 `_migrations`。（★ 与 T02 的索引不同：加列**无需**「先去重」。）
       sql: "ALTER TABLE task_volunteers ADD COLUMN rejoin_count INTEGER NOT NULL DEFAULT 0",
     },
+    {
+      id: '047_backfill_service_log_org_id',
+      description: 'backfill org_id on existing volunteer_service_logs (D-7: deterministic single org)',
+      // ★ D-7：机构聚合去重。旧台账行 `org_id` 为空 ⇒ 用与 `serviceLog.resolveUserOrgId` **同一规则**
+      // （优先 admin/manager，否则最早加入）回填确定性机构，使存量时长也能被机构聚合计入且不翻倍。
+      // ★ `COALESCE(..., '')` 必需：`org_id` 是 `NOT NULL`，无机构用户的子查询返回 NULL ⇒ 直接 `SET org_id = (SELECT ...)`
+      // 会抛 `NOT NULL constraint failed`；COALESCE 让无机构行保持 ''（契合列 `DEFAULT ''`）。
+      // 幂等：`WHERE org_id = ''` ⇒ 已回填的行不再变动；全新库本就无空 org_id 行 ⇒ 0 changes（仍记入 `_migrations`）。
+      sql: `UPDATE volunteer_service_logs
+            SET org_id = COALESCE((SELECT om.org_id FROM organization_members om
+                         WHERE om.user_id = volunteer_service_logs.user_id
+                         ORDER BY (om.role IN ('admin','manager')) DESC, om.joined_at ASC LIMIT 1), '')
+            WHERE org_id = ''`,
+    },
   ]
 
   const applied = new Set(
