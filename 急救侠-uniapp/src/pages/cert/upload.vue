@@ -16,15 +16,16 @@
 </template>
 <script setup lang="ts">
 import { uniInputValue } from '@/types/uni-events'
-import { ref,onMounted } from 'vue';import { useUserStore } from '@/stores/user';import { request } from '@/api/index'
-const s=useUserStore()
+import { ref,onMounted } from 'vue';import { request } from '@/api/index'
+// ★ P0-1：`GET /rescue/certifications` 与 `POST /rescue/certification` 的身份一律由服务端从 token 派生，
+// 故不再传 `?userId=`（服务端已忽略，留着会误导后人以为生效）。
 const type=ref(''),issuer=ref(''),certNumber=ref(''),issueDate=ref(''),expiryDate=ref(''),list=ref<any[]>([])
-onMounted(async()=>{try{list.value=await request({url:`/rescue/certifications?userId=${s.profile.id}`})}catch{}})
+onMounted(async()=>{try{list.value=await request({url:'/rescue/certifications'})}catch{}})
 async function submit(){
   if(!type.value||!issuer.value){uni.showToast({title:'请填写类型和机构',icon:'none'});return}
-  await request({url:'/rescue/certification',method:'POST',data:{userId:s.profile.id,type:type.value,issuer:issuer.value,certNumber:certNumber.value,issueDate:issueDate.value,expiryDate:expiryDate.value}})
+  await request({url:'/rescue/certification',method:'POST',data:{type:type.value,issuer:issuer.value,certNumber:certNumber.value,issueDate:issueDate.value,expiryDate:expiryDate.value}})
   uni.showToast({title:'已提交，等待平台验证',icon:'success'});type.value=issuer.value=certNumber.value=issueDate.value=expiryDate.value=''
-  try{list.value=await request({url:`/rescue/certifications?userId=${s.profile.id}`})}catch{}
+  try{list.value=await request({url:'/rescue/certifications'})}catch{}
 }
 </script>
 <style scoped>

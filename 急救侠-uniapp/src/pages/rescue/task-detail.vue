@@ -46,13 +46,14 @@ async function loadMedia(){try{mediaList.value=await request({url:`/rescue/mobil
 async function send(){
   if(!msg.value.trim())return
   const p=s.profile
-  await request({url:`/rescue/mobilizations/${taskId.value}/media`,method:'POST',data:{userId:p.id,userName:p.name,userAvatar:p.avatar,type:'text',content:msg.value}})
+  // ★ P0-1：`userId` 由服务端从 token 派生，不再从 body 取（userName/userAvatar 服务端仍读取 ⇒ 保留）
+  await request({url:`/rescue/mobilizations/${taskId.value}/media`,method:'POST',data:{userName:p.name,userAvatar:p.avatar,type:'text',content:msg.value}})
   msg.value='';loadMedia()
 }
 async function takePhoto(){
   uni.chooseImage({count:1,sourceType:['camera','album'],success:async(res:any)=>{
     const p=s.profile
-    await request({url:`/rescue/mobilizations/${taskId.value}/media`,method:'POST',data:{userId:p.id,userName:p.name,userAvatar:p.avatar,type:'photo',mediaUrl:res.tempFilePaths[0],content:'📸'}})
+    await request({url:`/rescue/mobilizations/${taskId.value}/media`,method:'POST',data:{userName:p.name,userAvatar:p.avatar,type:'photo',mediaUrl:res.tempFilePaths[0],content:'📸'}})
     loadMedia()
   }})
 }
@@ -64,7 +65,7 @@ async function toggleLive(){
   if(isLive.value){
     if(liveId.value) await request({url:`/rescue/live/end/${liveId.value}`,method:'POST'});isLive.value=false;liveId.value='';liveCount.value=Math.max(0,liveCount.value-1);loadMedia()
   }else{
-    const r=await request<any>({url:`/rescue/live/${taskId.value}/start`,method:'POST',data:{userId:p.id,userName:p.name,userAvatar:p.avatar,deviceInfo:'mobile'}})
+    const r=await request<any>({url:`/rescue/live/${taskId.value}/start`,method:'POST',data:{userName:p.name,userAvatar:p.avatar,deviceInfo:'mobile'}})
     isLive.value=true;liveId.value=r.id;liveCount.value++;loadMedia()
   }
 }

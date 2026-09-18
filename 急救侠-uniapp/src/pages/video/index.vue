@@ -265,7 +265,8 @@ async function submitComment(){
     await request({
       url:`/video/${videos.value[fsIndex.value].id}/comment`,
       method:'POST',
-      data:{userId:p.id,userName:p.name,userAvatar:p.avatar,content:txt}
+      // ★ P0-1：`userId` 由服务端从 token 派生，不再从 body 取（userName/userAvatar 服务端仍读取 ⇒ 保留）
+      data:{userName:p.name,userAvatar:p.avatar,content:txt}
     })
     cmtText.value=''
     cmts.value.unshift({id:'tmp',userId:p.id,userName:p.name,userAvatar:p.avatar,content:txt,createdAt:new Date().toISOString()})
@@ -358,7 +359,7 @@ async function publish(){
   await request({
     url:'/video',method:'POST',
     data:{
-      userId:p.id,userName:p.name,userAvatar:p.avatar,
+      userName:p.name,userAvatar:p.avatar,
       title:pubTitle.value,description:pubDesc.value,
       videoUrl:ur?.videoUrl||'',
       thumbnail:ur?.thumbnail||'',
