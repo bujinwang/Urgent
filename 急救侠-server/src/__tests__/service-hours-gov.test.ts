@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
 import { server, seedTestData, userToken, seedGovViewer, db } from './setup'
-import { recordService, purgeServiceLogs } from '../services/serviceLog'
+import { recordService, purgeServiceLogs, resolveUserOrgId } from '../services/serviceLog'
 import type { ActivityType } from '../types'
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` })
@@ -15,6 +15,8 @@ function seedLog(userId: string, type: ActivityType, minutes: number): void {
   refSeq += 1
   recordService({
     userId, activityType: type, sourceRef: `govref_${refSeq}`,
+    // ★ D-7：与生产 `closeServiceForUser` 一致，写入确定性机构归属（否则新聚合 filter `l.org_id` 会漏计）
+    orgId: resolveUserOrgId(userId),
     startedAtMs: BASE, endedAtMs: BASE + minutes * 60000, now: 1,
   })
 }
@@ -172,7 +174,7 @@ describe('★★ T41 · gov 全局口径：一人同属 A、B 两机构 ⇒ 不�
   beforeEach(() => {
     seedTestData()
     addUser('u_adminA', '管理员A'); addUser('u_adminB', '管理员B'); addUser('u_multi', '跨机构者')
-    addOrg('orgA', '机构A', 'u_adminA'); addMember('orgA', 'u_adminA', 'admin'); addMember('orgA', 'u_multi', 'member')
+    addOrg('orgA', '机构A', 'u_adminA'); addMember('orgA', 'u_adminA', 'admin'); addMember('orgA', 'u_multi', 'admin')
     addOrg('orgB', '机构B', 'u_adminB'); addMember('orgB', 'u_adminB', 'admin'); addMember('orgB', 'u_multi', 'member')
     // u_multi 的**两份**台账（30 + 20 = 50 分钟）；两个 admin 无台账（保证差异只来自 u_multi）。
     seedLog('u_multi', 'rescue_task', 30)
@@ -190,18 +192,22 @@ describe('★★ T41 · gov 全局口径：一人同属 A、B 两机构 ⇒ 不�
     expect(sh.participantCount).not.toBe(2) // ★ 不去重的「按成员」会得 2
   })
 
-  it('(a) 按成员口径的预期重复：A、B 两机构各自报表**都含**该人（各 50 分钟）', async () => {
+  // ★ D-7 后：「按成员」口径**不再重复** —— u_multi 经 `resolveUserOrgId`（admin 优先）确定性归属 orgA，
+  // 故只在 orgA 报表出现；orgB 报表**不含**他（机构聚合按台账 `l.org_id` 求和，不再 JOIN 翻倍）。
+  it('(a) D-7 后：u_multi 仅归属机构（orgA）报表含他，另一家（orgB）不含（不再翻倍）', async () => {
     const a = (await request(server).get('/api/org/orgA/service-hours').set(auth(userToken('u_adminA')))).body.data
     const b = (await request(server).get('/api/org/orgB/service-hours').set(auth(userToken('u_adminB')))).body.data
 
-    for (const d of [a, b]) {
-      expect(d.totalMinutes).toBe(50)
-      expect(d.total).toBe(1) // 该机构内**去重**人数
-      expect(d.items.map((i: { userId: string }) => i.userId)).toContain('u_multi')
-    }
-    // 两机构报表相加 = 100（视图重复）—— 与 gov 全局 50 的对比，正是「不经机构相加」的理由。
-    expect(a.totalMinutes + b.totalMinutes).toBe(100)
-    expect(a.totalMinutes + b.totalMinutes).not.toBe(0) // 防止上方 50+50 因两侧都空而"碰巧"成立
+    // 归属机构 orgA：含 u_multi（50 分钟，机构内去重 1 人）
+    expect(a.totalMinutes).toBe(50)
+    expect(a.total).toBe(1)
+    expect(a.items.map((i: { userId: string }) => i.userId)).toContain('u_multi')
+    // 另一家 orgB：**不**含 u_multi（0 分钟、0 人）
+    expect(b.totalMinutes).toBe(0)
+    expect(b.total).toBe(0)
+    expect(b.items.map((i: { userId: string }) => i.userId)).not.toContain('u_multi')
+    // 两机构报表相加 = 50（无重复），与 gov 全局 50 一致 —— 双端口径统一。
+    expect(a.totalMinutes + b.totalMinutes).toBe(50)
   })
 })
 
