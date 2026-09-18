@@ -138,13 +138,35 @@ describe('F4 T04 补缺 · volunteer 页交互路径', () => {
     w.unmount()
   })
 
-  it('★ #5b 验真失败 ⇒ 渲染 verifyNotFound（不静默吞掉）', async () => {
-    vi.mocked(verifyCertificate).mockRejectedValueOnce(new Error('404'))
+  it('★ #5b 验真失败（网络/其它，无 statusCode）⇒ 渲染 verifyFailed（不静默、也不臆断"不存在"）', async () => {
+    vi.mocked(verifyCertificate).mockRejectedValueOnce(new Error('boom'))
     const w = await mountCerts(); await flushPromises()
     await w.find('.certs-verify-input').setValue('VS-NOPE')
     await w.find('.certs-verify .certs-btn-primary').trigger('click')
     await flushPromises()
+    expect(w.find('.certs-verify-result').text()).toBe(messages['zh-CN'].serviceCert.verifyFailed)
+    w.unmount()
+  })
+
+  it('★ 验真：真 404 ⇒ 渲染 verifyNotFound「未找到」（与网络失败区分）', async () => {
+    vi.mocked(verifyCertificate).mockRejectedValueOnce(Object.assign(new Error('404'), { statusCode: 404 }))
+    const w = await mountCerts(); await flushPromises()
+    await w.find('.certs-verify-input').setValue('VS-404')
+    await w.find('.certs-verify .certs-btn-primary').trigger('click')
+    await flushPromises()
     expect(w.find('.certs-verify-result').text()).toBe(messages['zh-CN'].serviceCert.verifyNotFound)
+    w.unmount()
+  })
+
+  it('★ 验真：500（服务端错误）⇒ 渲染 verifyFailed，**绝不**显示成"未找到"（本修的全部意义）', async () => {
+    vi.mocked(verifyCertificate).mockRejectedValueOnce(Object.assign(new Error('500'), { statusCode: 500 }))
+    const w = await mountCerts(); await flushPromises()
+    await w.find('.certs-verify-input').setValue('VS-500')
+    await w.find('.certs-verify .certs-btn-primary').trigger('click')
+    await flushPromises()
+    const txt = w.find('.certs-verify-result').text()
+    expect(txt).toBe(messages['zh-CN'].serviceCert.verifyFailed)
+    expect(txt, '500 不得显示成"未找到"').not.toBe(messages['zh-CN'].serviceCert.verifyNotFound)
     w.unmount()
   })
 

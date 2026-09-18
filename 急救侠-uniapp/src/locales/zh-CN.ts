@@ -698,7 +698,7 @@ export default {
     verifyValid: '证明有效',
     verifyRevoked: '该证明已作废',
     verifyNotFound: '未找到该编号对应的证明',
-    verifyFailed: '验真失败',
+    verifyFailed: '验真失败，请稍后重试',
     rangeFrom: '起始日期',
     rangeTo: '结束日期',
     rangeHint: '格式 YYYY-MM-DD',

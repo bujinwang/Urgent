@@ -540,7 +540,7 @@ export default {
     verifyValid: 'Certificate is valid',
     verifyRevoked: 'This certificate has been revoked',
     verifyNotFound: 'No certificate found for this number',
-    verifyFailed: 'Verification failed',
+    verifyFailed: 'Verification failed, please try again later',
     rangeFrom: 'Start date',
     rangeTo: 'End date',
     rangeHint: 'Format YYYY-MM-DD',

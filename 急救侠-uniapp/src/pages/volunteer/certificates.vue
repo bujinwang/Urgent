@@ -135,15 +135,20 @@ async function onRevoke(certNo: string): Promise<void> {
   }
 }
 
-/** 「验真」（**调用点**）。渲染本地化文案，**不回显后端 message**（否则 en 下会混入中文）。 */
+/** 「验真」（**调用点**）。渲染本地化文案，**不回显后端 message**（否则 en 下会混入中文）。
+ *
+ * ★ **区分两类失败**：真 `404`（编号确实不存在）⇒「未找到」；网络/其它 ⇒「验真失败，请稍后重试」。
+ * 若把网络失败也显示成"不存在"，会让用户**以为自己的证明是假的**（验真是 F4 对外核心）。
+ */
 async function onVerify(): Promise<void> {
   const no = verifyNo.value.trim()
   if (!no) return
   try {
     const v = await store.verify(no)
     verifyResult.value = v.status === 'revoked' ? t('serviceCert.verifyRevoked') : t('serviceCert.verifyValid')
-  } catch {
-    verifyResult.value = t('serviceCert.verifyNotFound')
+  } catch (e) {
+    const status = (e as { statusCode?: number } | null)?.statusCode
+    verifyResult.value = status === 404 ? t('serviceCert.verifyNotFound') : t('serviceCert.verifyFailed')
   }
 }
 
