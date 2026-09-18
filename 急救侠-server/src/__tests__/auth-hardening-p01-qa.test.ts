@@ -379,15 +379,40 @@ describe('P0-1 鉴权加固 · 独立对抗性复核', () => {
     expect(extCertStatus(certId)).toBe('verified')
   })
 
-  it('S3d（能力保留）：机构 admin/manager verify ⇒ 200 且 status=verified', async () => {
+  it('S3d（能力保留）：机构 admin/manager 核实**本机构成员** ⇒ 200 且 status=verified', async () => {
     addUser('u_mgr')
     addOrg('org_1', '救援队', 'u_mgr')
     addMember('org_1', 'u_mgr', 'admin')
+    addMember('org_1', A, 'member') // ★ 被认证者须属于该机构（P0-1 收窄：机构维度操作限本机构成员）
     const certId = insertExtCert(A, 'cpr')
     const res = await request(server).put(`/api/rescue/certification/${certId}/verify`)
       .set('Authorization', tk('u_mgr'))
     expect(res.status).toBe(200)
     expect(extCertStatus(certId)).toBe('verified')
+  })
+
+  /**
+   * ★ 隔离**第二道**闸门（`isOrgManagerOf(caller, 被认证者)`）的对抗性夹具。
+   *
+   * 刻意比「目标不属于任何机构」更隐蔽：调用者 `u_mgr` **确实**是 org_1 的 admin，
+   * 能通过**第一道**粗粒度闸门 `isPlatformOrOrgManager`；唯一能拦住它的是第二道
+   * 「双方须同机构」。⇒ 若把判据退回宽的 `isOrgManager`（任一机构 admin 即可），
+   * 本用例必红（而 S3d 不会红 —— 它本就是同机构，宽/窄口径下都放行）。
+   */
+  it('S3e（★ 隔离 stage-2）：机构 admin 核实**别的机构**成员的认证 ⇒ 403，且仍 pending', async () => {
+    addUser('u_mgr')
+    addUser('u_x_admin')
+    addUser('u_x') // 被认证者：属于 **org_2**（不是 u_mgr 所在的 org_1）
+    addOrg('org_1', '救援队1', 'u_mgr')
+    addOrg('org_2', '救援队2', 'u_x_admin')
+    addMember('org_1', 'u_mgr', 'admin')
+    addMember('org_2', 'u_x', 'member')
+
+    const certId = insertExtCert('u_x', 'cpr')
+    const res = await request(server).put(`/api/rescue/certification/${certId}/verify`)
+      .set('Authorization', tk('u_mgr'))
+    expect(res.status).toBe(403)
+    expect(extCertStatus(certId)).toBe('pending') // ★ 不得被置 verified
   })
 
   // ===========================================================================
