@@ -48,6 +48,25 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   }
 }
 
+/**
+ * 从 token 派生调用者身份（★ 硬约束 #1）—— **唯一权威**身份来源。
+ *
+ * ⚠️ 所有鉴权端点一律以此为准，**绝不读 `req.body.userId` / `req.query.userId`** ——
+ * 后者来自请求体/查询串，**可被任意伪造**（这是 P0-1 加固要清零的攻击面）。
+ *
+ * `authMiddleware` 已把 JWT payload 挂在 `req.auth`；`userId` 优先，
+ * `openid` 仅作为兼容旧签发格式的兜底（与 {@link AuthPayload} 注释一致）。
+ *
+ * 现有重复的本地版本（`routes/aed.ts` 的 `callerOf`、`routes/serviceHours.ts` 的 `identityOf`）
+ * 语义与本函数一致，为避免扩大改动面暂各自保留，统一留到后续批次。
+ *
+ * @returns 调用者用户 id；无有效身份时返回 `''`（调用方据此判定/拒绝）。
+ */
+export function identityOf(req: Request): string {
+  const a = (req as unknown as { auth?: AuthPayload }).auth
+  return a?.userId || a?.openid || ''
+}
+
 /** Optional auth — attach if token present, don't fail */
 export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   const auth = req.headers.authorization
