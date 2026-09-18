@@ -587,6 +587,265 @@ describe('P0-2 · rescue GET /live/:taskId', () => {
   })
 })
 
+/* ═══════════ B5. ★★ id 空间守卫（突变锁定） ═══════════ */
+
+/**
+ * ★★ 本块是「**突变锁定**」性质的守卫，不是常规功能用例。
+ *
+ * **背景（P0-2 期间一次差点造成生产事故的误判）**：`src/routes/rescue.ts` 的
+ * `isMobilizationParticipant()` 形参 `taskId` 跨了**两套 id 空间** ——
+ * 路由路径写作 `/mobilizations/:taskId`，但真实流量传的是 **`tasks.id`**
+ * （实证：`急救侠-uniapp/src/pages/rescue/task-detail.vue:49` 取 `ts.tasks[0].id`，
+ * 第 63/96/115 行分别打到 `/mobilizations/${taskId}/media`、`/live/${taskId}`、
+ * `/live/${taskId}/start`）。
+ *
+ * 派单时给过一版判据 =「`emergency_mobilizations.leader_id = caller`
+ * ∨ `mobilization_volunteers` 有行」。照它落地，这三条线路会**永久 403**
+ * （真实流量里的合法参与者永不可能 200），等于把功能打死。
+ *
+ * **本块把那个错误实现钉死，让后来者走回去时测试立刻报警**：
+ * - **用例 A**：id 只在 `tasks` 空间成立（动员表**零行**）⇒ 三条线路**必须 200**。
+ *   ⇒ 判据一旦退回「只 join 动员表」，A 立刻变红。
+ * - **用例 B**：同一个 id **不**在 `tasks` 建行，而是登记进**错误那张表**
+ *   `emergency_mobilizations` ⇒ 三条线路**必须非 200（403）且不落库**。
+ *   ⇒ 判据一旦退化成「id 在动员表里存在即放行」，B 立刻变红。
+ *   （这里断言的实际行为是 **403**：`isMobilizationParticipant` 四条分支全不成立
+ *   ⇒ 路由在取记录之前就返回 403。403 而非 404 是刻意的——无权限者连「该 id 是否
+ *   存在」都不该探到，见 rescue.ts 各端点的「先判权限、再取记录」注释。）
+ * - **用例 C**：语义澄清——正确实现是**并集**（动员侧 ②③ ∨ 任务侧 ④），**不是互斥**。
+ *   防止后来者把本块误读成「tasks 空间优先」而做过度的反向修正。
+ *
+ * ⚠️ 纪律：不得为了让这些用例变绿而放松任何鉴权。
+ */
+
+/** 建一条救援任务（`tasks` 表 —— `:taskId` 在真实流量里所属的空间）。 */
+function addTask(id: string): void {
+  db.prepare(
+    `INSERT OR IGNORE INTO tasks
+       (id, type, address, distance, lat, lng, volunteers_needed, volunteers_responded, status, created_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`
+  ).run(id, 'cpr', '深圳湾公园南门', 100, 22.517, 113.947, 3, 0, 'active', new Date().toISOString())
+}
+
+describe('P0-2 · id 空间守卫（突变锁定）：:taskId ∈ tasks.id，不得只 join 动员表', () => {
+  /* ── 用例 A：tasks 空间成立 ⇒ 三条线路必须 200 ── */
+
+  it('A-① ★ 任务侧参与者读现场动态 ⇒ 200（不得退回「只 join 动员表」）', async () => {
+    addTask('task_001')
+    addTaskVolunteer('task_001', 'u_dave')
+    addTaskMedia('tm_t1', 'task_001', 'u_alice', SECRET_LAT, SECRET_LNG)
+
+    // ★ 前置断言：这个 200 **只能**来自 `task_volunteers`（④）——动员侧零行。
+    //   若有人把判据改回「只查 emergency_mobilizations / mobilization_volunteers」，
+    //   下面两条 0 会让判据必然为 false ⇒ 用例由绿转红。
+    expect(count('SELECT COUNT(*) AS c FROM tasks WHERE id = ?', 'task_001')).toBe(1)
+    expect(count('SELECT COUNT(*) AS c FROM emergency_mobilizations WHERE id = ?', 'task_001')).toBe(0)
+    expect(count('SELECT COUNT(*) AS c FROM mobilization_volunteers WHERE mobilization_id = ?', 'task_001')).toBe(0)
+    expect(count('SELECT COUNT(*) AS c FROM task_volunteers WHERE task_id = ? AND user_id = ?', 'task_001', 'u_dave')).toBe(1)
+
+    const res = await request(server)
+      .get('/api/rescue/mobilizations/task_001/media')
+      .set('Authorization', tk('u_dave'))
+    expect(res.status).toBe(200)
+    expect(res.body.code).toBe(0)
+    expect((res.body.data as Array<{ id: string }>).map((m) => m.id)).toContain('tm_t1')
+  })
+
+  it('A-② ★ 任务侧参与者读直播会话 ⇒ 200（同上，读侧第二条线路）', async () => {
+    addTask('task_001')
+    addTaskVolunteer('task_001', 'u_dave')
+    addLiveSession('live_t1', 'task_001', 'u_alice')
+
+    expect(count('SELECT COUNT(*) AS c FROM emergency_mobilizations WHERE id = ?', 'task_001')).toBe(0)
+    expect(count('SELECT COUNT(*) AS c FROM mobilization_volunteers WHERE mobilization_id = ?', 'task_001')).toBe(0)
+
+    const res = await request(server)
+      .get('/api/rescue/live/task_001')
+      .set('Authorization', tk('u_dave'))
+    expect(res.status).toBe(200)
+    expect((res.body.data as Array<{ id: string }>).map((s) => s.id)).toContain('live_t1')
+  })
+
+  it('A-③ ★ 任务侧参与者开直播 ⇒ 200 且**真的落库**（写侧线路）', async () => {
+    addTask('task_001')
+    addTaskVolunteer('task_001', 'u_dave')
+
+    expect(count('SELECT COUNT(*) AS c FROM emergency_mobilizations WHERE id = ?', 'task_001')).toBe(0)
+    expect(count('SELECT COUNT(*) AS c FROM mobilization_volunteers WHERE mobilization_id = ?', 'task_001')).toBe(0)
+
+    const res = await request(server)
+      .post('/api/rescue/live/task_001/start')
+      .set('Authorization', tk('u_dave'))
+      .send({ userName: 'Dave', deviceInfo: 'mobile' })
+    expect(res.status).toBe(200)
+    expect(res.body.code).toBe(0)
+    // ★ 去库里断言：不是只看返回码
+    expect(count('SELECT COUNT(*) AS c FROM live_sessions WHERE task_id = ? AND user_id = ?', 'task_001', 'u_dave')).toBe(1)
+    expect(count('SELECT COUNT(*) AS c FROM task_media WHERE task_id = ? AND user_id = ?', 'task_001', 'u_dave')).toBe(1)
+  })
+
+  it('A-④ ★ 任务侧参与者发含 GPS 的现场动态 ⇒ 200 且坐标落库（写侧·最高危面）', async () => {
+    addTask('task_001')
+    addTaskVolunteer('task_001', 'u_dave')
+
+    const res = await request(server)
+      .post('/api/rescue/mobilizations/task_001/media')
+      .set('Authorization', tk('u_dave'))
+      .send({ content: '到达现场', lat: SECRET_LAT, lng: SECRET_LNG })
+    expect(res.status).toBe(200)
+    const row = db.prepare('SELECT lat, lng FROM task_media WHERE task_id=? AND user_id=?')
+      .get('task_001', 'u_dave') as { lat: number; lng: number }
+    expect(row.lat).toBe(SECRET_LAT)
+    expect(row.lng).toBe(SECRET_LNG)
+  })
+
+  /* ── 用例 B：id 只出现在「错误那张表」⇒ 必须非 200，且不落库 ── */
+
+  it('B-① ★ id 只登记进 emergency_mobilizations（错误空间）⇒ 四条线路全部 403 且不落库', async () => {
+    // Arrange：`task_002` **不**在 `tasks` 建行，而是冒充成一条动员
+    addMobilization('task_002', '冒充任务 id 的动员', 'u_alice')
+    addMobilizationVolunteer('task_002', 'u_bob')
+    addTaskMedia('tm_wrong', 'task_002', 'u_alice', SECRET_LAT, SECRET_LNG)
+    addLiveSession('live_wrong', 'task_002', 'u_alice')
+
+    // ★ 前置断言：tasks 空间确实没有这个 id。
+    //   ⇒ 若放行，只可能来自「id 在动员表里存在即通过」这类错误实现，而非真实参与关系。
+    expect(count('SELECT COUNT(*) AS c FROM tasks WHERE id = ?', 'task_002')).toBe(0)
+    expect(count('SELECT COUNT(*) AS c FROM emergency_mobilizations WHERE id = ?', 'task_002')).toBe(1)
+    expect(count('SELECT COUNT(*) AS c FROM task_volunteers WHERE task_id = ?', 'task_002')).toBe(0)
+
+    // 读侧 ①：现场动态（含他人实时 GPS）
+    const media = await request(server)
+      .get('/api/rescue/mobilizations/task_002/media')
+      .set('Authorization', tk('u_carol'))
+    expect(media.status).toBe(403)
+    expect(media.body.data).toBeUndefined()
+    expect(JSON.stringify(media.body)).not.toContain(String(SECRET_LAT))
+    expect(JSON.stringify(media.body)).not.toContain(String(SECRET_LNG))
+
+    // 读侧 ②：直播会话
+    const live = await request(server)
+      .get('/api/rescue/live/task_002')
+      .set('Authorization', tk('u_carol'))
+    expect(live.status).toBe(403)
+    expect(JSON.stringify(live.body)).not.toContain('live_wrong')
+
+    // 写侧 ③：开直播
+    const start = await request(server)
+      .post('/api/rescue/live/task_002/start')
+      .set('Authorization', tk('u_carol'))
+      .send({ userName: 'Carol' })
+    expect(start.status).toBe(403)
+
+    // 写侧 ④：发含 GPS 的现场动态
+    const post = await request(server)
+      .post('/api/rescue/mobilizations/task_002/media')
+      .set('Authorization', tk('u_carol'))
+      .send({ content: '伪造现场', lat: SECRET_LAT, lng: SECRET_LNG })
+    expect(post.status).toBe(403)
+
+    // ★ 写侧零落库（不是只看返回码）
+    expect(count('SELECT COUNT(*) AS c FROM live_sessions WHERE task_id = ? AND user_id = ?', 'task_002', 'u_carol')).toBe(0)
+    expect(count('SELECT COUNT(*) AS c FROM task_media WHERE task_id = ? AND user_id = ?', 'task_002', 'u_carol')).toBe(0)
+  })
+
+  it('B-② ★ 换一个「在动员表里存在、但本人不是成员」的 id ⇒ 同样 403（排除「id 存在即放行」）', async () => {
+    // u_carol 与 mob_1 **毫无关系**：既不是发起者，也不是已响应志愿者
+    addMobilization('mob_1', '某救援动员', 'u_alice')
+    addMobilizationVolunteer('mob_1', 'u_bob')
+    expect(count('SELECT COUNT(*) AS c FROM mobilization_volunteers WHERE mobilization_id = ? AND user_id = ?', 'mob_1', 'u_carol')).toBe(0)
+
+    const media = await request(server)
+      .get('/api/rescue/mobilizations/mob_1/media')
+      .set('Authorization', tk('u_carol'))
+    expect(media.status).toBe(403)
+    const live = await request(server)
+      .get('/api/rescue/live/mob_1')
+      .set('Authorization', tk('u_carol'))
+    expect(live.status).toBe(403)
+    const start = await request(server)
+      .post('/api/rescue/live/mob_1/start')
+      .set('Authorization', tk('u_carol'))
+    expect(start.status).toBe(403)
+  })
+
+  /* ── 用例 C：语义澄清——并集，不是互斥 ── */
+
+  it('C ★ 动员侧真实成员仍 200：正确实现是「动员侧 ∨ 任务侧」并集，不是互斥', async () => {
+    addMobilization('mob_1', '某救援动员', 'u_alice')
+    addMobilizationVolunteer('mob_1', 'u_bob')
+    // mob_1 在 `tasks` 空间**没有**行 ⇒ 下面的 200 只能来自动员侧判据（②③）。
+    // 这条用例防止后来者把 B 块误读成「tasks 空间优先」而删掉 ②③。
+    expect(count('SELECT COUNT(*) AS c FROM tasks WHERE id = ?', 'mob_1')).toBe(0)
+    expect(count('SELECT COUNT(*) AS c FROM task_volunteers WHERE task_id = ?', 'mob_1')).toBe(0)
+
+    const media = await request(server)
+      .get('/api/rescue/mobilizations/mob_1/media')
+      .set('Authorization', tk('u_bob'))
+    expect(media.status).toBe(200)
+    const live = await request(server)
+      .get('/api/rescue/live/mob_1')
+      .set('Authorization', tk('u_bob'))
+    expect(live.status).toBe(200)
+    const start = await request(server)
+      .post('/api/rescue/live/mob_1/start')
+      .set('Authorization', tk('u_bob'))
+      .send({ userName: 'Bob' })
+    expect(start.status).toBe(200)
+    expect(count('SELECT COUNT(*) AS c FROM live_sessions WHERE task_id = ? AND user_id = ?', 'mob_1', 'u_bob')).toBe(1)
+  })
+})
+
+/* ═══════════ B6. /live/end/:sessionId：sessionId → user_id 反查 ═══════════ */
+
+/**
+ * `/live/end/:sessionId` **不参与**上面的 id 空间之争：它的路径变量是
+ * **`live_sessions.id`**，实现是 `SELECT * FROM live_sessions WHERE id=?`
+ * 取到 `s.user_id` 后与调用者比对（rescue.ts:371-375），全程**不碰**
+ * `tasks` / `emergency_mobilizations`。本块锁定这条反查链不被绕过。
+ */
+describe('P0-2 · /live/end/:sessionId：按 session 归属判定（不经 taskId）', () => {
+  it('① 非主播结束他人直播 ⇒ 403，且会话**未被结束**（先校验、后 UPDATE）', async () => {
+    addTask('task_001')
+    addTaskVolunteer('task_001', 'u_dave')
+    addLiveSession('live_1', 'task_001', 'u_dave')
+
+    const res = await request(server)
+      .post('/api/rescue/live/end/live_1')
+      .set('Authorization', tk('u_carol'))
+    expect(res.status).toBe(403)
+    // ★ 去库里断言：不是只看返回码
+    expect((db.prepare('SELECT ended_at FROM live_sessions WHERE id=?').get('live_1') as { ended_at: string | null }).ended_at)
+      .toBeNull()
+  })
+
+  it('② 主播本人 ⇒ 200，会话被结束（能力保留）', async () => {
+    addTask('task_001')
+    addTaskVolunteer('task_001', 'u_dave')
+    addLiveSession('live_1', 'task_001', 'u_dave')
+
+    const res = await request(server)
+      .post('/api/rescue/live/end/live_1')
+      .set('Authorization', tk('u_dave'))
+    expect(res.status).toBe(200)
+    expect(res.body.code).toBe(0)
+    expect((db.prepare('SELECT ended_at FROM live_sessions WHERE id=?').get('live_1') as { ended_at: string | null }).ended_at)
+      .not.toBeNull()
+  })
+
+  it('③ 不存在的 sessionId ⇒ 404（本端点只按 session 归属判定，不套用「403 先于取记录」）', async () => {
+    const res = await request(server)
+      .post('/api/rescue/live/end/live_ghost')
+      .set('Authorization', tk('u_carol'))
+    expect(res.status).toBe(404)
+  })
+
+  it('④ 无 token ⇒ 401', async () => {
+    const res = await request(server).post('/api/rescue/live/end/live_1')
+    expect(res.status).toBe(401)
+  })
+})
+
 /* ═══════════ C. 跨仓库 403 契约（后端 `error()` ↔ 前端 `isForbidden()` 的接缝） ═══════════ */
 
 /**
