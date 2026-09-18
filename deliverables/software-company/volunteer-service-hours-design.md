@@ -1,12 +1,13 @@
 # 设计：志愿服务时长台账 + 志愿服务记录证明（F4）
 
 > 上游：`volunteer-service-hours-prd.md`（v1.0，F4）
-> 版本：**v1.3** ｜ 状态：设计定稿（§10 八条已全决；§11 v1.2/v1.3 修正已拍板），待实现 ｜ 语言：中文
+> 版本：**v1.4** ｜ 状态：设计定稿（§10 八条已全决；§11 v1.2/v1.3/v1.4 修正已拍板），待实现 ｜ 语言：中文
 > 本文**只写 PRD 没定的东西**（架构、表结构、端点契约、调用流程、任务顺序、测试计划）。
 > 组织风格沿用同项目 `i18n-emergency-flow-design.md`（实测修正优先 + 代码取证 + 突变承重性）。
 > ⚠️ **v1.1 更正**：断链范围从「task 侧」扩为「**6 个写型接口零接线**」（§1.1）；动员/演习是「**整条链路未实现**」（§1.2）。
 > ⚠️ **★ v1.2 更正（读 §11）**：时长区间 = **「到达 → 离开」**（赶路不计入）；`startedMs` 取 **`arrived_at_ms`**；放弃/退出 ⇒ **作废留痕、不入账**；`/complete` 改**按人闭合**。
-> ⚠️ **★★ v1.3 更正（读 §11.9 / §11.10）**：① **作废证明 ≠ 作废服务** —— `revoke()` **只撤证明、台账不动**（采 **B**，保护权益），防重复改在**签发**时用 `idx_scert_active_dedup`；② **限流器只挂目标路由**（原 `app.use` 前缀挂载与"勿误伤 `/me`/`POST`"**自相矛盾**）。修订记录见**附录 C**。
+> ⚠️ **★★ v1.3 更正（读 §11.9 / §11.10）**：① **作废证明 ≠ 作废服务**（`revoke()` 只撤证明、台账不动，采 **B**），防重复改在**签发**；② **限流器只挂目标路由**（原 `app.use` 前缀挂载自相矛盾）。
+> ⚠️ **★★ v1.4 更正（读 §11.11）**：**支持「放弃后反悔、重新参与同一任务」** —— 复用 `/accept` upsert + 复用「接受」按钮；**反悔必须重置 `arrived_at_ms`**（否则算出巨大错误时长）；`UNIQUE(task_id,user_id)` **保留**；作废痕迹**不清**（+ `rejoin_count`）；`left` **终局**。修订记录见**附录 C**。
 
 ---
 
@@ -275,17 +276,20 @@ CREATE TABLE IF NOT EXISTS task_volunteers (
   arrived_at_ms    INTEGER,                     -- ★ 到达现场（= 时长**起点**）；NULL = 未到场
   ended_at_ms      INTEGER,                     -- 离开现场（= 时长**终点**）
   status           TEXT NOT NULL DEFAULT 'responded', -- responded|arrived|left|voided
-  voided_at_ms     INTEGER,                     -- ★ 作废留痕（放弃/中途退出）
-  void_reason      TEXT NOT NULL DEFAULT '',    -- ★
+  voided_at_ms     INTEGER,                     -- 作废留痕；★v1.4 语义＝**最近一次**作废，重新参与**不清空**（审计）
+  void_reason      TEXT NOT NULL DEFAULT '',    -- ★v1.4 同上（最近一次）
+  rejoin_count     INTEGER NOT NULL DEFAULT 0,  -- ★v1.4 「反悔重新参与」次数（审计）
   FOREIGN KEY (task_id) REFERENCES tasks(id),
   FOREIGN KEY (user_id) REFERENCES users(id),
   UNIQUE(task_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 ```
-> ★ **v1.2 表变更**：`task_volunteers` 新增 `arrived_at_ms` / `voided_at_ms` / `void_reason`，`status` 取值扩为
-> `responded | arrived | left | voided`。**走迁移 044**（3 条 `ALTER TABLE ... ADD COLUMN`，照迁移 038 的幂等写法；
-> 全新库因 canonical 已含这些列而 skipped）。**不改** `volunteer_service_logs` / `service_certificates` 结构。
+> ★ **表变更历史**：**v1.2** `task_volunteers` 新增 `arrived_at_ms` / `voided_at_ms` / `void_reason`，`status` 扩为
+> `responded | arrived | left | voided`（**迁移 044**）。**★ v1.4** 再新增 `rejoin_count`（**迁移 046**），并把
+> `voided_at_ms` / `void_reason` 语义升级为「**最近一次**作废痕迹、**重新参与不清空**」（§11.11）。
+> **保留** `UNIQUE(task_id, user_id)`（**不做 SQLite 重建表**）。
+> **不改** `volunteer_service_logs` / `service_certificates` 结构。
 
 - **不加** `users.service_hours` / `volunteers.*` 冗余列（PRD §5.1 显式声明）：时长**一律从台账实时聚合**，杜绝双真值。`volunteers` 是**死表**（`seed.ts:135` 才写，与登录用户双轨）⇒ 时长**必须**挂 `users.id`。
 - **不新增** `users` 姓名/证件号列（Q2 / 硬约束）。
@@ -314,7 +318,7 @@ CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 | 5 | `POST` | `/api/volunteer/service-logs`（P1-7） | `authMiddleware` | body: `activityType`,`startedAtMs`,`endedAtMs`,`orgId?`,`targetUserId?` | `{id,status}` | 200 / 401 / 403 |
 | 6 | `GET` | `/api/org/:id/service-hours`（P1-6） | `authMiddleware` + 内联 admin/manager 校验 | query 同上 | 结构同 #1（**仅本机构成员**） | 200 / 401 / 403；跨机构 ⇒ **空集** |
 | 7 | `GET` | `/api/gov/dashboard`（P1-8） | `govMiddleware`（既有） | — | 追加 `serviceHours:{ totalMinutes, participantCount, byActivityType:[…] }` | 200 |
-| 8 | `POST` | `/api/task/accept`（**改写**） | **`optionalAuth`**（见 §10-Q1） | body: `taskId` | `{ attributed:boolean }` | 200 |
+| 8 | `POST` | `/api/task/accept`（**改写**；**v1.4 兼「反悔重新参与」入口**） | **`optionalAuth`**（见 §10-Q1） | body: `taskId` | `{ attributed:boolean, rejoined:boolean }` | 200 |
 | 9 | `POST` | **`/api/task/arrive`**（**v1.2 新增**，§11.4） | **`optionalAuth`** | body: `taskId` | `{ arrived:boolean }` | 200 |
 | 10 | `POST` | `/api/task/complete`（**v1.2 改为「按人闭合」**，§11.4） | **`optionalAuth`** | body: `taskId` | `{ closed:number, minutes:number }` | 200 |
 | 11 | `POST` | **`/api/task/abandon`**（**v1.2 新增**，§11.4） | **`optionalAuth`** | body: `taskId`, `reason?` | `{ voided:boolean }` | 200 |
@@ -337,10 +341,11 @@ CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 |---|---|---|
 | Runner | `initDb()` 内 `migrations[]`，**启动时执行**，登记 `_migrations` | `db.ts:820-1011` |
 | 通道 | **canonical schema（新库）+ `migrations[]`（既有库）双写**，两处 DDL 逐字一致 | 同 `040`（`db.ts:967-984`） |
-| 编号 | **041 `add_task_volunteers` / 042 `add_volunteer_service_logs` / 043 `add_service_certificates`**（接续当前最大 `040`）；**v1.2 追加 044 `add_task_arrival_void`**（给 `task_volunteers` 加 `arrived_at_ms`/`voided_at_ms`/`void_reason`）；**v1.3 追加 045 `add_service_cert_active_dedup`**（先**去重既有 active 重复**再建 `idx_scert_active_dedup`，见下） | `db.ts:968` |
+| 编号 | **041 `add_task_volunteers` / 042 `add_volunteer_service_logs` / 043 `add_service_certificates`**（接续当前最大 `040`）；**v1.2 追加 044 `add_task_arrival_void`**（给 `task_volunteers` 加 `arrived_at_ms`/`voided_at_ms`/`void_reason`）；**v1.3 追加 045 `add_service_cert_active_dedup`**（先**去重既有 active 重复**再建 `idx_scert_active_dedup`）；**v1.4 追加 046 `add_task_rejoin_count`**（`task_volunteers` 加 `rejoin_count`） | `db.ts:968` |
+| ⚠️ **v1.4 无需重建表** | 因**保留** `UNIQUE(task_id, user_id)`（§11.11-②），046 只是 **1 条 `ALTER TABLE ... ADD COLUMN rejoin_count`**。**未采用**"一人一任务多行"方案，故**不需要** SQLite「建新表→拷数据→改名」重建（该手法在本仓仅 `resetSchema()`（`db.ts:1074`，测试用 drop+recreate）出现，生产迁移中**无先例**，引入它风险高于收益） | 本设计（新） |
 | ⚠️ **045 必须先去重再建唯一索引** | 旧行为**允许**同区间重复开证明 ⇒ 直接 `CREATE UNIQUE INDEX` 会因**既有重复**而**失败**。故 045 的 `sql` 须**先**执行一条一次性 `UPDATE ... SET status='revoked'`（对同 `(user_id, period_from, period_to)` 的多条 active，**保留 `issued_at_ms` 最早的一条**，其余作废），**再**建唯一索引。**全库无重复时该 UPDATE 影响 0 行（幂等）** | 本设计（新） |
 | ⚠️ **必须改 `clearAll()`** | 把 3 张新表加进 `db.ts:1061` 的 `DELETE` 清单，否则**测试隔离污染**（T17） | 硬约束 + PRD §5.2 |
-| ⚠️ **必须实机验证升级路径** | 单测跑 `:memory:`，canonical 已建表 ⇒ 迁移**恒为 skipped，真实升级从未被验证**。须照 `NEXT_STEPS.md:609-621`：**复制真实库 → 剥离 041/042/043/044/045 产物 → 启真实服务 → 日志必须是 `Migration applied: 041/042/043/044/045`**（非 skipped）（T16，**在实机跑，`:memory:` 测不出**）。⚠️ 045 还需**专门构造"含重复 active 证明的旧库"**验证去重步骤真的清掉了重复（T32） |
+| ⚠️ **必须实机验证升级路径** | 单测跑 `:memory:`，canonical 已建表 ⇒ 迁移**恒为 skipped，真实升级从未被验证**。须照 `NEXT_STEPS.md:609-621`：**复制真实库 → 剥离 041/042/043/044/045/046 产物 → 启真实服务 → 日志必须是 `Migration applied: 041/042/043/044/045/046`**（非 skipped）（T16，**在实机跑，`:memory:` 测不出**）。⚠️ 045 还需**专门构造"含重复 active 证明的旧库"**验证去重步骤真的清掉了重复（T32） |
 | 回填 | **不做历史回填**（Q4 判定为臆造数据）⇒ `migrations[]` **无 `after` 回调** | Q4 |
 
 ---
@@ -466,9 +471,10 @@ npm run service:purge [--days <N>] [--dry-run]
 
 ## §6 ★ 任务列表（有序 · 含依赖 · P0-2 打头）
 
-> **任务上限 5**（硬性）。每条含「做什么 / 改哪些文件 / 验收标准 / 依赖」。
+> **任务数**：初始设计 **5 条**（硬上限）；**★ v1.4 经 team-lead 指示新增 T06**（反悔重新参与，属 P0-2 主场景增量）⇒ **现共 6 条**（超出原硬上限系**主动扩范围**，已由 team-lead 拍板「新增 T06」）。每条含「做什么 / 改哪些文件 / 验收标准 / 依赖」。
 > **关于"第一个任务必须是基础设施"**：本仓库是**存量项目**，无新增配置/入口文件；故本设计的「地基」= **数据库迁移底座 + 共享模块 + 类型契约**（即 T01）。**不新增依赖**（§3.1）；`package.json` 脚本声明并入 T05。
 > **P0-2 打头**：按业务方开工顺序，**归因留痕（P0-2）在最前**，与 P0-1（台账表）**合并进 T01**（team-lead：二者强耦合，分开必返工）。
+> ⚠️ **已交付**：T01（`212271e`/`92f0c4a`）、T02（`441e155`/`87ac550`）。**T01 的 v1.2/v1.4 增量由 T06 与「T01 内已标注的增量项」承接**（见各条「改文件」）。
 
 ---
 
@@ -565,8 +571,28 @@ npm run service:purge [--days <N>] [--dry-run]
   6. `docs/DEPLOY.md`：登记 purge 定时器为运维待办（与 sos-purge 同性质）。
   7. 测试：`__tests__/service-hours-gov.test.ts`（机构隔离 T11 + gov 零 PII）。
 - **改文件**：`src/routes/org.ts`、`src/routes/gov.ts`、`src/scripts/service-report.ts`(新)、`src/scripts/service-purge.ts`(新)、`package.json`、`docs/DEPLOY.md`、`src/__tests__/service-hours-gov.test.ts`(新)
-- **验收标准**：非本机构成员**不出现**在机构汇总（T11）；gov 响应深扫**不含** `userId`/`name`；**迁移实机验证**：旧库启动日志 = `Migration applied: 041/042/043`（**非 skipped**，T16）。
+- **验收标准**：非本机构成员**不出现**在机构汇总（T11）；gov 响应深扫**不含** `userId`/`name`；**迁移实机验证**：旧库启动日志 = `Migration applied: 041/042/043/044/045/046`（**非 skipped**，T16）。
 - **可并行**：与 **T02 / T03** 并行。
+
+---
+
+### **T06 · ★ v1.4「放弃后反悔、重新参与同一任务」** — Priority **P0** · 依赖：**T01**（与 T02 同批；不阻塞 T03/T04）
+
+- **做什么**：
+  1. `db.ts`：`task_volunteers` canonical schema 加 `rejoin_count`；**迁移 046**（1 条 `ALTER TABLE ... ADD COLUMN rejoin_count INTEGER NOT NULL DEFAULT 0`）；`clearAll()` 无需改（表已在清单）。
+  2. `services/serviceLog.ts`：`abandonParticipation()` 的**已知边界注释删除**（改为"支持反悔"）；新增 `rejoinParticipation()`（§11.11-③ 重置清单）；`voided_at_ms`/`void_reason` **不清**。
+  3. `routes/task.ts`：`/accept` 由 `INSERT OR IGNORE` 改为 **upsert**（无行则建；命中 `voided` 则重新激活，返回 `rejoined`）。**`/abandon` 不得改 `tasks.status`**（T40）。
+  4. 前端：`pages/mission/index.vue`「接受」按钮**复用**（无需新按钮）；`stores/task.ts` 无需新方法（`acceptMission()` 复用）。
+  5. 测试：`__tests__/task-rejoin.test.ts`（新）。
+- **改文件**：`src/db.ts`、`src/services/serviceLog.ts`、`src/routes/task.ts`、`src/__tests__/task-rejoin.test.ts`(新)；`急救侠-uniapp/src/pages/mission/index.vue`（如需确认入口可达性）
+- **验收标准**：
+  - **反悔后计时正确**（T36）：`abandon`→`accept`→`arrive`→`complete` ⇒ 时长 = **本段**（起点=**本次**到达），本次 `arrive` 真被记录。
+  - **作废痕迹保留**（T37）：反悔后 `voided_at_ms`/`void_reason` 仍在 + `rejoin_count ≥ 1`。
+  - **`left` 终局**（T38）：已闭合行 `/accept` ⇒ no-op。
+  - **反复放弃↔反悔**（T39）：多轮后该 `(task,user)` 台账**仅 1 行**，minutes = 最后一段。
+  - **反悔入口可达**（T40）：`/abandon` **不**置 `tasks.status='completed'`。
+  - 幂等：对已是 `responded` 的行重复 `/accept` ⇒ **不**增 `rejoin_count`、不改 `responded_at_ms`。
+- **可并行**：与 **T02 / T05 / T03 / T04** 并行（文件不相交）。
 
 ---
 
@@ -579,20 +605,23 @@ graph TD
     T03["T03 · 前端契约层<br/>API/Store/CSV/i18n · P0"]
     T04["T04 · 我的时长页 + 证明页<br/>P0-4前端 · P0"]
     T05["T05 · 机构/政府/CLI/迁移实机<br/>P1-6/P1-8/P1-9 · P1"]
+    T06["T06 · ★v1.4 反悔重新参与<br/>task_volunteers + /accept · P0"]
 
     T01 --> T02
     T01 --> T05
+    T01 --> T06
     T02 --> T03
     T03 --> T04
 
     classDef crit fill:#ffe8e5,stroke:#d64545,stroke-width:2px
     classDef par fill:#eef6ff,stroke:#4a7fb5
-    class T01,T02,T03,T04 crit
+    class T01,T02,T03,T04,T06 crit
     class T05 par
 ```
 
-**并行安排**：T01 →（**T02 ∥ T05**）→ T03 → T04。
-其中 **T05 只依赖 T01**，故可与 T02/T03 并行；**T04 必须等 T03**（页面依赖 store/导出）。
+**并行安排**：T01 →（**T02 ∥ T05 ∥ T06**）→ T03 → T04。
+其中 **T05 / T06 只依赖 T01**，故可与 T02 并行；**T04 必须等 T03**（页面依赖 store/导出）。
+**T06 与 T02/T03/T04 文件不相交** ⇒ 无硬顺序；建议与 **T02 同批**（同属 P0-2 主场景）。
 
 ---
 
@@ -611,7 +640,7 @@ graph TD
 7. **零 PII**：政府看板只出**聚合**；验真端点**只出 5 字段**；响应体不得含 `userId`/`name`/`phone`（硬约束 #7）。
 8. **测试约定**：后端 `src/__tests__/*.test.ts` 跑 `:memory:`（用 `app` 做 `request()`）；前端 vitest（基线以当日实测为准）；突变一律 `cp` 备份 + `shasum -a256 -c` 还原；跑完全量**扫 `Errors` 行**（F2 §11.3）。
 9. **★ 禁止措辞（Q1/D8）**：任何 UI/CSV/PDF/i18n 值**不得**含「符合国家标准 / 国家标准 / 国标 / 官方 / 政府认可」。
-10. **★ 任务时长口径（v1.2，§11）**：`task_volunteers` 三时刻 —— `responded`（报名，**不计时**）/ `arrived`（**时长起点**）/ `ended`（**时长终点**）；`status ∈ responded|arrived|left|voided`。**闭合一律按人**（`user_id` 维度），**禁止 task-wide 闭合**。放弃/退出 ⇒ `voided` + `void_reason`，**不写台账**。
+10. **★ 任务时长口径（v1.2 / v1.4，§11）**：`task_volunteers` 三时刻 —— `responded`（报名，**不计时**）/ `arrived`（**时长起点**）/ `ended`（**时长终点**）；`status ∈ responded|arrived|left|voided`。**闭合一律按人**（`user_id` 维度），**禁止 task-wide 闭合**。放弃/退出 ⇒ `voided` + `void_reason`，**不写台账**。**★ v1.4**：**反悔重新参与**走 `/accept` upsert，**必须重置 `arrived_at_ms`/`ended_at_ms`/`responded_at_ms`** 并 `rejoin_count+1`，**不清 `voided_at_ms`/`void_reason`**；`left` **终局**（不可反悔）；因 `idx_vsl_dedup` 会按 `(task,user)` 去重，**`(task,user)` 至多一条台账**（这是"不丢时长"的必要条件）。
 11. **★ 限流器只挂在目标路由上（v1.3，§11.10）**：一律 `router.<method>(path, limiter, handler)`，**禁止** `app.use(prefix, limiter)` 前缀挂载 —— Express 的 `app.use(path,…)` 是**前缀匹配**，会**误伤同前缀的其它路由**；且若在限流器内用 `req.path` 区分路由，会**依赖相对路径语义**（挂载点一变即**静默失效**）。⚠️ 限流器工厂（`createHourlyIpLimiter` / `createSmsReportLimiter`）**必须放在独立中间件模块**（`src/middleware/rateLimit.ts`）—— **不得从 `app.ts` import**（router↔app 会**循环依赖**）。
 
 ---
@@ -659,6 +688,11 @@ graph TD
 | **T33** | ★ **v1.3 同区间幂等签发**：同人同区间再 `POST` ⇒ 返回**既有** `certNo`；作废后再开 ⇒ **新**编号、同 `totalMinutes` | 去掉 `idx_scert_active_dedup` / 去掉 issue 的幂等分支 | 编号断言红（两方向） | 后端 |
 | **T34** | ★★ **v1.3 作废不伤台账**（**权益主守卫**）：撤一张覆盖 120h 的证明 ⇒ 台账行**仍在**、该 120h **仍可被后续新证明统计** | 让 `revoke()` 顺手把区间台账 `status='voided'`（=A 的做法） | 「台账仍在」+「后续证明含该 120h」用例红 | 后端 |
 | **T35** | ★ **v1.3 自撤鉴权**：非本人撤他人证明 ⇒ **403**，且**不改任何台账/证明** | 去掉 `user_id` 归属校验 | 403 用例红 | 后端 |
+| **T36** | ★★ **v1.4 反悔后计时正确**：`abandon`→`accept`(反悔)→`arrive`→`complete` ⇒ 时长 = **本段** `(ended − 本次到达)`，**不是**上段到达；且本次 `arrive` **真的被记录** | 去掉反悔时 `arrived_at_ms = NULL` 重置（**§11.11-③ 最危险一行**） | 「时长 = 本段」用例红（会算出**巨大错误时长**） | 后端 |
+| **T37** | ★ **v1.4 作废痕迹保留**：反悔后 `voided_at_ms`/`void_reason` **仍在** + `rejoin_count ≥ 1` | 反悔时清空 `voided_at_ms`/`void_reason` | 审计断言红 | 后端 |
+| **T38** | ★ **v1.4 闭合终局**：已 `left` 的行 `/accept`（反悔）⇒ **no-op**，不回到 `responded` | 去掉 rejoin 的 `WHERE status='voided'`（允许从 `left` 反悔） | 状态断言红（**连带**：多段台账被 `idx_vsl_dedup` 吞掉 ⇒ 也红） | 后端 |
+| **T39** | ★ **v1.4 反复放弃↔反悔不重复入账**：多轮 `abandon`↔`accept` 后最终 `arrive`→`complete` ⇒ 该 `(task,user)` **台账仅 1 行**、minutes = **最后一段** | 让 `abandon` 也写台账 / 放开多段 | 台账行数 / minutes 断言红 | 后端 |
+| **T40** | ★ **v1.4 反悔入口可达性**：`/abandon` **不得**把 `tasks.status` 置 `completed`（否则 mission 页不再展示、反悔入口消失） | 在 `/abandon` 里顺手 `UPDATE tasks SET status='completed'` | 「反悔入口仍可达」用例红 | 后端 |
 
 **守卫承重性自检（本项目教训）**：
 - 「扫描器自身失效」类自检**必须能被突变咬住**（如「范围清单非空」断言要写成"应等于 N"而非 `>= 0`，F2 §9.4）。
@@ -666,6 +700,7 @@ graph TD
 - ⚠️ **T23/T24 是"行为固定型"用例**：它们不是防回归，而是**防后人误判**（把"约束的结果"当 bug 修、把"既有缺陷"当可靠计数器用）。断言消息里须写明原因，照 `KNOWN-BUG` 标记法（F2 §13.2）。
 - ★ **T26–T31 是 v1.2 缺陷的"回归守卫"**：v1.0 的四类错误（可刷 / 语义倒置 / 退出即记 / 搭便车）**各对应至少一条**；其中 **T26 是本次缺陷的"主守卫"** —— 它把「到达才计时」钉死在实现层。⚠️ **T18 的语义已随 v1.2 变更**（从 task-wide 变 per-user，见 T31），旧断言须同步更新。
 - ★★ **T34 是 v1.3 的"权益主守卫"**：它是**唯一**能咬住「作废证明误伤台账」这条**不可逆权益损失**的用例 —— **必须有**（撤一张证明后，该区间时长仍能被**新**证明统计）。突变方向只有一个（`revoke()` 顺手作废台账），**必须精确变红**。
+- ★★ **T36/T39 是 v1.4 的"主守卫"**：T36 咬「反悔未重置 `arrived_at_ms` ⇒ 巨大错误时长」（**会虚增志愿者时长**，方向与"刷时长"同级危险）；T39 咬「反复反悔导致重复/丢失台账」。二者**必须精确变红**。
 
 ---
 
@@ -832,6 +867,88 @@ graph TD
 
 ---
 
+### 11.11 ★★ v1.4：**「放弃后反悔、重新参与同一任务」**（用户 2026-09-17 拍板）
+
+**背景**：v1.2 把「放弃后无法重新参与同一任务」登记为**已知产品边界**（`abandonParticipation` 注释 + 本设计）。**用户明确否掉了这个边界** —— 急救场景里「先说来不了、后来赶到了」是现实的。**须支持反悔。**
+
+#### 11.11-① 入口形态：**复用 `/accept` + 复用 `index.vue` 的「接受」按钮**（不新增端点/按钮）
+
+- **不复用会怎样**：`/accept` 现在是 `INSERT OR IGNORE`；命中已有 `voided` 行时 **IGNORE ⇒ 什么都不做**（反悔无效）。
+- **改为 upsert 语义**：`/accept` 分两步 —— ① `INSERT OR IGNORE`（无行则建 `responded` 行）；② 若命中 `status='voided'` 的本人行 ⇒ **重新激活**（见 ②③ 的重置清单 + `rejoined:true`）。
+- **为什么复用 `/accept` 而不是独立 `/task/rejoin`**：① 用户意图相同（"我要参与"）；② **前端零新增调用点**（`index.vue` 的「接受·立即出发」按钮天然就是反悔入口）⇒ 少一处调用点守卫、少一处漏接风险；③ `UNIQUE(task_id,user_id)` 上的 upsert 天然表达"再次接受"。
+- **前提确认**：`/abandon` **不**把 `tasks.status` 置 `completed`（现状即如此）⇒ 任务仍为 `active` ⇒ `mission/index` 仍展示它 ⇒ 反悔入口可达。（★ 若日后 `abandon` 顺手改任务状态，此可达性会被破坏 —— **须由 T40 守卫**。）
+
+#### 11.11-② `UNIQUE(task_id, user_id)` **保留**（一行复用，不做 SQLite 重建表）
+
+**选「保留唯一键、一行内复用」**，理由：
+1. **避免 SQLite 重建表**：去掉唯一键须「建新表→拷数据→改名」，生产迁移中**无先例**（`resetSchema()` 是测试用，`db.ts:1074`），风险 > 收益。
+2. **一行复用让"次数"由 `rejoin_count` 显式表达**，不必靠多行去猜"第几次参与"；多行反而要处理 `volunteers_responded` 计数与聚合去重（更乱）。
+3. **与「`left` 终局」配合后，`(task,user)` 至多一条台账**（见 ⑥）⇒ 现有 `idx_vsl_dedup` 不会误伤。
+
+⇒ **迁移 046 = 1 条 ALTER**（加 `rejoin_count`），**不重建表**。
+
+#### 11.11-③ ★ 重新激活的**重置清单**（team-lead 已识别的坑，必须全做）
+
+反悔时（命中 `voided` 行）执行：
+
+```sql
+UPDATE task_volunteers
+SET status        = 'responded',
+    responded_at_ms = :now,      -- ★ 重置为「本次重新接受」时刻（不是第一次）
+    arrived_at_ms   = NULL,      -- ★★ 必须清空：否则 /arrive 因守卫 no-op、/complete 拿旧的到达当起点 ⇒ 算出**巨大错误时长**
+    ended_at_ms     = NULL,      -- ★ 清空（voided 行本应为 NULL，防御性重置）
+    rejoin_count    = rejoin_count + 1
+    -- voided_at_ms / void_reason **不清**（审计，见 ④）
+WHERE task_id = :taskId AND user_id = :userId AND status = 'voided'
+```
+
+> ★★ **`arrived_at_ms = NULL` 是本版最危险的一行**：现状 `abandon`（`serviceLog.ts:160-166`）**只改 `status`、不清 `arrived_at_ms`**。若反悔不清它 ⇒ `status='responded'` 但 `arrived_at_ms` 仍是**上一段**的值 ⇒ `/arrive` 的 `arrived_at_ms IS NULL` 守卫**不满足 ⇒ no-op**（本次到达不被记录），而 `/complete` 会取**上一段的到达时刻**作起点 ⇒ **时长 = 上段到达 → 本段离开 = 巨大且错误**。**T36 专测此点。**
+
+#### 11.11-④ 作废痕迹的**审计保留**：**保留不清** + 新增 `rejoin_count`
+
+- `voided_at_ms` / `void_reason` **语义升级**为「该行**最近一次**作废痕迹」，**重新参与时不清空**。
+- 新增 `rejoin_count` 记录"反悔次数"。
+- 组合含义：`status='responded'` **且** `voided_at_ms NOT NULL` ⇒ **"曾作废并已重新参与"**（+ `rejoin_count≥1`）。
+- **为什么不新增独立审计表**：满足 D7「可审计」的**要件**是"是否作废过 / 几次 / 最近原因与时间" —— 本方案全覆盖，且**只需 1 条 ALTER**。
+- ⚠️ **已知精度边界（记账，非漏项）**：**中间几次**作废的明细（第 1 次的 reason）**只保留最近一次**。若业务要**完整**流转史，须另立**append-only 审计表**（`task_volunteer_events`，逐次记录状态迁移）—— 记为 **P1/另立**，不在 T06。
+
+#### 11.11-⑤ 状态机（确认无死角）
+
+```
+responded ──arrive──▶ arrived ──complete──▶ left（★终局，不可再变）
+    │                    │
+    └──abandon──▶ voided ◀──abandon──┘
+                    │
+                    └──accept(rejoin)──▶ responded（回到起点，循环）
+```
+- **`left` 终局**（`ended_at_ms` 非空）⇒ `/accept` 的 rejoin 分支 **`WHERE status='voided'` 命中不到它** ⇒ **闭合后不可反悔**（team-lead 倾向一致）。
+- `abandon` 守卫 `ended_at_ms IS NULL AND status <> 'voided'` ⇒ **已 `left` 的行不能被作废**。
+- `arrive`/`close` 守卫 `status <> 'voided'` ⇒ 反悔后 `status='responded'` **自然通过**。
+- ⇒ **不存在死角**；任意"放弃↔反悔"循环都能回到 `responded` 并继续 arrive→left。
+
+#### 11.11-⑥ ★★ 计时口径与**去重风险结论**（team-lead item 6）
+
+- 重新参与后，时长**从新的 `arrived_at_ms` 起算**（③ 已保证重置）。
+- **★★ 去重风险 —— 已核实：`idx_vsl_dedup(source_type, source_ref, user_id) WHERE source_ref <> ''`（台账部分唯一索引）会按 `(system, taskId, user)` 去重**。⇒ **若同一人同一任务产生两条台账，第二条会被 `INSERT OR IGNORE` 静默丢弃**（时长丢失）。
+- **结论 / 处置**：**本版的支持路径（`abandon` → 反悔 → arrive → complete）只会产生 1 条台账**（`abandon` **不写台账**），故**不与 `idx_vsl_dedup` 冲突**；而**"已 `left` 不可反悔"（⑤）从结构上保证了 `(task,user)` 至多一条台账**。⇒ **无需改索引**。
+  - ❌ **明确不做「一次任务多段服务、分别入账」**：那需要把 `source_ref` 扩为含"段号"（如 `taskId#2`）或改索引 —— **属独立设计**，本次不碰。
+  - ⚠️ 这条约束**必须写进代码注释**：`left` 终局不仅是产品语义，**也是 `idx_vsl_dedup` 下"不丢时长"的必要条件**。
+
+#### 11.11-⑦ 前端
+
+| 动作 | 调用 | 说明 |
+|---|---|---|
+| 反悔重新参与 | `index.vue`「接受·立即出发」→ `store.acceptMission()` → `/accept` | **复用**，无新按钮、无新 API 函数（`acceptTaskApi` 复用；返回体多 `rejoined` 字段，前端**可忽略**） |
+| 其余 | 不变 | §11.5 的映射不受影响 |
+
+#### 11.11-⑧ 任务归属与依赖（team-lead item 8）
+
+- **新增独立任务 `T06`**（不并入已交付的 T01）—— 它改 `task_volunteers` 语义 + `routes/task.ts` + `index.vue`/store。
+- **依赖：仅 T01**。**与 T02/T05/T03/T04 文件不相交**（T02/T03 改 service-hours 相关文件；T04 改 `pages/volunteer/*`；T06 改 `stores/task.ts` + `pages/mission/index.vue` + `routes/task.ts`）⇒ **可并行**。
+- **排位建议**：与 **T02 同批**（同属 P0-2「救援任务归属」主场景）；**不阻塞 T03/T04**（前置可放 T03 之前，若资源紧张最迟不晚于 T04 同批）。
+
+---
+
 ## 附录 A：类图（数据结构与接口）
 
 ```mermaid
@@ -853,8 +970,9 @@ classDiagram
         +int arrived_at_ms    %% ★v1.2 到达（=时长起点）
         +int ended_at_ms      %% 离开（=时长终点）
         +string status        %% responded|arrived|left|voided
-        +int voided_at_ms     %% ★v1.2 作废留痕
-        +string void_reason   %% ★v1.2
+        +int voided_at_ms     %% ★v1.2 最近一次作废（★v1.4 重新参与不清空）
+        +string void_reason   %% ★v1.2 同上
+        +int rejoin_count     %% ★v1.4 反悔次数
     }
     class VolunteerServiceLog {
         +string id
@@ -962,4 +1080,5 @@ classDiagram
 | **v1.1** | ① §1.1 范围从「task 侧断线」**扩为「6 个写型接口零接线」**；② **新增 §1.2**：动员/演习**非「有表缺闭合」而是「整条链路未实现」**（原三档表措辞已更正）；③ **新增 §2.4**：P0 可信时长来源**只有救援任务**，并给出对 KPI / UI 的影响；④ §10 八条**全部已决**（Q1 `optionalAuth`+游客不产生记录 / Q7 限流 / Q8 不做），新增 §10bis 次要项；⑤ 任务验收补 **T23 游客不产生记录 / T24 计数器行为固定 / T25 验真限流**；⑥ T02 增限流器与测试文件。 |
 | **v1.2** | ★ **新增 §11 增量设计**：修正「时长区间语义」设计级缺陷（可刷 + 语义倒置 + 搭便车）。① 表 `task_volunteers` 加 `arrived_at_ms`/`voided_at_ms`/`void_reason`，`status` 扩为 4 值，**迁移 044**；② **新端点 `/task/arrive`、`/task/abandon`**，`/complete` **改为按人闭合**（`startedMs=arrived_at_ms`）；③ **§5.1 时序图重画**（到达/离开拆成两个动作）；④ **§3.5** 固化"起点=到达"；⑤ `closeService()`→`closeServiceForUser()`；⑥ **§11.5 前端调用点重映射**（`arrive()` 改调 `/arrive`；`finishMission()` 降为纯本地重置；新增 `endService()`/`abandonMission()`）；⑦ §6 T01 验收与 §8 增 **T26–T31**；⑧ `arrived.vue` 文案「返回首页」→「结束服务并返回」（标注为 T01 附加项）；⑨ §11.6 处置「到达后永不结束」边界。 |
 | **v1.3** | ★ **两处修订（均由 T02 实现方据实上报，team-lead 核实）**：<br>① **§11.9 `revoke()` 语义 = B**：**作废证明只作废证明本身、台账不动**（v1.0 的 A 会让志愿者**不可逆丢时长**）。配套**防重复签发**：`idx_scert_active_dedup`（部分唯一索引，**迁移 045**，须**先去重再建**）+ `issue()` 同区间幂等返回既有编号；**新增 `POST /service-certificates/:certNo/revoke`（仅本人）归 T02**，机构侧归 T05。**修订 PRD P0-4①**（同区间两次 ⇒ **同**编号；作废后再开 ⇒ 新编号）。<br>② **§11.10 限流器挂载修正**：原 `app.use('/api/volunteer/service-certificates', limiter)` 与"勿误伤 `/me`/`POST`"**自相矛盾**（Express 前缀匹配）⇒ 改为**该单条路由的中间件**，并把 `createHourlyIpLimiter` **抽到 `src/middleware/rateLimit.ts`**（避 router↔app **循环导入**）。**§7 新增约定 #11**。§8 增 **T32–T35**（T34 = 权益主守卫）。 |
+| **v1.4** | ★ **用户否掉 v1.2 的"已知识产品边界"（放弃后无法重新参与）**，要求**支持反悔**。**新增 §11.11**：① 入口**复用 `/accept`（upsert）+ 复用「接受」按钮**，不新增端点/按钮；② **保留 `UNIQUE(task_id,user_id)`**（一行复用，**免 SQLite 重建表**）；③ **反悔重置清单**（★ `arrived_at_ms=NULL` + `ended_at_ms=NULL` + `responded_at_ms=now` + `rejoin_count+1`）；④ 作废痕迹 `voided_at_ms`/`void_reason` **不清**（审计）+ 新增 `rejoin_count`（**保留**而非新建审计表；中间几次明细为已知精度边界，P1 另立 append-only 表）；⑤ 状态机确认 `left` **终局**、无死角；⑥ **去重风险结论**：`idx_vsl_dedup` 会对同 `(task,user)` 去重 ⇒ **靠「`left` 终局」保证至多一条台账**，**不改索引**；⑦ 前端零新增调用点；⑧ **新增任务 T06**（依赖仅 T01，与 T02 同批）。表加 `rejoin_count`，**迁移 046**。§4.1/§4.3/§4.4/§6/§8 同步；§8 增 **T36–T40**（T36/T39 = v1.4 主守卫）。 |
 
