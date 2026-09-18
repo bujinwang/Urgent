@@ -8,8 +8,13 @@ import type {
   CountRow, StatusCountRow, OrganizationRow, OrgMemberJoinedRow,
   CertificateJoinedRow, NotificationRow, UserNameRow,
 } from '../types/rows'
+import type { ActivityType, OrgServiceHoursView, ServiceHoursBreakdownItem } from '../types'
+import { authMiddleware } from '../middleware/auth'
+import { COUNTING_WHERE } from '../services/serviceLog'
 
 export const orgRouter = Router()
+
+const ACTIVITY_TYPES: readonly string[] = ['rescue_task', 'drill', 'training', 'aed_checkin', 'manual']
 
 /* ──── Organization ──── */
 
@@ -40,6 +45,88 @@ orgRouter.get('/:id', (req, res) => {
       expiredCertificates: expired,
     }
     res.json(success(dash))
+  } catch (e: any) {
+    res.status(500).json(error(e.message || '服务器错误'))
+  }
+})
+
+/**
+ * `GET /api/org/:id/service-hours` —— 机构侧服务时长汇总（★ T05 / §4.3 #6）。
+ *
+ * 鉴权（**本文件唯一带鉴权的端点**）：`authMiddleware`（401）+ **内联 admin/manager 校验**（403）。
+ * **归属判定**：调用者对该机构的 `organization_members.role` 必须是 `admin`/`manager`。
+ *
+ * ⚠️ **机构隔离（T11）**：汇总只 JOIN `:id` 的成员 ⇒ **跨机构成员绝不出现**（也绝不"全量"）。
+ * ⚠️ 计入口径**复用** `serviceLog.COUNTING_WHERE`（已闭合 ∧ `is_drill=0` ∧ `confirmed`），杜绝口径漂移。
+ *
+ * 入参：`page?` / `pageSize?` / `activityType?`（结构对齐 §4.3 #1，`items` 为**按成员**汇总）。
+ * 状态码：200 / 401（未登录）/ 403（非本机构 admin/manager）/ 404（机构不存在）。
+ */
+orgRouter.get('/:id/service-hours', authMiddleware, (req, res) => {
+  try {
+    const orgId = req.params.id
+    const callerId = (req as any).auth?.userId || (req as any).auth?.openid || ''
+
+    const org = get<{ id: string }>('SELECT id FROM organizations WHERE id = ?', orgId)
+    if (!org) return res.status(404).json(error('机构不存在'))
+
+    const membership = get<{ role: string }>(
+      'SELECT role FROM organization_members WHERE org_id = ? AND user_id = ?',
+      orgId, callerId
+    )
+    if (!membership || (membership.role !== 'admin' && membership.role !== 'manager')) {
+      return res.status(403).json(error('无权查看该机构服务时长'))
+    }
+
+    const page = Math.max(1, Math.floor(Number(req.query.page) || 1))
+    const pageSize = Math.max(1, Math.floor(Number(req.query.pageSize) || 50))
+    const rawType = String(req.query.activityType ?? '')
+    const activityType = ACTIVITY_TYPES.includes(rawType) ? (rawType as ActivityType) : undefined
+    const typeFilter = activityType ? ' AND l.activity_type = ?' : ''
+    const baseArgs: Array<string | number> = activityType ? [orgId, activityType] : [orgId]
+
+    // 分项（跨成员，按 activity_type）
+    const breakdownRows = all<{ activity_type: ActivityType; minutes: number; cnt: number }>(
+      `SELECT l.activity_type AS activity_type, COALESCE(SUM(l.duration_min), 0) AS minutes, COUNT(*) AS cnt
+       FROM volunteer_service_logs l
+       JOIN organization_members om ON om.user_id = l.user_id
+       WHERE om.org_id = ? AND ${COUNTING_WHERE}${typeFilter}
+       GROUP BY l.activity_type ORDER BY minutes DESC`,
+      ...(baseArgs as never[])
+    )
+    const breakdown: ServiceHoursBreakdownItem[] = breakdownRows.map((r) => ({
+      activityType: r.activity_type, minutes: r.minutes, count: r.cnt,
+    }))
+    const totalMinutes = breakdown.reduce((s, b) => s + b.minutes, 0)
+
+    // 成员数（有计入时长的去重人数）
+    const total = get<{ c: number }>(
+      `SELECT COUNT(DISTINCT l.user_id) AS c
+       FROM volunteer_service_logs l
+       JOIN organization_members om ON om.user_id = l.user_id
+       WHERE om.org_id = ? AND ${COUNTING_WHERE}${typeFilter}`,
+      ...(baseArgs as never[])
+    )?.c ?? 0
+
+    const itemRows = all<{ user_id: string; minutes: number; cnt: number }>(
+      `SELECT l.user_id AS user_id, COALESCE(SUM(l.duration_min), 0) AS minutes, COUNT(*) AS cnt
+       FROM volunteer_service_logs l
+       JOIN organization_members om ON om.user_id = l.user_id
+       WHERE om.org_id = ? AND ${COUNTING_WHERE}${typeFilter}
+       GROUP BY l.user_id ORDER BY minutes DESC LIMIT ? OFFSET ?`,
+      ...(baseArgs as never[]), pageSize, (page - 1) * pageSize
+    )
+
+    const view: OrgServiceHoursView = {
+      orgId,
+      totalMinutes,
+      breakdown,
+      items: itemRows.map((r) => ({ userId: r.user_id, minutes: r.minutes, count: r.cnt })),
+      page,
+      pageSize,
+      total,
+    }
+    res.json(success(view))
   } catch (e: any) {
     res.status(500).json(error(e.message || '服务器错误'))
   }

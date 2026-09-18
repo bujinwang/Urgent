@@ -369,6 +369,19 @@ export interface GovDistrictRow {
   taskCompletionRate: number | null
   coveragePer10k: number | null
 }
+/**
+ * 政府看板的**志愿服务聚合**（★ T05 / §4.3 #7）。
+ *
+ * ⚠️ **零 PII**：**不含** `userId` / `name` / `phone` —— 只有聚合。
+ * ⚠️ **冷启动 ⇒ `null`**（无任何计数中的台账），**绝不 0 兜底**（`NEXT_STEPS.md:556` 的取向）。
+ */
+export interface GovServiceHours {
+  totalMinutes: number
+  /** 有计入时长的**去重人数**。 */
+  participantCount: number
+  byActivityType: ServiceHoursBreakdownItem[]
+}
+
 /** 政府看板聚合响应（**无任何 PII**） */
 export interface GovDashboard {
   meta: GovMeta
@@ -378,6 +391,8 @@ export interface GovDashboard {
   rescue: GovRescue
   people: GovPeople
   districts: GovDistrictRow[]
+  /** ★ T05：志愿服务聚合；冷启动 ⇒ `null`。 */
+  serviceHours: GovServiceHours | null
 }
 export type RescueCase = z.infer<typeof RescueCase>
 
@@ -726,6 +741,27 @@ export interface ServiceCertificateVerifyView {
 export interface RevokeCertificateResult {
   certNo: string
   status: CertificateRecordStatus
+}
+
+/**
+ * 机构汇总里**单个成员**的时长（★ T05 / §4.3 #6）。
+ * ⚠️ 仅本机构成员可见（auth + admin/manager），故可含 `userId`（非 PII 泄露面）。
+ */
+export interface OrgMemberHoursItem {
+  userId: string
+  minutes: number
+  count: number
+}
+
+/** `GET /api/org/:id/service-hours` 的 `data`（★ T05）。结构对齐 §4.3 #1，`items` 为**按成员**汇总。 */
+export interface OrgServiceHoursView {
+  orgId: string
+  totalMinutes: number
+  breakdown: ServiceHoursBreakdownItem[]
+  items: OrgMemberHoursItem[]
+  page: number
+  pageSize: number
+  total: number
 }
 
 /**

@@ -286,8 +286,13 @@ function mapServiceLogRow(row: VolunteerServiceLogRow): ServiceHoursItem {
   }
 }
 
-/** 计入时长的**唯一过滤口径**：已闭合 + 非演习 + 已确认。 */
-const COUNTING_WHERE = "ended_at_ms IS NOT NULL AND is_drill = 0 AND status = 'confirmed'"
+/**
+ * 计入时长的**唯一过滤口径**：已闭合 + 非演习 + 已确认。
+ *
+ * ⚠️ **导出供「派生视图」复用**（机构/政府聚合，§3.2）：这些视图只读台账、各自过滤，
+ * 但**必须**复用同一计入口径，否则口径会漂移（本项目反复踩过的坑）。
+ */
+export const COUNTING_WHERE = "ended_at_ms IS NOT NULL AND is_drill = 0 AND status = 'confirmed'"
 
 /** `getUserHours()` 查询选项。 */
 export interface GetUserHoursOptions {
@@ -360,4 +365,27 @@ export function buildBreakdown(
   }))
   const totalMinutes = breakdown.reduce((sum, b) => sum + b.minutes, 0)
   return { totalMinutes, breakdown }
+}
+
+// ---------------------------------------------------------------------------
+// 保留期清理（P1-9，`npm run service:purge`）—— **只碰台账，绝不碰证明**
+// ---------------------------------------------------------------------------
+
+/**
+ * 台账保留期清理：删除**写入时刻早于 `beforeMs`** 的台账行，返回受影响行数。
+ *
+ * ⚠️ **只删 `volunteer_service_logs`**；**证明（`service_certificates`）在此模块中
+ * 没有任何删除路径**（设计 D7：证明是权益凭证，永久保留）。
+ *
+ * ⚠️ 保留期以 `created_at_ms`（**记录写入时刻**）为准 —— 与 `sosTelemetry.purgeSosEvents`
+ * 用 `created_at` 的口径一致；**不用** `started_at_ms`（那是"服务发生时刻"，历史回填会让它偏旧）。
+ *
+ * @param dryRun `true` 时只报数不删（供运维先确认影响面）。
+ */
+export function purgeServiceLogs(beforeMs: number, dryRun = false): number {
+  if (dryRun) {
+    const row = get<{ cnt: number }>('SELECT COUNT(*) AS cnt FROM volunteer_service_logs WHERE created_at_ms < ?', beforeMs)
+    return row?.cnt ?? 0
+  }
+  return db.prepare('DELETE FROM volunteer_service_logs WHERE created_at_ms < ?').run(beforeMs).changes
 }

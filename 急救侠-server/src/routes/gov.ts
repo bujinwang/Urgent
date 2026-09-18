@@ -17,11 +17,13 @@ import {
 import type {
   GovDashboard, GovMeta, GovResponseTime, GovAed, GovTasks,
   GovRescue, GovPeople, GovDistrictRow, GovTrendPoint, GovChannelRow,
+  GovServiceHours, ServiceHoursBreakdownItem, ActivityType,
 } from '../types'
 import type { GovViewerRow, NamedCountRow } from '../types/rows'
 import { validate } from '../middleware/validate'
 import { authMiddleware } from '../middleware/auth'
 import type { AuthPayload } from '../middleware/auth'
+import { COUNTING_WHERE } from '../services/serviceLog'
 import {
   govMiddleware, govContextOf, signGovToken, hashPassword, verifyPassword,
   parseDistricts,
@@ -245,6 +247,35 @@ function buildPeople(): GovPeople {
   }
 }
 
+/**
+ * 志愿服务聚合（★ T05 / §4.3 #7）—— **零 PII**、**冷启动 ⇒ `null`**。
+ *
+ * - 计入口径**复用** `serviceLog.COUNTING_WHERE`（已闭合 ∧ `is_drill=0` ∧ `confirmed`）。
+ * - ⚠️ **不含任何身份字段**（`userId`/`name`/`phone`）—— 只有聚合。
+ * - ⚠️ **无计数中的台账 ⇒ 返回 `null`**（绝不 0 兜底）—— 与 `people` 不同，后者是"结构性计数"，
+ *   而服务时长"冷启动 = 无数据"须显式区分（`NEXT_STEPS.md:556` 取向）。
+ * - ⚠️ **不做区县过滤**：`volunteer_service_logs` **没有 district 列**（表设计如此），
+ *   故与 `people` 一样是**全局**聚合；若日后要按区县出服务时长，须先给台账加区域维度（独立设计）。
+ */
+function buildServiceHours(): GovServiceHours | null {
+  const rows = all<{ activity_type: ActivityType; minutes: number; cnt: number }>(
+    `SELECT activity_type, COALESCE(SUM(duration_min), 0) AS minutes, COUNT(*) AS cnt
+     FROM volunteer_service_logs WHERE ${COUNTING_WHERE}
+     GROUP BY activity_type ORDER BY minutes DESC`
+  )
+  const byActivityType: ServiceHoursBreakdownItem[] = rows.map((r) => ({
+    activityType: r.activity_type, minutes: r.minutes, count: r.cnt,
+  }))
+  const totalMinutes = byActivityType.reduce((s, b) => s + b.minutes, 0)
+  if (totalMinutes <= 0) return null // 冷启动：绝不 0 兜底
+
+  const participantCount = get<{ c: number }>(
+    `SELECT COUNT(DISTINCT user_id) AS c FROM volunteer_service_logs WHERE ${COUNTING_WHERE}`
+  )?.c ?? 0
+
+  return { totalMinutes, participantCount, byActivityType }
+}
+
 function buildDistricts(
   fromMs: number,
   toMs: number,
@@ -387,6 +418,7 @@ govRouter.get('/dashboard', govMiddleware, (req, res) => {
       rescue: buildRescue(from, to),
       people: buildPeople(),
       districts: buildDistricts(from, to, { scopeAll: ctx.scopeAll, districts: ctx.districts }),
+      serviceHours: buildServiceHours(),
     }
 
     res.json(success(dashboard))
