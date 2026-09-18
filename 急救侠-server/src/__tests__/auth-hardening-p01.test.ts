@@ -443,6 +443,21 @@ describe('P0-1 · rescue GET /team：`affiliation` 为空时不得退化为全�
     expect(res.status).toBe(200)
     expect(res.body.code).toBe(-1)
   })
+
+  it('④ 超大队伍 ⇒ 受上限约束（LIMIT 200），不得无界返回全队', async () => {
+    makeTeamLeader('u_alice', 'BigTeam')
+    // 250 名同队成员 + 队长本人 = 251 行；上限 200 ⇒ 只应回 200 条
+    for (let i = 0; i < 250; i++) addUser(`u_big_${i}`, `B${i}`, 'BigTeam')
+
+    const res = await request(server)
+      .get('/api/rescue/team')
+      .set('Authorization', `Bearer ${userToken('u_alice')}`)
+    expect(res.status).toBe(200)
+    expect(res.body.code).toBe(0)
+    // ★ 断言"确实被截断"：库里有 251 行，但只返回 200
+    expect(count('SELECT COUNT(*) AS c FROM users WHERE affiliation=?', 'BigTeam')).toBe(251)
+    expect(res.body.data).toHaveLength(200)
+  })
 })
 
 /* ═══════════════════ 6. 本人自助正常路径仍通过 ═══════════════════ */

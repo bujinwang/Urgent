@@ -20,6 +20,14 @@ import type {
 export const rescueRouter = Router()
 
 /**
+ * 队伍花名册单次返回上限（P0-1 收尾）。
+ *
+ * `affiliation` 为空的**最坏情况**已由下方短路挡住（`WHERE u.affiliation=''` 会命中大量空值用户），
+ * 但**非空**的超大队伍仍会无界返回 ⇒ 这里再加一道上限，避免一次拉回全队。
+ */
+const TEAM_ROSTER_LIMIT = 200
+
+/**
  * 平台管理员判定：`users.is_platform_admin`（迁移 036 引入，口径同 `routes/admin.ts:19-26`）。
  * ⚠️ 队伍队长 `is_leader` 属**队伍角色**，不得据此行使平台级权限。
  */
@@ -182,7 +190,8 @@ rescueRouter.get('/team', authMiddleware, (req, res) => {
     // ★★ P0-1 空值短路：affiliation 为空 ⇒ SQL 会退化成 `WHERE u.affiliation=''`，
     // 而大量用户 affiliation 恰为空串 ⇒ 无 LIMIT 地返回近乎全表用户。此处直接返回空花名册。
     if (!affiliation) return res.json(success([]))
-    const rows = all<VolunteerTeamRow>("SELECT u.id, u.name, u.avatar, u.tier, u.rescue_count, u.city FROM users u WHERE u.affiliation=? ORDER BY u.rescue_count DESC", affiliation)
+    // ★ P0-1 收尾：非空 affiliation 仍可能对应超大队伍 ⇒ 加上限，避免无界返回。
+    const rows = all<VolunteerTeamRow>("SELECT u.id, u.name, u.avatar, u.tier, u.rescue_count, u.city FROM users u WHERE u.affiliation=? ORDER BY u.rescue_count DESC LIMIT ?", affiliation, TEAM_ROSTER_LIMIT)
     res.json(success(rows.map((r: VolunteerTeamRow) => ({ id: r.id, name: r.name, avatar: r.avatar, tier: r.tier, rescueCount: r.rescue_count, city: r.city }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
