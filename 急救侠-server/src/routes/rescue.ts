@@ -99,6 +99,26 @@ function isOrgManagerOf(callerId: string, targetUserId: string): boolean {
  * `/rescue/mobilizations/:taskId/media` 与 `/rescue/live/:taskId`。
  * 也就是说：路由路径写作 `mobilizations`，实际流量却是 `tasks` 的 id 空间。
  * 只判 ②③ 会让**真实流量里的合法参与者全部 403**，故 ④ 是主判据、②③ 是路径口径兜底。
+ *
+ * ── ★★  reconstruction / repo-wide 规矩：形参名 `taskId` 在本仓库**是有歧义的** ──
+ *
+ * 本次派单给的判定式（只有 `leader_id` ∨ `mobilization_volunteers`）是**错的**，
+ * 根源不在 SQL 而在语义：`taskId` 这个 loopback 变量在 repo 范围内**指向两套不同的 id**：
+ *
+ * | 出现处 | `taskId` 实际是 | 证据 |
+ * |---|---|---|
+ * | 本文件 `/mobilizations/:taskId/media`、`/live/:taskId*`、`POST /mobilizations/:taskId/media` | **`tasks.id`**（`task_001`） | `task-detail.vue:39` 取 `useTaskStore().tasks[0].id` |
+ * | 本文件 `/mobilizations/:id/volunteers`、`/respond`、`/approve`、`/complete` | **`emergency_mobilizations.id`**（`mob_*`） | `mobilize.vue:72/78` 取列表项的 `m.id` |
+ * | `task_volunteers.task_id` | `tasks.id`（有 FK 语义，无 FK 声明） | `routes/task.ts:75` |
+ * | `mobilization_volunteers.mobilization_id` | `emergency_mobilizations.id`（**有** FK） | `db.ts:509-519` |
+ *
+ * 而 `task_media.task_id` / `live_sessions.task_id` **两个都没有外键**（`db.ts:602-625`
+ * 里是裸 `TEXT NOT NULL`）⇒ schema 层面**不会**替你暴露这个错配，只有跑到前端调用点才看得出。
+ *
+ * > **规矩**：今后给任何以 `taskId` 为形参的端点写归属判据时，**先回到前端调用点确认它
+ * > 属于哪一套 id**（grep 该端点的调用方，看实参从哪个 store/list 来），**再**决定查哪张
+ * > 参与表。禁止只看路由路径字面（`.../mobilizations/...`）就推断 id 空间 ——
+ * > 本文件的路由路径写作 `mobilizations`，实际流量却是 `tasks`，正是这条规矩的反例。
  */
 function isMobilizationParticipant(taskId: string, callerId: string): boolean {
   if (!taskId || !callerId) return false
@@ -325,6 +345,14 @@ rescueRouter.post('/live/:taskId/start', authMiddleware, (req, res) => {
     // ★ P0-1：userId 不再取自 body（可伪造 ⇒ 冒名开直播）。
     const userId = identityOf(req)
     if (!userId) return res.status(401).json(error('未登录'))
+    // ★★ P0-2 写侧收口（team-lead 裁决）：本端点会向 `task_media` 写一条 `status` 动态、
+    // 并向 `live_sessions` 登记主播 ⇒ 非参与者可向**任意** taskId 灌内容/冒充实况。
+    // 判据与读侧**同源**（{@link isMobilizationParticipant}），读写的参与者口径必须一致，
+    // 否则会出现「能写不能读 / 能读不能写」的错配（前端表现为开播后看不到自己在播）。
+    // 同样先判权限、再写库 ⇒ 无权限者探不到该 taskId 是否存在。
+    if (!isMobilizationParticipant(req.params.taskId, userId)) {
+      return res.status(403).json(error('无权在该任务下开直播，仅参与者或平台管理员可执行'))
+    }
     const { userName, userAvatar, deviceInfo } = req.body
     const lid = 'live_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO live_sessions (id,task_id,user_id,user_name,user_avatar,device_info) VALUES (?,?,?,?,?,?)').run(lid, req.params.taskId, userId, userName||'', userAvatar||'', deviceInfo||'')
@@ -357,6 +385,12 @@ rescueRouter.post('/mobilizations/:taskId/media', authMiddleware, (req, res) => 
     // ★ P0-1：userId 不再取自 body；本端点含他人 GPS 坐标，冒名危害大。
     const userId = identityOf(req)
     if (!userId) return res.status(401).json(error('未登录'))
+    // ★★ P0-2 写侧收口（team-lead 裁决）：本端点直接写 `lat`/`lng` ⇒ 非参与者可向
+    // **任意** taskId 灌入伪造坐标，污染现场动态（读侧已收口后，写侧就是唯一的污染入口）。
+    // 判据与读侧同源（{@link isMobilizationParticipant}），且同样先判权限、再写库。
+    if (!isMobilizationParticipant(req.params.taskId, userId)) {
+      return res.status(403).json(error('无权在该任务下发布现场动态，仅参与者或平台管理员可执行'))
+    }
     const { userName, userAvatar, type, content, mediaUrl, lat, lng } = req.body
     const mid = 'tm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO task_media (id, task_id, user_id, user_name, user_avatar, type, content, media_url, lat, lng) VALUES (?,?,?,?,?,?,?,?,?,?)').run(mid, req.params.taskId, userId, userName||'', userAvatar||'', type||'text', content||'', mediaUrl||'', lat||0, lng||0)

@@ -10,10 +10,19 @@ import { server, seedTestData, userToken } from './setup'
 describe('Low-coverage: community routes', () => {
   beforeEach(() => { seedTestData() })
 
+  // ★ P0-2（community.ts 加固后）：`/groups` 已要求登录 ⇒ 用例改带 token。
   it('GET /api/community/groups returns list', async () => {
-    const res = await request(server).get('/api/community/groups')
+    const res = await request(server)
+      .get('/api/community/groups')
+      .set('Authorization', `Bearer ${userToken('user_001')}`)
     expect(res.status).toBe(200)
     expect(Array.isArray(res.body.data)).toBe(true)
+  })
+
+  // ★ P0-2 反向守卫：匿名不得读 `/groups`（防止该端点鉴权被悄悄回退）。
+  it('GET /api/community/groups without token ⇒ 401', async () => {
+    const res = await request(server).get('/api/community/groups')
+    expect(res.status).toBe(401)
   })
 })
 

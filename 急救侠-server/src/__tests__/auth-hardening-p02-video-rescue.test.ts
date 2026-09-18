@@ -252,6 +252,101 @@ describe('P0-2 · video 播放/点赞：登录后可正常计数（能力保留�
   })
 })
 
+/* ═══════════ B0. ★ 写侧收口（team-lead 裁决）：开直播 / 发现场动态也需参与者身份 ═══════════ */
+
+describe('P0-2 · rescue 写端点收口：非参与者不得开直播 / 发现场动态', () => {
+  beforeEach(() => {
+    addMobilization('mob_1', '某救援动员', 'u_alice')
+    addMobilizationVolunteer('mob_1', 'u_bob')
+    addTaskVolunteer('task_001', 'u_dave')
+  })
+
+  it('① 局外人 POST /mobilizations/:taskId/media ⇒ 403，且**未落任何 task_media 行**', async () => {
+    const res = await request(server)
+      .post('/api/rescue/mobilizations/task_001/media')
+      .set('Authorization', tk('u_carol'))
+      .send({ content: '伪造现场', lat: 22.5, lng: 113.9 })
+    expect(res.status).toBe(403)
+    // ★ 去库里断言：不是只看返回码
+    expect(count('SELECT COUNT(*) AS c FROM task_media')).toBe(0)
+  })
+
+  it('② 局外人 POST /live/:taskId/start ⇒ 403，且**未落任何 live_sessions 行**', async () => {
+    const res = await request(server)
+      .post('/api/rescue/live/task_001/start')
+      .set('Authorization', tk('u_carol'))
+      .send({ userName: 'Carol' })
+    expect(res.status).toBe(403)
+    expect(count('SELECT COUNT(*) AS c FROM live_sessions')).toBe(0)
+  })
+
+  it('③ 不存在的 taskId ⇒ 同样 403（探不到存在性）', async () => {
+    const media = await request(server)
+      .post('/api/rescue/mobilizations/task_ghost/media')
+      .set('Authorization', tk('u_carol'))
+      .send({ content: 'x' })
+    expect(media.status).toBe(403)
+    const live = await request(server)
+      .post('/api/rescue/live/task_ghost/start')
+      .set('Authorization', tk('u_carol'))
+    expect(live.status).toBe(403)
+    expect(count('SELECT COUNT(*) AS c FROM task_media')).toBe(0)
+    expect(count('SELECT COUNT(*) AS c FROM live_sessions')).toBe(0)
+  })
+
+  it('④ 已接受任务的志愿者 ⇒ 200，动态记在本人名下（能力保留）', async () => {
+    const res = await request(server)
+      .post('/api/rescue/mobilizations/task_001/media')
+      .set('Authorization', tk('u_dave'))
+      .send({ content: '到达现场', lat: 22.5, lng: 113.9 })
+    expect(res.status).toBe(200)
+    expect(res.body.code).toBe(0)
+    const row = db.prepare('SELECT user_id FROM task_media WHERE task_id=?').get('task_001') as { user_id: string }
+    expect(row.user_id).toBe('u_dave')
+  })
+
+  it('⑤ 已响应的动员志愿者 ⇒ 200，可开直播（能力保留）', async () => {
+    const res = await request(server)
+      .post('/api/rescue/live/mob_1/start')
+      .set('Authorization', tk('u_bob'))
+      .send({ userName: 'Bob' })
+    expect(res.status).toBe(200)
+    expect(res.body.code).toBe(0)
+    expect((db.prepare('SELECT user_id FROM live_sessions WHERE task_id=?').get('mob_1') as { user_id: string }).user_id)
+      .toBe('u_bob')
+  })
+
+  it('⑥ 平台管理员 ⇒ 200（能力保留）', async () => {
+    addUser('u_admin', 'Admin')
+    makeAdmin('u_admin')
+    const res = await request(server)
+      .post('/api/rescue/mobilizations/task_001/media')
+      .set('Authorization', tk('u_admin'))
+      .send({ content: '官方通报' })
+    expect(res.status).toBe(200)
+    expect(res.body.code).toBe(0)
+  })
+
+  it('⑦ 读写口径一致：参与者写完**立刻能读到**（不出现「能写不能读」错配）', async () => {
+    await request(server)
+      .post('/api/rescue/mobilizations/task_001/media')
+      .set('Authorization', tk('u_dave'))
+      .send({ content: '读写一致性' })
+    const read = await request(server)
+      .get('/api/rescue/mobilizations/task_001/media')
+      .set('Authorization', tk('u_dave'))
+    expect(read.status).toBe(200)
+    expect(JSON.stringify(read.body.data)).toContain('读写一致性')
+  })
+
+  it('⑧ 无 token ⇒ 401', async () => {
+    const media = await request(server).post('/api/rescue/mobilizations/task_001/media')
+    expect(media.status).toBe(401)
+    const live = await request(server).post('/api/rescue/live/task_001/start')
+    expect(live.status).toBe(401)
+  })
+})
+
 /* ═══════════ B1. 动员列表：有意保留的公开读 ═══════════ */
 
 describe('P0-2 · rescue GET /mobilizations：有意保留的公开读', () => {
