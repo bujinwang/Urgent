@@ -647,4 +647,52 @@ export default {
       switched: '已切换为{lang}',
     },
   },
+  /**
+   * F4 P0-3：「我的服务时长」。
+   * ⚠️ 措辞（用户已拍板）：**不得**出现「符合国家标准 / 国标 / 官方」；证明一律表述为「平台出具、非实名认证」。
+   */
+  hours: {
+    title: '我的服务时长',
+    total: '累计服务时长',
+    minutes: '{n} 分钟',
+    breakdownTitle: '分项',
+    detailTitle: '服务明细',
+    empty: '暂无服务记录',
+    loadFailed: '加载服务时长失败',
+    generate: '生成证明',
+    exportCsv: '导出 CSV',
+    retry: '重试',
+    /** 分项来源（与后端 `activity_type` 取值一致）。P0 实际只有 `rescue_task`，布局须数据驱动。 */
+    activity: {
+      rescue_task: '救援任务',
+      drill: '演练',
+      training: '培训',
+      aed_checkin: 'AED 巡检',
+      manual: '人工登记',
+    },
+  },
+  /** F4 P0-4：证明生成 / 列表 / 打印 / 编号验真 / 自撤。 */
+  serviceCert: {
+    title: '我的服务证明',
+    docTitle: '志愿服务记录证明（急救侠平台出具）',
+    disclaimer: '本证明由平台出具，非实名认证',
+    empty: '暂无证明',
+    generate: '生成证明',
+    generating: '生成中…',
+    createFailed: '生成证明失败',
+    period: '{from} 至 {to}',
+    totalMinutes: '共 {n} 分钟',
+    print: '打印 / 导出 PDF',
+    revoke: '撤销',
+    revokeConfirm: '确定撤销该证明？撤销后本证明不再生效。',
+    revoked: '该证明已撤销',
+    revokeFailed: '撤销证明失败',
+    verifyTitle: '证明编号验真',
+    verifyPlaceholder: '输入证明编号',
+    verify: '验真',
+    verifyValid: '证明有效',
+    verifyRevoked: '该证明已作废',
+    verifyNotFound: '未找到该编号对应的证明',
+    verifyFailed: '验真失败',
+  },
 }
