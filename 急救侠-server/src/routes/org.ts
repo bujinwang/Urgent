@@ -56,7 +56,8 @@ orgRouter.get('/:id', (req, res) => {
  * 鉴权（**本文件唯一带鉴权的端点**）：`authMiddleware`（401）+ **内联 admin/manager 校验**（403）。
  * **归属判定**：调用者对该机构的 `organization_members.role` 必须是 `admin`/`manager`。
  *
- * ⚠️ **机构隔离（T11）**：汇总只 JOIN `:id` 的成员 ⇒ **跨机构成员绝不出现**（也绝不"全量"）。
+ * ⚠️ **机构隔离（T11）**：汇总按台账的 `l.org_id = :id`（D-7 写入的确定性归属）过滤
+ * ⇒ **跨机构成员绝不出现**（也绝不"全量"），且同一用户多机构**只计入其一**、不翻倍。
  * ⚠️ 计入口径**复用** `serviceLog.COUNTING_WHERE`（已闭合 ∧ `is_drill=0` ∧ `confirmed`），杜绝口径漂移。
  *
  * 入参：`page?` / `pageSize?` / `activityType?`（结构对齐 §4.3 #1，`items` 为**按成员**汇总）。
@@ -89,8 +90,7 @@ orgRouter.get('/:id/service-hours', authMiddleware, (req, res) => {
     const breakdownRows = all<{ activity_type: ActivityType; minutes: number; cnt: number }>(
       `SELECT l.activity_type AS activity_type, COALESCE(SUM(l.duration_min), 0) AS minutes, COUNT(*) AS cnt
        FROM volunteer_service_logs l
-       JOIN organization_members om ON om.user_id = l.user_id
-       WHERE om.org_id = ? AND ${COUNTING_WHERE}${typeFilter}
+       WHERE l.org_id = ? AND ${COUNTING_WHERE}${typeFilter}
        GROUP BY l.activity_type ORDER BY minutes DESC`,
       ...(baseArgs as never[])
     )
@@ -103,16 +103,14 @@ orgRouter.get('/:id/service-hours', authMiddleware, (req, res) => {
     const total = get<{ c: number }>(
       `SELECT COUNT(DISTINCT l.user_id) AS c
        FROM volunteer_service_logs l
-       JOIN organization_members om ON om.user_id = l.user_id
-       WHERE om.org_id = ? AND ${COUNTING_WHERE}${typeFilter}`,
+       WHERE l.org_id = ? AND ${COUNTING_WHERE}${typeFilter}`,
       ...(baseArgs as never[])
     )?.c ?? 0
 
     const itemRows = all<{ user_id: string; minutes: number; cnt: number }>(
       `SELECT l.user_id AS user_id, COALESCE(SUM(l.duration_min), 0) AS minutes, COUNT(*) AS cnt
        FROM volunteer_service_logs l
-       JOIN organization_members om ON om.user_id = l.user_id
-       WHERE om.org_id = ? AND ${COUNTING_WHERE}${typeFilter}
+       WHERE l.org_id = ? AND ${COUNTING_WHERE}${typeFilter}
        GROUP BY l.user_id ORDER BY minutes DESC LIMIT ? OFFSET ?`,
       ...(baseArgs as never[]), pageSize, (page - 1) * pageSize
     )
