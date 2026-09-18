@@ -24,11 +24,11 @@ const auth = (t: string) => ({ Authorization: `Bearer ${t}` })
 const BASE = 1_700_000_000_000
 
 let refSeq = 0
-/** 写一条**已闭合、confirmed**的台账（默认计入）。 */
-function seedLog(userId: string, type: ActivityType, minutes: number, opts: { isDrill?: boolean } = {}): void {
+/** 写一条**已闭合、confirmed**的台账（默认计入）。`orgId` 显式归属（D-7：机构聚合按 `l.org_id` 求和）。 */
+function seedLog(userId: string, type: ActivityType, minutes: number, orgId = '', opts: { isDrill?: boolean } = {}): void {
   refSeq += 1
   recordService({
-    userId, activityType: type, sourceRef: `qa_ref_${refSeq}`,
+    userId, activityType: type, sourceRef: `qa_ref_${refSeq}`, orgId,
     startedAtMs: BASE, endedAtMs: BASE + minutes * 60000, now: 1, isDrill: opts.isDrill,
   })
 }
@@ -58,9 +58,10 @@ describe('T05-QA · ★ T11 机构隔离（反事实夹具，四路同时咬）'
     addOrg('org2', '机构二', 'u_otherB'); addMember('org2', 'u_otherB', 'admin')
     // 三人**都有已闭合台账**；外机构者用独立类型 + 独特分钟数（★ 必须 ≤480，
     // 否则会被 MAX_SINGLE_MINUTES 封顶成 pending ⇒ 无论隔离是否生效都被排除 ⇒ 突变不可见）。
-    seedLog('u_adminA', 'rescue_task', 30)
-    seedLog('u_memberA', 'rescue_task', 45)
-    seedLog('u_otherB', 'training', 100) // ← 外机构：绝不得出现
+    // D-7：台账按 `l.org_id` 归属机构；org1 成员归属 org1、外机构者归属 org2。
+    seedLog('u_adminA', 'rescue_task', 30, 'org1')
+    seedLog('u_memberA', 'rescue_task', 45, 'org1')
+    seedLog('u_otherB', 'training', 100, 'org2') // ← 外机构：绝不得出现
   })
 
   it('外机构成员绝不出现在 items / breakdown / totalMinutes / total（四路）', async () => {
@@ -97,6 +98,36 @@ describe('T05-QA · ★ T11 机构隔离（反事实夹具，四路同时咬）'
     expect(res.body.data.totalMinutes).not.toBe(175)
     expect(JSON.stringify(res.body)).not.toContain('training')
     expect(JSON.stringify(res.body)).not.toContain('u_otherB')
+  })
+})
+
+/* ───────────────────────── ★ D-7：单机构归属（不跨机构翻倍） ───────────────────────── */
+describe('T05-QA · ★ D-7 单机构归属：单条机构台账只计入归属机构，不跨机构翻倍/泄漏', () => {
+  beforeEach(() => {
+    seedTestData()
+    addUser('u_adminA'); addUser('u_memberA'); addUser('u_otherB'); addUser('u_both')
+    addOrg('org1', '机构一', 'u_adminA')
+    addMember('org1', 'u_adminA', 'admin'); addMember('org1', 'u_memberA', 'member'); addMember('org1', 'u_both', 'member')
+    addOrg('org2', '机构二', 'u_otherB'); addMember('org2', 'u_otherB', 'admin'); addMember('org2', 'u_both', 'member')
+    // u_both 是 org1 与 org2 的**双重成员**，但其一条台账仅归属 org1
+    seedLog('u_adminA', 'rescue_task', 30, 'org1')
+    seedLog('u_memberA', 'rescue_task', 45, 'org1')
+    seedLog('u_otherB', 'rescue_task', 99, 'org2')
+    seedLog('u_both', 'rescue_task', 30, 'org1')
+  })
+
+  it('单条机构台账只计入归属机构；双重成员不使其在另一机构翻倍', async () => {
+    const r1 = await request(server).get(ORG1).set(auth(userToken('u_adminA')))
+    expect(r1.status).toBe(200)
+    expect(r1.body.data.totalMinutes).toBe(105) // 30 + 45 + 30（u_both 只算 org1 这条）
+    expect(r1.body.data.total).toBe(3)
+    expect(r1.body.data.items.map((i: { userId: string }) => i.userId).sort()).toEqual(['u_adminA', 'u_both', 'u_memberA'])
+
+    const r2 = await request(server).get('/api/org/org2/service-hours').set(auth(userToken('u_otherB')))
+    expect(r2.status).toBe(200)
+    expect(r2.body.data.totalMinutes).toBe(99) // 只 u_otherB 的 org2 台账；u_both 的 org1 台账**不**跨机构翻倍
+    expect(r2.body.data.total).toBe(1)
+    expect(r2.body.data.items.map((i: { userId: string }) => i.userId)).toEqual(['u_otherB'])
   })
 })
 
@@ -219,7 +250,7 @@ describe('T05-QA · ★ gov serviceHours 冷启动 ⇒ null（不是 0 / 不是 
   })
 
   it('有台账但全被过滤（演习 + 未闭合）⇒ 仍为 null（绝不 0 兜底）', async () => {
-    seedLog('user_001', 'drill', 20, { isDrill: true }) // 演习 ⇒ 排除
+    seedLog('user_001', 'drill', 20, '', { isDrill: true }) // 演习 ⇒ 排除
     recordService({ userId: 'user_001', activityType: 'rescue_task', sourceRef: 'qa_open', startedAtMs: BASE, endedAtMs: null, now: 1 }) // 未闭合 ⇒ 排除
     const { token } = seedGovViewer()
     const sh = (await request(server).get('/api/gov/dashboard').set(auth(token))).body.data.serviceHours
@@ -243,7 +274,7 @@ describe('T05-QA · ★ 不变量 Σbreakdown ≡ totalMinutes + gov vs /me 口�
 
   it('gov 与 /me 对同一份数据必须相等（含演习/未闭合/封顶干扰项）', async () => {
     seedLog('user_001', 'rescue_task', 30) // 计入
-    seedLog('user_001', 'drill', 20, { isDrill: true }) // 演习 ⇒ 两处都排除
+    seedLog('user_001', 'drill', 20, '', { isDrill: true }) // 演习 ⇒ 两处都排除
     recordService({ userId: 'user_001', activityType: 'rescue_task', sourceRef: 'qa_open', startedAtMs: BASE, endedAtMs: null, now: 1 }) // 未闭合
     recordService({ userId: 'user_001', activityType: 'rescue_task', sourceRef: 'qa_cap', startedAtMs: BASE, endedAtMs: BASE + 600 * 60000, now: 1 }) // 600 分 ⇒ 封顶 pending
 
@@ -272,7 +303,7 @@ describe('T05-QA · org 分页与 activityType 边界', () => {
     addUser('u_boss'); addOrg('orgP', '大机构', 'u_boss'); addMember('orgP', 'u_boss', 'admin')
     for (let i = 0; i < 5; i++) {
       addUser(`u_m${i}`); addMember('orgP', `u_m${i}`, 'member')
-      seedLog(`u_m${i}`, 'rescue_task', 10 * (i + 1))
+      seedLog(`u_m${i}`, 'rescue_task', 10 * (i + 1), 'orgP')
     }
   })
   const get = (q = '', u = 'u_boss') => request(server).get(`/api/org/orgP/service-hours${q}`).set(auth(userToken(u)))
