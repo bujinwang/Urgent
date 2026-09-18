@@ -3,6 +3,7 @@ import path from 'path'
 import multer from 'multer'
 import db, { get, all } from '../db'
 import { success, error } from '../types'
+import { authMiddleware, identityOf } from '../middleware/auth'
 import type { VideoPostRow, VideoCommentRow } from '../types/rows'
 
 const VIDEOS_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'videos')
@@ -65,10 +66,12 @@ videoRouter.get('/category/:cat', (req, res) => {
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-videoRouter.post('/', (req, res) => {
+// ★ P0-1：`userId` 不再取自 body（可伪造 ⇒ 冒名发布视频）。
+videoRouter.post('/', authMiddleware, (req, res) => {
   try {
-    const { userId, userName, userAvatar, title, description, videoUrl, thumbnail, duration, category } = req.body
-    if (!userId) return res.json(error('userId 不能为空'))
+    const userId = identityOf(req)
+    if (!userId) return res.status(401).json(error('未登录'))
+    const { userName, userAvatar, title, description, videoUrl, thumbnail, duration, category } = req.body
     const vid = 'vp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare('INSERT INTO video_posts (id,user_id,user_name,user_avatar,title,description,video_url,thumbnail,duration,category) VALUES (?,?,?,?,?,?,?,?,?,?)').run(vid, userId, userName||'', userAvatar||'', title||'', description||'', videoUrl||'', thumbnail||'', duration||'', category||'rescue')
     res.json(success({ id: vid }, '已发布'))
@@ -94,22 +97,29 @@ videoRouter.get('/:id/comments', (req, res) => {
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-videoRouter.post('/:id/comment', (req, res) => {
+// ★ P0-1：`userId` 不再取自 body（可伪造 ⇒ 冒名评论）。
+videoRouter.post('/:id/comment', authMiddleware, (req, res) => {
   try {
-    const { userId, userName, userAvatar, content } = req.body
-    if (!userId || !content) return res.json(error('参数不完整'))
+    const userId = identityOf(req)
+    if (!userId) return res.status(401).json(error('未登录'))
+    const { userName, userAvatar, content } = req.body
+    if (!content) return res.json(error('参数不完整'))
     db.prepare('INSERT INTO video_comments (id,video_id,user_id,user_name,user_avatar,content) VALUES (?,?,?,?,?,?)').run('vc_'+Date.now() + '_' + Math.random().toString(36).slice(2, 6), req.params.id, userId, userName||'', userAvatar||'', content)
     db.prepare('UPDATE video_posts SET comment_count=comment_count+1 WHERE id=?').run(req.params.id)
     res.json(success(null, '评论成功'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-videoRouter.delete('/:id/comment/:commentId', (req, res) => {
+// ★★ P0-1：原所有权校验是**失效的** —— 它比较 `row.user_id !== req.body.userId`，
+// 而 `userId` 取自 body ⇒ 在 body 里传评论作者的 id 就能删掉**任意他人评论**。
+// 现改为与 **token 派生身份**（{@link identityOf}）比较，冒名传 id 不再生效。
+videoRouter.delete('/:id/comment/:commentId', authMiddleware, (req, res) => {
   try {
+    const callerId = identityOf(req)
+    if (!callerId) return res.status(401).json(error('未登录'))
     const row = get<{ user_id: string }>('SELECT user_id FROM video_comments WHERE id=?', req.params.commentId)
     if (!row) return res.json(error('评论不存在'))
-    const { userId } = req.body
-    if (!userId || row.user_id !== userId) return res.json(error('无权删除'))
+    if (row.user_id !== callerId) return res.status(403).json(error('无权删除'))
     db.prepare('DELETE FROM video_comments WHERE id=?').run(req.params.commentId)
     db.prepare('UPDATE video_posts SET comment_count=MAX(0,comment_count-1) WHERE id=?').run(req.params.id)
     res.json(success(null, '已删除'))
