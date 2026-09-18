@@ -261,10 +261,7 @@ CREATE TABLE IF NOT EXISTS service_certificates (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_no ON service_certificates(cert_no);
 CREATE INDEX IF NOT EXISTS idx_scert_user ON service_certificates(user_id, issued_at_ms DESC);
--- ★ v1.3 防重复签发：同人 + 同区间，最多**一个** active 证明（部分唯一索引，形状同 idx_vsl_dedup）。
--- 作废（status→'revoked'）后该行离开索引 ⇒ 允许对同区间**重新**签发（新编号）。见 §11.9。
-CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_active_dedup
-  ON service_certificates(user_id, period_from_ms, period_to_ms) WHERE status = 'active';
+-- ★ 注意：idx_scert_active_dedup（防重复签发索引）**刻意不在此处** —— 只进迁移 045（见本节末「例外条款」）。
 
 -- 表 3（Q3 选 a）：任务参与关系（照 drill_participants）
 -- ★ v1.2：区分三个时刻 —— 报名 responded_at_ms / 到达 arrived_at_ms / 离开 ended_at_ms
@@ -290,6 +287,22 @@ CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 > `voided_at_ms` / `void_reason` 语义升级为「**最近一次**作废痕迹、**重新参与不清空**」（§11.11）。
 > **保留** `UNIQUE(task_id, user_id)`（**不做 SQLite 重建表**）。
 > **不改** `volunteer_service_logs` / `service_certificates` 结构。
+
+**★★ v1.3 例外条款（刻意偏离「canonical 与 migrations[] 逐字一致」，勿当"不一致"去修）**：
+`idx_scert_active_dedup`（防重复签发的**部分唯一索引**）**只放进迁移 045，不进 canonical schema**：
+
+```sql
+-- ★ 只在迁移 045：先「去重既有 active 重复」，再建唯一索引
+CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_active_dedup
+  ON service_certificates(user_id, period_from_ms, period_to_ms) WHERE status = 'active';
+```
+
+- **为什么必须偏离**：`db.ts` 执行顺序 = **canonical 先、migrations 后**。若把该唯一索引放进 canonical，
+  **含重复 `active` 行的既有库会在 canonical 阶段就崩** ⇒ **根本没机会**跑到 045 的去重（而 045 的去重正是为它准备的）。
+  **全新库**仍由 045 在**同一次启动内**建好索引 ⇒ **行为等价**。
+- **例外判据（通用）**：**需要"先去重"的唯一索引/约束，只进迁移、不进 canonical** —— canonical 没有去重能力，
+  放进去会让既有脏库**启动即崩**，且永远跑不到本该先去重的那条迁移。
+- **反例（不适用例外）**：纯**加列**无此问题（`rejoin_count` 走 canonical + 迁移两处，见 §11.11-②）。
 
 - **不加** `users.service_hours` / `volunteers.*` 冗余列（PRD §5.1 显式声明）：时长**一律从台账实时聚合**，杜绝双真值。`volunteers` 是**死表**（`seed.ts:135` 才写，与登录用户双轨）⇒ 时长**必须**挂 `users.id`。
 - **不新增** `users` 姓名/证件号列（Q2 / 硬约束）。
@@ -343,6 +356,7 @@ CREATE INDEX IF NOT EXISTS idx_tv_task ON task_volunteers(task_id);
 | 通道 | **canonical schema（新库）+ `migrations[]`（既有库）双写**，两处 DDL 逐字一致 | 同 `040`（`db.ts:967-984`） |
 | 编号 | **041 `add_task_volunteers` / 042 `add_volunteer_service_logs` / 043 `add_service_certificates`**（接续当前最大 `040`）；**v1.2 追加 044 `add_task_arrival_void`**（给 `task_volunteers` 加 `arrived_at_ms`/`voided_at_ms`/`void_reason`）；**v1.3 追加 045 `add_service_cert_active_dedup`**（先**去重既有 active 重复**再建 `idx_scert_active_dedup`）；**v1.4 追加 046 `add_task_rejoin_count`**（`task_volunteers` 加 `rejoin_count`） | `db.ts:968` |
 | ⚠️ **v1.4 无需重建表** | 因**保留** `UNIQUE(task_id, user_id)`（§11.11-②），046 只是 **1 条 `ALTER TABLE ... ADD COLUMN rejoin_count`**。**未采用**"一人一任务多行"方案，故**不需要** SQLite「建新表→拷数据→改名」重建（该手法在本仓仅 `resetSchema()`（`db.ts:1074`，测试用 drop+recreate）出现，生产迁移中**无先例**，引入它风险高于收益） | 本设计（新） |
+| ★★ **例外条款（重要，勿当"不一致"去修）** | **需要"先去重"的唯一索引/约束，只进迁移、不进 canonical**（首例即 045 的 `idx_scert_active_dedup`）。**判据**：`db.ts` 执行顺序 = **canonical 先、migrations 后** ⇒ 若把该索引放进 canonical，**含重复 active 的既有库会在 canonical 阶段就崩**、**永远跑不到 045 的去重**。全新库由 045 在同一次启动内建好，**行为等价**。（纯**加列**不适用此例外 —— `rejoin_count` 走 canonical + 迁移两处） | 本设计（v1.3 记账，team-lead 已确认） |
 | ⚠️ **045 必须先去重再建唯一索引** | 旧行为**允许**同区间重复开证明 ⇒ 直接 `CREATE UNIQUE INDEX` 会因**既有重复**而**失败**。故 045 的 `sql` 须**先**执行一条一次性 `UPDATE ... SET status='revoked'`（对同 `(user_id, period_from, period_to)` 的多条 active，**保留 `issued_at_ms` 最早的一条**，其余作废），**再**建唯一索引。**全库无重复时该 UPDATE 影响 0 行（幂等）** | 本设计（新） |
 | ⚠️ **必须改 `clearAll()`** | 把 3 张新表加进 `db.ts:1061` 的 `DELETE` 清单，否则**测试隔离污染**（T17） | 硬约束 + PRD §5.2 |
 | ⚠️ **必须实机验证升级路径** | 单测跑 `:memory:`，canonical 已建表 ⇒ 迁移**恒为 skipped，真实升级从未被验证**。须照 `NEXT_STEPS.md:609-621`：**复制真实库 → 剥离 041/042/043/044/045/046 产物 → 启真实服务 → 日志必须是 `Migration applied: 041/042/043/044/045/046`**（非 skipped）（T16，**在实机跑，`:memory:` 测不出**）。⚠️ 045 还需**专门构造"含重复 active 证明的旧库"**验证去重步骤真的清掉了重复（T32） |
@@ -642,6 +656,8 @@ graph TD
 9. **★ 禁止措辞（Q1/D8）**：任何 UI/CSV/PDF/i18n 值**不得**含「符合国家标准 / 国家标准 / 国标 / 官方 / 政府认可」。
 10. **★ 任务时长口径（v1.2 / v1.4，§11）**：`task_volunteers` 三时刻 —— `responded`（报名，**不计时**）/ `arrived`（**时长起点**）/ `ended`（**时长终点**）；`status ∈ responded|arrived|left|voided`。**闭合一律按人**（`user_id` 维度），**禁止 task-wide 闭合**。放弃/退出 ⇒ `voided` + `void_reason`，**不写台账**。**★ v1.4**：**反悔重新参与**走 `/accept` upsert，**必须重置 `arrived_at_ms`/`ended_at_ms`/`responded_at_ms`** 并 `rejoin_count+1`，**不清 `voided_at_ms`/`void_reason`**；`left` **终局**（不可反悔）；因 `idx_vsl_dedup` 会按 `(task,user)` 去重，**`(task,user)` 至多一条台账**（这是"不丢时长"的必要条件）。
 11. **★ 限流器只挂在目标路由上（v1.3，§11.10）**：一律 `router.<method>(path, limiter, handler)`，**禁止** `app.use(prefix, limiter)` 前缀挂载 —— Express 的 `app.use(path,…)` 是**前缀匹配**，会**误伤同前缀的其它路由**；且若在限流器内用 `req.path` 区分路由，会**依赖相对路径语义**（挂载点一变即**静默失效**）。⚠️ 限流器工厂（`createHourlyIpLimiter` / `createSmsReportLimiter`）**必须放在独立中间件模块**（`src/middleware/rateLimit.ts`）—— **不得从 `app.ts` import**（router↔app 会**循环依赖**）。
+12. **★ 迁移的"先去重"约束只进迁移、不进 canonical（v1.3，§4.1/§4.4）**：需先去重的唯一索引**只在 `migrations[]`**（canonical 无去重能力，放进去会让既有脏库**启动即崩**）。
+13. **★ 幂等签发的"回捞"层不得删除（v1.3）**：`issue()` 的幂等有**两层** ——① **预检**（查到已有 `active` ⇒ 提前返回）；② **DB 部分唯一索引 + catch 回捞**（撞索引后回查并返回既有证明）。**单删任一层，非并发下行为等价**（故单独删预检的突变为 **SURVIVED**、**属纵深防御、非缺陷**）；但 **② 的"回捞"删不得** —— 并发下两请求可**同时通过预检**，此时只有「唯一索引 + 回捞」能兜住，否则撞索引**直接抛 500**。**这是只在并发下暴露的缺陷，单线程测试测不出（已知覆盖边界，记账非漏报）。**
 
 ---
 
@@ -701,6 +717,19 @@ graph TD
 - ★ **T26–T31 是 v1.2 缺陷的"回归守卫"**：v1.0 的四类错误（可刷 / 语义倒置 / 退出即记 / 搭便车）**各对应至少一条**；其中 **T26 是本次缺陷的"主守卫"** —— 它把「到达才计时」钉死在实现层。⚠️ **T18 的语义已随 v1.2 变更**（从 task-wide 变 per-user，见 T31），旧断言须同步更新。
 - ★★ **T34 是 v1.3 的"权益主守卫"**：它是**唯一**能咬住「作废证明误伤台账」这条**不可逆权益损失**的用例 —— **必须有**（撤一张证明后，该区间时长仍能被**新**证明统计）。突变方向只有一个（`revoke()` 顺手作废台账），**必须精确变红**。
 - ★★ **T36/T39 是 v1.4 的"主守卫"**：T36 咬「反悔未重置 `arrived_at_ms` ⇒ 巨大错误时长」（**会虚增志愿者时长**，方向与"刷时长"同级危险）；T39 咬「反复反悔导致重复/丢失台账」。二者**必须精确变红**。
+
+#### 8.1 ⚠️ 一条**已记账的 SURVIVED**（v1.3，team-lead 已确认——非缺陷）
+
+实现方**删掉 `issue()` 的预检分支**（保留 catch 回捞）⇒ **全绿（SURVIVED）**。**解读（已认同）**：幂等有**两层** —— ① 预检 / ② DB 部分唯一索引 + catch 回捞；**单删任一层，非并发下行为等价** ⇒ 突变无法区分正说明二者等价，**属纵深防御、非缺陷**。
+**★ 但须补一条反向约束（与 §7-13 一致）**：**② 的"回捞"不能删** —— 并发下两请求可**同时通过预检**，此时只有「唯一索引 + 回捞」能兜住（否则撞索引**抛 500**）。这是**只在并发下暴露**的缺陷，**单线程测试测不出** ⇒ **已知覆盖边界（记账，非漏报）**。**T15 的深扫与 T33 的幂等断言都不覆盖此点**（它们单线程）—— 不因此加并发测试，仅**记账**。
+
+#### 8.2 ✅ v1.3 三项确认（team-lead 认可，记账备查）
+
+| # | 事项 | 结论 |
+|---|---|---|
+| C-1 | `verify()` 的零 PII 实现方式 | **SQL 投影裁剪**（不 `SELECT` 身份列）+ T15 深扫 —— 比"取出来再删字段"更稳。**认可** |
+| C-2 | `cert_no` 的日期取**本地时间** | 沿用 `govExport` 取向；测试只断言格式 `^VS-\d{8}-[0-9A-Z]{6}$`、**不写死日期**（避免 TZ 抖动）。**认可** |
+| C-3 | 迁移 045 的验证层级 | **实机验证仍属 T05**；此处只有**单元级**，且已用**导出的 `MIGRATION_045_SQL` 常量**避免测副本（防"测的是副本不是生产 SQL"）。**认可** |
 
 ---
 
@@ -1081,4 +1110,5 @@ classDiagram
 | **v1.2** | ★ **新增 §11 增量设计**：修正「时长区间语义」设计级缺陷（可刷 + 语义倒置 + 搭便车）。① 表 `task_volunteers` 加 `arrived_at_ms`/`voided_at_ms`/`void_reason`，`status` 扩为 4 值，**迁移 044**；② **新端点 `/task/arrive`、`/task/abandon`**，`/complete` **改为按人闭合**（`startedMs=arrived_at_ms`）；③ **§5.1 时序图重画**（到达/离开拆成两个动作）；④ **§3.5** 固化"起点=到达"；⑤ `closeService()`→`closeServiceForUser()`；⑥ **§11.5 前端调用点重映射**（`arrive()` 改调 `/arrive`；`finishMission()` 降为纯本地重置；新增 `endService()`/`abandonMission()`）；⑦ §6 T01 验收与 §8 增 **T26–T31**；⑧ `arrived.vue` 文案「返回首页」→「结束服务并返回」（标注为 T01 附加项）；⑨ §11.6 处置「到达后永不结束」边界。 |
 | **v1.3** | ★ **两处修订（均由 T02 实现方据实上报，team-lead 核实）**：<br>① **§11.9 `revoke()` 语义 = B**：**作废证明只作废证明本身、台账不动**（v1.0 的 A 会让志愿者**不可逆丢时长**）。配套**防重复签发**：`idx_scert_active_dedup`（部分唯一索引，**迁移 045**，须**先去重再建**）+ `issue()` 同区间幂等返回既有编号；**新增 `POST /service-certificates/:certNo/revoke`（仅本人）归 T02**，机构侧归 T05。**修订 PRD P0-4①**（同区间两次 ⇒ **同**编号；作废后再开 ⇒ 新编号）。<br>② **§11.10 限流器挂载修正**：原 `app.use('/api/volunteer/service-certificates', limiter)` 与"勿误伤 `/me`/`POST`"**自相矛盾**（Express 前缀匹配）⇒ 改为**该单条路由的中间件**，并把 `createHourlyIpLimiter` **抽到 `src/middleware/rateLimit.ts`**（避 router↔app **循环导入**）。**§7 新增约定 #11**。§8 增 **T32–T35**（T34 = 权益主守卫）。 |
 | **v1.4** | ★ **用户否掉 v1.2 的"已知识产品边界"（放弃后无法重新参与）**，要求**支持反悔**。**新增 §11.11**：① 入口**复用 `/accept`（upsert）+ 复用「接受」按钮**，不新增端点/按钮；② **保留 `UNIQUE(task_id,user_id)`**（一行复用，**免 SQLite 重建表**）；③ **反悔重置清单**（★ `arrived_at_ms=NULL` + `ended_at_ms=NULL` + `responded_at_ms=now` + `rejoin_count+1`）；④ 作废痕迹 `voided_at_ms`/`void_reason` **不清**（审计）+ 新增 `rejoin_count`（**保留**而非新建审计表；中间几次明细为已知精度边界，P1 另立 append-only 表）；⑤ 状态机确认 `left` **终局**、无死角；⑥ **去重风险结论**：`idx_vsl_dedup` 会对同 `(task,user)` 去重 ⇒ **靠「`left` 终局」保证至多一条台账**，**不改索引**；⑦ 前端零新增调用点；⑧ **新增任务 T06**（依赖仅 T01，与 T02 同批）。表加 `rejoin_count`，**迁移 046**。§4.1/§4.3/§4.4/§6/§8 同步；§8 增 **T36–T40**（T36/T39 = v1.4 主守卫）。 |
+| **v1.4-记账** | ★ T02 v1.3 返工（`51d3922`，44 files/416 tests）后 **team-lead 记入的两项 + 三项确认**：<br>① **§4.1/§4.4 新增「例外条款」**：**需先去重的唯一索引只进迁移、不进 canonical**（首例 045 的 `idx_scert_active_dedup`）；判据＝canonical 无去重能力，放进去会让**既有脏库启动即崩**且跑不到去重迁移；纯加列不适用（`rejoin_count` 仍双写）。<br>② **§7 新增约定 #12/#13、§8 新增 §8.1**：幂等签发两层（预检 / 唯一索引+catch 回捞）**单删任一层 SURVIVED 属纵深防御、非缺陷**；**但②的回捞删不得**（并发下双请求同时过预检 ⇒ 只有回捞能兜住，否则 **500**）——**只在并发下暴露，单线程测不出，属已知覆盖边界（记账非漏报）**。<br>③ **§8.2 三项确认**：`verify()` 用 **SQL 投影裁剪**（非取出再删）；`cert_no` 用**本地时间**、测试只断言格式不写死日期；迁移 045 **实机验证属 T05**、单元级用**导出的 `MIGRATION_045_SQL` 常量**免测副本。 |
 
