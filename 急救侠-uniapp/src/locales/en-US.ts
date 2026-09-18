@@ -19,6 +19,10 @@ export default {
     retry: 'Retry',
     loading: 'Loading…',
     networkError: 'Network error. Please try again later.',
+    /** P0-1 收尾：visible feedback when a write is rejected (403) instead of silent/false success. */
+    noPermission: 'No permission to perform this action',
+    /** P0-1 收尾：generic visible feedback for a failed write that is not a permission issue. */
+    actionFailed: 'Action failed. Please try again later.',
     languageZh: '简体中文',
     languageEn: 'English',
   },

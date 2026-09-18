@@ -56,7 +56,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { i18n } from '@/i18n'
 import { useLocalizedNavTitle } from '@/utils/nav-title-locale'
-import { request } from '@/api'
+import { requestFull } from '@/api'
+import { notifyIfFailed } from '@/utils/action-feedback'
 // NOTE: 本文件在 i18n-scope 的裸 CJK 守卫范围内 ⇒ 新增代码不得引入中文字面量（注释会被剥离，不影响）。
 const API = '/api/drill' // 仅用于本批未加固的端点（GET /events）
 const userStore = useUserStore()
@@ -87,9 +88,13 @@ async function load() { try{const r=await fetch(`${API}/events`).then(r=>r.json(
 async function loadRecords() { try{const r=await fetch(`/api/user/training-records?userId=${userStore.profile.id}`).then(r=>r.json());records.value=r.data||[]}catch(e){} }
 // ★ P0-1：以下三个写操作端点已要求登录（authMiddleware），原先裸 fetch 不带 token ⇒ 401。
 // 身份一律由服务端从 token 派生：`userId` / `organizerId` 不再由 body 传入。
-async function join(d: any) { await request({ url:`/drill/events/${d.id}/join`, method:'POST', data:{ userName:userStore.profile.name } }); uni.showToast({title:t('drill.toast.joined'),icon:'none'});load() }
-async function complete(d: any) { await request({ url:`/drill/events/${d.id}/complete`, method:'PUT' }); uni.showToast({title:t('drill.toast.pointsAwarded'),icon:'none'});load() }
-async function create() { const f=form.value; await request({ url:'/drill/events', method:'POST', data:{ ...f, organizerName:userStore.profile.name, lat:22.517, lng:113.947 } }); showCreate.value=false;uni.showToast({title:t('drill.toast.created'),icon:'none'});load() }
+// ★ 以下写操作改用 `requestFull` + `notifyIfFailed`：`request()` 在 403 时**不抛错**（只 warn）
+// ⇒ 原写法会在服务端拒绝后照常弹“已报名/已完成”这类**假成功**提示（P0-1 加固后才暴露）。
+// 现在：失败 ⇒ 弹本地化提示（403 说“无权”，其它说“失败请重试”）并 return；成功才走成功分支。
+async function join(d: any) { const res = await requestFull({ url:`/drill/events/${d.id}/join`, method:'POST', data:{ userName:userStore.profile.name } }); if (notifyIfFailed(res)) return; uni.showToast({title:t('drill.toast.joined'),icon:'none'});load() }
+async function complete(d: any) { const res = await requestFull({ url:`/drill/events/${d.id}/complete`, method:'PUT' }); if (notifyIfFailed(res)) return; uni.showToast({title:t('drill.toast.pointsAwarded'),icon:'none'});load() }
+// ★ 创建失败时**不**关闭弹窗（否则用户以为已创建）；提示已由 notifyIfFailed 弹出
+async function create() { const f=form.value; const res = await requestFull({ url:'/drill/events', method:'POST', data:{ ...f, organizerName:userStore.profile.name, lat:22.517, lng:113.947 } }); if (notifyIfFailed(res)) return; showCreate.value=false;uni.showToast({title:t('drill.toast.created'),icon:'none'});load() }
 function statusColor(s:string) { return {upcoming:'#4A90E2',completed:'#8E8E8E'}[s]||'#6B7280' }
 /**
  * 状态 / 场景标签是**函数**（每次渲染求值）⇒ 内部调 `t()` 即可随语言切换响应。

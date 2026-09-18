@@ -19,6 +19,10 @@ export default {
     retry: '重试',
     loading: '加载中…',
     networkError: '网络异常，请稍后重试',
+    /** P0-1 收尾：写操作被服务端拒绝（403）时的可见反馈（此前静默/假成功）。 */
+    noPermission: '无权执行此操作',
+    /** P0-1 收尾：写操作失败但非权限问题的通用可见反馈。 */
+    actionFailed: '操作失败，请稍后重试',
     /** 语言名（用于切换入口；**各语言下都写自己的名字**，便于用户辨认）。 */
     languageZh: '简体中文',
     languageEn: 'English',

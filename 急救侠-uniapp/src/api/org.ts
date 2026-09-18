@@ -2,7 +2,7 @@
  * 组织管理 API
  */
 
-import { request } from './index'
+import { request, requestFull, type FullResponse } from './index'
 
 export interface Organization {
   id: string
@@ -76,6 +76,24 @@ export async function addCertificate(orgId: string, data: {
   fileUrl?: string
 }): Promise<{ id: string }> {
   return request({ url: `/org/${orgId}/certificates`, method: 'POST', data })
+}
+
+/**
+ * 添加证书（**完整响应**版）—— 与 `addCertificate` 同一端点，但透出 `code` / `statusCode`。
+ *
+ * 为什么另开一个函数：`POST /org/:id/certificates` 在 P0-1 后要求调用者是本机构
+ * admin/manager，否则 **403**；而 `request()` 对 403 **不抛错**（只 warn）⇒ 调用方
+ * 无法判定成败，会弹出“已发证”这种假成功提示。需要判定的调用点改用本函数。
+ */
+export async function addCertificateFull(orgId: string, data: {
+  userId: string
+  type: string
+  issuer?: string
+  issueDate: string
+  expiryDate: string
+  fileUrl?: string
+}): Promise<FullResponse<{ id: string }>> {
+  return requestFull({ url: `/org/${orgId}/certificates`, method: 'POST', data })
 }
 
 /** 删除证书 */

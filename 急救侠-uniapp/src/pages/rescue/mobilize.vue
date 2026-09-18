@@ -39,34 +39,52 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { request } from '@/api'
+import { request, requestFull } from '@/api'
+import { notifyIfFailed } from '@/utils/action-feedback'
 
 const userStore = useUserStore()
 const mobilizations = ref<any[]>([])
 const showCreate = ref(false)
 const form = ref({ title:'', description:'', address:'深圳湾公园', type:'rescue', volunteersNeeded:5 })
 
+/**
+ * 「批准」入口的可见性（**computed** ⇒ 随 store 变化；不能提到模块级，那会冻结）。
+ *
+ * ⚠️ 为什么是「权限已知时**显示**」而不是「无权限就隐藏」：后端放行的审批人是
+ * **平台管理员 或 机构 admin/manager**，而前端只拿得到后者（`isOrgManager`）——
+ * 平台管理员身份未暴露 ⇒ 反着隐藏会让**合法**管理员彻底点不到按钮。
+ * 故：已知有权限 ⇒ 显示；其余情况仍显示，但失败一定有可见反馈（见 `approve`）。
+ */
+const canApprove = computed(() => userStore.isOrgManager || userStore.profile.id === 'user_001')
+
 // ★ P0-1：rescue 全文件端点已要求登录（authMiddleware），裸 fetch 不带 Authorization ⇒ 401，
 // 且这里被 try/catch 兜住 ⇒ 会**静默**降级成空列表（用户只看到"没数据"）。改用 `request`（自动带 token）。
 async function load() {
   try{ mobilizations.value = await request<any[]>({ url:'/rescue/mobilizations' }) ?? [] }catch(e){}
 }
+// ★ 以下写操作一律改用 `requestFull` + `notifyIfFailed`：`request()` 在 403 时**不抛错**
+// （只 `console.warn`）⇒ 原写法会在服务端拒绝后**照常弹成功 toast**（假成功）。
+// 现在：失败 ⇒ 弹本地化提示并 `return`；成功才走成功分支。
 async function respond(m: any) {
   // `userId` 已由服务端从 token 派生，不再从 body 取（留着会被误导以为生效）
-  await request({ url:`/rescue/mobilizations/${m.id}/respond`, method:'POST', data:{ userName:userStore.profile.name } })
+  const res = await requestFull({ url:`/rescue/mobilizations/${m.id}/respond`, method:'POST', data:{ userName:userStore.profile.name } })
+  if (notifyIfFailed(res)) return
   uni.showToast({title:'已响应',icon:'none'});load()
 }
 async function approve(m: any) {
   // 审批现限平台管理员/机构管理员；`approvedBy` 也由服务端取调用者身份
-  await request({ url:`/rescue/mobilizations/${m.id}/approve`, method:'PUT' })
+  const res = await requestFull({ url:`/rescue/mobilizations/${m.id}/approve`, method:'PUT' })
+  if (notifyIfFailed(res)) return
   uni.showToast({title:'已批准',icon:'none'});load()
 }
 async function createMob() {
   const f = form.value
   // `leaderId` 由服务端从 token 派生；`leaderName` 服务端仍从 body 读取入账 ⇒ 保留
-  await request({ url:'/rescue/mobilize', method:'POST', data:{ ...f, leaderName:userStore.profile.name, lat:22.517, lng:113.947 } })
+  const res = await requestFull({ url:'/rescue/mobilize', method:'POST', data:{ ...f, leaderName:userStore.profile.name, lat:22.517, lng:113.947 } })
+  // ★ 失败时**不**关闭弹窗（否则用户以为已发起）；提示已由 notifyIfFailed 弹出
+  if (notifyIfFailed(res)) return
   showCreate.value=false;uni.showToast({title:'已发起',icon:'none'});load()
 }
 function statusColor(s: string) { return {pending:'#F59E0B',active:'#34D277',completed:'#8E8E8E'}[s]||'#6B7280' }

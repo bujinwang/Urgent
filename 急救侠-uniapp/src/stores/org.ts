@@ -2,9 +2,10 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import {
   fetchDashboard, fetchMembers, fetchCertificates, fetchExpiringCertificates,
-  addCertificate, removeCertificate,
+  addCertificateFull, removeCertificate,
   type OrgDashboard, type OrgMember, type Certificate,
 } from '@/api/org'
+import { notifyIfFailed } from '@/utils/action-feedback'
 
 export const useOrgStore = defineStore('org', () => {
   const orgId = ref('')
@@ -78,14 +79,24 @@ export const useOrgStore = defineStore('org', () => {
     } catch (_) { expiringCerts.value = [] }
   }
 
+  /**
+   * 发证（P0-1 后仅本机构 admin/manager 可发，否则 **403**）。
+   *
+   * ★ 用 `addCertificateFull`（透出 `code`/`statusCode`）+ `notifyIfFailed`：
+   * 原先用 `request`，403 **不抛错** ⇒ 调用方无从判定 ⇒ 静默 / 假成功。
+   *
+   * @returns `true` 发证成功；`false` 未发证（无机构 / 被拒绝），**失败提示已弹出**。
+   */
   async function addCert(data: {
     userId: string; type: string; issuer?: string
     issueDate: string; expiryDate: string; fileUrl?: string
-  }) {
-    if (!orgId.value) return
-    await addCertificate(orgId.value, data)
+  }): Promise<boolean> {
+    if (!orgId.value) return false
+    const res = await addCertificateFull(orgId.value, data)
+    if (notifyIfFailed(res)) return false
     await loadCertificates()
     await loadDashboard(orgId.value)
+    return true
   }
 
   async function removeCert(certId: string) {
