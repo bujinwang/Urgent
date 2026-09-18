@@ -685,6 +685,43 @@ export interface ServiceHoursView {
   total: number
 }
 
+// ---- F4 · 服务证明（T02 / §4.3 端点 #2–#4）----
+
+/** `POST /api/volunteer/service-certificates` 的 `data`（§4.3 #2）。 */
+export interface ServiceCertificateView {
+  certNo: string
+  periodFromMs: number
+  periodToMs: number
+  totalMinutes: number
+  breakdown: ServiceHoursBreakdownItem[]
+  issuedAtMs: number
+  status: CertificateRecordStatus
+}
+
+/** `GET /api/volunteer/service-certificates/me` 的列表项（§4.3 #3）。 */
+export interface ServiceCertificateListItem {
+  certNo: string
+  periodFromMs: number
+  periodToMs: number
+  totalMinutes: number
+  status: CertificateRecordStatus
+  issuedAtMs: number
+}
+
+/**
+ * `GET /api/volunteer/service-certificates/:certNo` 的 `data`（§4.3 #4）。
+ *
+ * ⚠️ **仅此 5 字段、零 PII**（T15）：**绝不**出现 `user_id` / `name` / `phone` /
+ * `userId`。响应由 `verify()` 的 SQL **投影裁剪**出来（不 SELECT 身份列，而非 SELECT 后再删）。
+ */
+export interface ServiceCertificateVerifyView {
+  certNo: string
+  periodFromMs: number
+  periodToMs: number
+  totalMinutes: number
+  status: CertificateRecordStatus
+}
+
 /** `POST /api/task/accept` 的 `data`。`attributed=false` = 游客或重复 accept（未新增参与行）。 */
 export interface AcceptTaskResult {
   attributed: boolean

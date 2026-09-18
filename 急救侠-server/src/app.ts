@@ -31,6 +31,7 @@ import { trailRouter } from './routes/trail'
 import { drillRouter } from './routes/drill'
 import { wildlifeRouter } from './routes/wildlife'
 import { animalRouter } from './routes/animals'
+import { serviceHoursRouter } from './routes/serviceHours'
 
 const app = express()
 
@@ -148,6 +149,33 @@ export function createHourlyIpLimiter(envKey: string, def: number, force = false
  */
 export const ANON_LIMITS = { mediaUpload: 10, inquire: 5, sosEvent: 120 } as const
 
+/** 服务证明**验真**端点默认阈值（次/小时/IP，Q7；导出以便单测断言）。 */
+export const SERVICE_CERT_VERIFY_HOURLY_LIMIT = 60
+
+/**
+ * 服务证明**验真**端点的按 IP 小时限流（Q7）。`force=true` 绕过测试豁免（供测试注入），
+ * 照 `createSmsReportLimiter` 先例。
+ *
+ * ⚠️ **只作用于公开验真路径** `GET /service-certificates/:certNo` —— **绝不**误伤同前缀的
+ * `GET /service-certificates/me` 与 `POST /service-certificates`（T25）。
+ *
+ * ⚠️ **不能**直接把限流器挂到 `app.use('/api/volunteer/service-certificates', limiter)`：
+ * Express 的**前缀匹配**会让 `/me` 与 POST 也被限流（**已实测**：中间件对 `GET /me`、
+ * `POST /`、`GET /<certNo>` 三者都会触发）。故加一层「仅验真」判定：
+ * 挂载点下 `req.path` 为 `'/'`（POST 集合）/ `'/me'` / `'/<certNo>'`，
+ * 只有 **GET 且非 `/`、非 `/me`** 才是公开验真。
+ */
+export function createServiceCertVerifyLimiter(force = false) {
+  const limiter = createHourlyIpLimiter('SERVICE_CERT_VERIFY_HOURLY_LIMIT', SERVICE_CERT_VERIFY_HOURLY_LIMIT, force)
+  return (req: any, res: any, next: any) => {
+    const isVerify = req.method === 'GET' && req.path !== '/' && req.path !== '/me'
+    if (!isVerify) return next()
+    return limiter(req, res, next)
+  }
+}
+
+const serviceCertVerifyLimiter = createServiceCertVerifyLimiter()
+
 // Routes
 app.use('/api/auth', authLimiter, authRouter)
 app.use('/api/push/send', pushSendLimiter)
@@ -158,6 +186,9 @@ app.use('/api/aed', aedRouter)
 app.use('/api/news', newsRouter)
 app.use('/api/learn', learnRouter)
 app.use('/api/volunteer', volunteerRouter)
+// F4 T02：验真限流器必须挂在其路由之前；工厂内**只对公开验真路径**生效（不误伤 /me、POST）。
+app.use('/api/volunteer/service-certificates', serviceCertVerifyLimiter)
+app.use('/api/volunteer', serviceHoursRouter)
 app.use('/api/records', recordsRouter)
 app.use('/api/cases', casesRouter)
 app.use('/api/atlas', atlasRouter)
