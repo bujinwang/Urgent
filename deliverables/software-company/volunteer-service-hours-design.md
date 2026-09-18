@@ -1,7 +1,7 @@
 # 设计：志愿服务时长台账 + 志愿服务记录证明（F4）
 
 > 上游：`volunteer-service-hours-prd.md`（v1.0，F4）
-> 版本：**v1.4** ｜ 状态：设计定稿（§10 八条已全决；§11 v1.2/v1.3/v1.4 修正已拍板），待实现 ｜ 语言：中文
+> 版本：**v1.5** ｜ 状态：设计定稿（§10 八条已全决；§11 v1.2/v1.3/v1.4 修正已拍板；v1.5 澄清措辞），待实现 ｜ 语言：中文
 > 本文**只写 PRD 没定的东西**（架构、表结构、端点契约、调用流程、任务顺序、测试计划）。
 > 组织风格沿用同项目 `i18n-emergency-flow-design.md`（实测修正优先 + 代码取证 + 突变承重性）。
 > ⚠️ **v1.1 更正**：断链范围从「task 侧」扩为「**6 个写型接口零接线**」（§1.1）；动员/演习是「**整条链路未实现**」（§1.2）。
@@ -329,7 +329,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_active_dedup
 | 3 | `GET` | `/api/volunteer/service-certificates/me` | `authMiddleware` | — | `[{certNo,periodFromMs,periodToMs,totalMinutes,status,issuedAtMs}]` | 200 / 401 |
 | 4 | `GET` | `/api/volunteer/service-certificates/:certNo` | **公开（无鉴权）** + **★该路由级中间件** `createHourlyIpLimiter('SERVICE_CERT_VERIFY_HOURLY_LIMIT', 60)`（Q7，见 §6-T02-3） | path | `{ certNo, periodFromMs, periodToMs, totalMinutes, status }` **仅此 5 字段** | 200 / 404 / **429** |
 | 5 | `POST` | `/api/volunteer/service-logs`（P1-7） | `authMiddleware` | body: `activityType`,`startedAtMs`,`endedAtMs`,`orgId?`,`targetUserId?` | `{id,status}` | 200 / 401 / 403 |
-| 6 | `GET` | `/api/org/:id/service-hours`（P1-6） | `authMiddleware` + 内联 admin/manager 校验 | query 同上 | 结构同 #1（**仅本机构成员**） | 200 / 401 / 403；跨机构 ⇒ **空集** |
+| 6 | `GET` | `/api/org/:id/service-hours`（P1-6） | `authMiddleware` + **内联 admin/manager 校验** | query 同上 | `{ items:[{userId,minutes,count}], breakdown:[{activityType,minutes,count}], totalMinutes, page, pageSize, total }`（**按成员** + 分项） | 200 / 401 / **403** / **404**（见下「两维拆分」） |
 | 7 | `GET` | `/api/gov/dashboard`（P1-8） | `govMiddleware`（既有） | — | 追加 `serviceHours:{ totalMinutes, participantCount, byActivityType:[…] }` | 200 |
 | 8 | `POST` | `/api/task/accept`（**改写**；**v1.4 兼「反悔重新参与」入口**） | **`optionalAuth`**（见 §10-Q1） | body: `taskId` | `{ attributed:boolean, rejoined:boolean }` | 200 |
 | 9 | `POST` | **`/api/task/arrive`**（**v1.2 新增**，§11.4） | **`optionalAuth`** | body: `taskId` | `{ arrived:boolean }` | 200 |
@@ -346,6 +346,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_scert_active_dedup
 - #4 **限流**（Q7）：**只作用于该条路由**（`router.get('/:certNo', verifyLimiter, handler)`）；超阈值 ⇒ **429**；`/me` 与 `POST` **不受**该限流器影响（T25）。限流器须在测试中 `force=true` 注入验证（照 `createSmsReportLimiter(force)` 先例）。
 - #4 作废后 ⇒ `status: 'revoked'`（T9）；★ **台账完全不受影响**（v1.3 语义 B，见 §11.9）：该区间 minutes **仍可被后续新证明统计**，原台账行仍在。
 - #12 **仅本人可撤**（`user_id` 来自 token）；撤他人 ⇒ **403**；撤销**不动台账**（§11.9）。
+- #6 **★「跨机构」拆成两个独立维度**（v1.5 澄清，见 §6-T05-bis）：**① 调用者权限** —— 非该机构 `admin`/`manager` ⇒ **403**（"无权限"就明确拒绝，**不**玩"假装成功返回空集"）；**② 数据范围** —— 汇总**只含本机构成员**（这是**过滤后的集合**，**不是**"空集"）。另两种边界：**未知机构 id ⇒ 404**；**机构存在但无成员/无数据 ⇒ 200 + 空集**。T11 断言的是**维度②**（非本机构成员**不出现**）。
 - #8~#11 **游客不产生时长记录**（Q1，§10）：无 token 调 accept/arrive/complete/abandon ⇒ **无参与行、无台账行**，**仍返回 200**（不 401）。⚠️ 这是**约束的结果、不是缺陷**（不登录就没有 `user_id`，物理上无法归因）——**不得**据此改 `authMiddleware`，也不得录为 bug。
 
 ### 4.4 迁移通道（硬约束 #9，严格走既有 runner）
@@ -577,7 +578,7 @@ npm run service:purge [--days <N>] [--dry-run]
 ### **T05 · 机构/政府聚合 + CLI + 迁移实机验证（P1-6/P1-8/P1-9 + 收口）** — Priority **P1** · 依赖：T01
 
 - **做什么**：
-  1. `routes/org.ts`：`GET /:id/service-hours`（auth + 内联 admin/manager 校验；`organization_members` JOIN；跨机构 ⇒ **空集**）。
+  1. `routes/org.ts`：`GET /:id/service-hours`（auth + 内联 admin/manager 校验；`organization_members` JOIN；**权限与数据范围两维见 T05-bis**）。
   2. `routes/gov.ts`：`/dashboard` 追加 `serviceHours`（**零 PII**；冷启动 ⇒ `null`，绝不 0 兜底）。
   3. `scripts/service-report.ts`（**新**）：可归因率 / 未闭合率 / 演习污染率（三行并列）。
   4. `scripts/service-purge.ts`（**新**）：`--days`/`--dry-run`，**默认不删证明**。
@@ -585,8 +586,29 @@ npm run service:purge [--days <N>] [--dry-run]
   6. `docs/DEPLOY.md`：登记 purge 定时器为运维待办（与 sos-purge 同性质）。
   7. 测试：`__tests__/service-hours-gov.test.ts`（机构隔离 T11 + gov 零 PII）。
 - **改文件**：`src/routes/org.ts`、`src/routes/gov.ts`、`src/scripts/service-report.ts`(新)、`src/scripts/service-purge.ts`(新)、`package.json`、`docs/DEPLOY.md`、`src/__tests__/service-hours-gov.test.ts`(新)
-- **验收标准**：非本机构成员**不出现**在机构汇总（T11）；gov 响应深扫**不含** `userId`/`name`；**迁移实机验证**：旧库启动日志 = `Migration applied: 041/042/043/044/045/046`（**非 skipped**，T16）。
+- **验收标准**：非本机构成员**不出现**在机构汇总（T11，=维度②）；gov 响应深扫**不含** `userId`/`name`；**迁移实机验证**：旧库启动日志 = `Migration applied: 041/042/043/044/045/046`（**非 skipped**，T16）。
 - **可并行**：与 **T02 / T03** 并行。
+
+#### T05-bis ★★ v1.5 澄清：「跨机构 ⇒ 空集」把**两件事**混在一起（改文，避免后人再问）
+
+原设计 §6-T05 写「跨机构 ⇒ **空集**」，而 §4.3 #6 的状态码是 `200/401/403` + 内联 admin/manager 校验 —— 两句**指向不同维度**，导致实现方来问"跨机构到底 403 还是 200+空集"。**拆成两条独立表述**：
+
+| 维度 | 正确语义 | 状态码 |
+|---|---|---|
+| **① 调用者权限** | 调用者**不是该机构的 admin/manager** | **403** —— "无权限"就**明确拒绝**，**不玩"假装成功返回空集"** |
+| **② 数据范围** | 汇总**只含本机构成员**（这是**过滤后的集合**，**不是**"空集"） | **200** |
+
+**两种边界（实现方选择，确认接受）**：**未知机构 id ⇒ 404**；**机构存在但无成员/无数据 ⇒ 200 + 空集**。
+⇒ **T11 断言的是维度②**（非本机构成员**绝不出现**），**不是**"跨机构返回 403 空体"。二者**都要有**用例。
+
+#### T05-ter ✅ v1.5 四项已确认（team-lead 认可，记账备查）
+
+| # | 事项 | 结论 |
+|---|---|---|
+| V-1 | org 汇总 `items` 结构（设计只说"结构同 #1"，**留白**） | 实现方补全为**按成员** `{userId,minutes,count}` + `breakdown` + `totalMinutes/page/pageSize/total` —— **接受**（补空白，非偏离） |
+| V-2 | gov `serviceHours` 为**全局聚合**（不做区县过滤） | **接受** —— `volunteer_service_logs` **无 `district` 列**（§4.1），且与既有 `people` 指标同为全局；已在代码注释说明 |
+| V-3 | T16 **未真起监听端口**，但用**真实文件库 + 真实迁移 runner** 复现 `initDb()` 日志 | **接受** —— 核心命题是"迁移在**既有库**上真的跑通"（已证，日志见团队记录）；"真起 HTTP"是更重验证，**收益不匹配成本** |
+| V-4 | CLI 安全取向 | **接受且赞赏**：`service:purge` **默认不删任何东西**（台账长期保留，D7）、`--dry-run` 只报数、真删须显式 `--confirm`；★ **证明永不清理**（连代码路径都没有 + 守卫断言"purge 只碰台账"）；`service:report` 在**分母为零**时印「—（无样本）」而非 `NaN`/`0` |
 
 ---
 
@@ -679,7 +701,8 @@ graph TD
 | T8 | `status='pending'` **不进**证明 | 漏加 `status='confirmed'` | 证明断言 | 后端 |
 | T9 | 作废：验真返回 `revoked`、分钟数从后续证明消失、**原行仍在** | 改成 `DELETE` | 前半绿 / **后半红** | 后端 |
 | T10 | 越权：A 查 `/me` 由 token 决定 ⇒ A 永不见 B | 改读 query `userId` | 隔离断言 | 后端 |
-| T11 | 机构隔离：非成员**不出现**在 `/org/:id/service-hours` | 去掉 `organization_members` JOIN | 隔离断言 | 后端 |
+| T11 | 机构隔离：非成员**不出现**在 `/org/:id/service-hours`（=**维度②数据范围**） | 去掉 `organization_members` JOIN | 隔离断言 | 后端 |
+| **T11b** | ★ **v1.5 机构权限维度①**：非该机构 admin/manager 调用 ⇒ **403**（明确拒绝，**不**返回 200+空集）；未知机构 id ⇒ **404**；机构存在但无数据 ⇒ **200 + 空集** | 把 403 改成"返回空集 200" / 去掉 404 分支 | 403 断言 + 404 断言红（两方向） | 后端 |
 | T12 | `PRAGMA table_info` 3 表**无**位置列 | 加一列 `lat` | 结构断言 | 后端 |
 | T13 | CSV **首字符 `\uFEFF`** + 行尾 `\r\n` | 去 BOM / 改 `\n` | 首尾断言 | 前端 |
 | T14 | 公式注入：姓名 `=1+1` ⇒ 前置 `'`；数值 `-1.5` **不清洗** | `sanitizeCell` 恒等 / 去掉数字放行 | 前半红 / **后半红** | 前端 |
@@ -1111,4 +1134,5 @@ classDiagram
 | **v1.3** | ★ **两处修订（均由 T02 实现方据实上报，team-lead 核实）**：<br>① **§11.9 `revoke()` 语义 = B**：**作废证明只作废证明本身、台账不动**（v1.0 的 A 会让志愿者**不可逆丢时长**）。配套**防重复签发**：`idx_scert_active_dedup`（部分唯一索引，**迁移 045**，须**先去重再建**）+ `issue()` 同区间幂等返回既有编号；**新增 `POST /service-certificates/:certNo/revoke`（仅本人）归 T02**，机构侧归 T05。**修订 PRD P0-4①**（同区间两次 ⇒ **同**编号；作废后再开 ⇒ 新编号）。<br>② **§11.10 限流器挂载修正**：原 `app.use('/api/volunteer/service-certificates', limiter)` 与"勿误伤 `/me`/`POST`"**自相矛盾**（Express 前缀匹配）⇒ 改为**该单条路由的中间件**，并把 `createHourlyIpLimiter` **抽到 `src/middleware/rateLimit.ts`**（避 router↔app **循环导入**）。**§7 新增约定 #11**。§8 增 **T32–T35**（T34 = 权益主守卫）。 |
 | **v1.4** | ★ **用户否掉 v1.2 的"已知识产品边界"（放弃后无法重新参与）**，要求**支持反悔**。**新增 §11.11**：① 入口**复用 `/accept`（upsert）+ 复用「接受」按钮**，不新增端点/按钮；② **保留 `UNIQUE(task_id,user_id)`**（一行复用，**免 SQLite 重建表**）；③ **反悔重置清单**（★ `arrived_at_ms=NULL` + `ended_at_ms=NULL` + `responded_at_ms=now` + `rejoin_count+1`）；④ 作废痕迹 `voided_at_ms`/`void_reason` **不清**（审计）+ 新增 `rejoin_count`（**保留**而非新建审计表；中间几次明细为已知精度边界，P1 另立 append-only 表）；⑤ 状态机确认 `left` **终局**、无死角；⑥ **去重风险结论**：`idx_vsl_dedup` 会对同 `(task,user)` 去重 ⇒ **靠「`left` 终局」保证至多一条台账**，**不改索引**；⑦ 前端零新增调用点；⑧ **新增任务 T06**（依赖仅 T01，与 T02 同批）。表加 `rejoin_count`，**迁移 046**。§4.1/§4.3/§4.4/§6/§8 同步；§8 增 **T36–T40**（T36/T39 = v1.4 主守卫）。 |
 | **v1.4-记账** | ★ T02 v1.3 返工（`51d3922`，44 files/416 tests）后 **team-lead 记入的两项 + 三项确认**：<br>① **§4.1/§4.4 新增「例外条款」**：**需先去重的唯一索引只进迁移、不进 canonical**（首例 045 的 `idx_scert_active_dedup`）；判据＝canonical 无去重能力，放进去会让**既有脏库启动即崩**且跑不到去重迁移；纯加列不适用（`rejoin_count` 仍双写）。<br>② **§7 新增约定 #12/#13、§8 新增 §8.1**：幂等签发两层（预检 / 唯一索引+catch 回捞）**单删任一层 SURVIVED 属纵深防御、非缺陷**；**但②的回捞删不得**（并发下双请求同时过预检 ⇒ 只有回捞能兜住，否则 **500**）——**只在并发下暴露，单线程测不出，属已知覆盖边界（记账非漏报）**。<br>③ **§8.2 三项确认**：`verify()` 用 **SQL 投影裁剪**（非取出再删）；`cert_no` 用**本地时间**、测试只断言格式不写死日期；迁移 045 **实机验证属 T05**、单元级用**导出的 `MIGRATION_045_SQL` 常量**免测副本。 |
+| **v1.5** | ★ T05 交付（`8990644`/`95b83ea`/`763b2fc`，48 files/443 tests；**T16 实机迁移日志已拿到**：041–046 全部 `applied` 非 skipped）。**§6 T05-bis + §4.3 #6 澄清「跨机构 ⇒ 空集」把两件事混在一起** ⇒ 拆为 **①调用者权限（非该机构 admin/manager ⇒ 403，明确拒绝不假装空集）/ ②数据范围（汇总只含本机构成员 = 过滤后集合，非"空集"，200）**；边界：**未知机构 ⇒ 404**、**机构存在无数据 ⇒ 200+空集**；**T11 = 维度②**，**新增 T11b = 维度①**。**§6 T05-ter 记入四项确认**（V-1 org items 结构补全 / V-2 gov 全局聚合 / V-3 T16 未起端口但真库真 runner / V-4 CLI 安全取向）。 |
 
