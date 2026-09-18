@@ -9,7 +9,7 @@ import type {
   CertificateJoinedRow, NotificationRow, UserNameRow,
 } from '../types/rows'
 import type { ActivityType, OrgServiceHoursView, ServiceHoursBreakdownItem } from '../types'
-import { authMiddleware } from '../middleware/auth'
+import { authMiddleware, identityOf } from '../middleware/auth'
 import { COUNTING_WHERE } from '../services/serviceLog'
 
 export const orgRouter = Router()
@@ -280,8 +280,26 @@ orgRouter.get('/:id/certificates/expiring', (req, res) => {
 })
 
 // POST /api/org/:id/certificates — add certificate
-orgRouter.post('/:id/certificates', (req, res) => {
+// ★ P0-1：保留「机构给成员发证书」能力，但调用者必须是本机构 admin/manager，否则 403
+// （目标 `userId` 仍留在 body —— 那是**被发证的成员**，不是调用者身份；调用者身份走 token）。
+orgRouter.post('/:id/certificates', authMiddleware, (req, res) => {
   try {
+    const orgId = req.params.id
+    const callerId = identityOf(req)
+    if (!callerId) return res.status(401).json(error('未登录'))
+
+    const org = get<{ id: string }>('SELECT id FROM organizations WHERE id = ?', orgId)
+    if (!org) return res.status(404).json(error('机构不存在'))
+
+    // 授权校验模板（同本文件 `/:id/service-hours`：74-80）
+    const membership = get<{ role: string }>(
+      'SELECT role FROM organization_members WHERE org_id = ? AND user_id = ?',
+      orgId, callerId
+    )
+    if (!membership || (membership.role !== 'admin' && membership.role !== 'manager')) {
+      return res.status(403).json(error('无权给该机构成员颁发证书'))
+    }
+
     const { userId, type, issuer, issueDate, expiryDate, fileUrl } = req.body
     if (!userId || !type || !issueDate || !expiryDate) {
       return res.json(error('userId, type, issueDate, expiryDate 不能为空'))

@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import db, { get, all } from '../db'
 import { success, error } from '../types'
+import { authMiddleware, identityOf } from '../middleware/auth'
 import type {
   NearbyVolunteerRow, MessageRow, GroupWithMemberCountRow,
   GroupMessageRow, AedManagerRow,
@@ -31,30 +32,40 @@ communityRouter.get('/nearby', (req, res) => {
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-communityRouter.get('/messages', (req, res) => {
+// ★ P0-1：不再信任 `query.userId`（换成任意 userId 即可读他人私信正文 ⇒ 隐私泄露，Top3）。
+// 现恒返回**调用者本人**收发到的私信。
+communityRouter.get('/messages', authMiddleware, (req, res) => {
   try {
-    const userId = req.query.userId as string
+    const userId = identityOf(req)
+    if (!userId) return res.status(401).json(error('未登录'))
     const rows = all<MessageRow>('SELECT * FROM messages WHERE from_user_id=? OR to_user_id=? ORDER BY created_at DESC LIMIT 50', userId, userId)
     res.json(success(rows.map((r: MessageRow) => ({ id: r.id, fromUserId: r.from_user_id, fromUserName: r.from_user_name, toUserId: r.to_user_id, content: r.content, isRead: r.is_read === 1, createdAt: r.created_at }))))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-communityRouter.post('/messages', (req, res) => {
+// ★ P0-1：`fromUserId` 不再取自 body（可伪造 ⇒ 冒用他人身份发私信），一律 token 派生。
+// `toUserId` 保留在 body —— 那是**收件人**（正常业务目标），不是调用者身份。
+communityRouter.post('/messages', authMiddleware, (req, res) => {
   try {
-    const { fromUserId, fromUserName, toUserId, content } = req.body
-    if (!fromUserId || !toUserId || !content) return res.json(error('参数不完整'))
+    const fromUserId = identityOf(req)
+    if (!fromUserId) return res.status(401).json(error('未登录'))
+    const { fromUserName, toUserId, content } = req.body
+    if (!toUserId || !content) return res.json(error('参数不完整'))
     db.prepare('INSERT INTO messages (id, from_user_id, from_user_name, to_user_id, content) VALUES (?, ?, ?, ?, ?)').run('msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), fromUserId, fromUserName || '', toUserId, content)
     res.json(success(null, '已发送'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-communityRouter.post('/contact-aed/:aedId', (req, res) => {
+// ★ P0-1：`fromUserId` 不再取自 body（可伪造 ⇒ 冒用他人身份联系 AED 维护者）。
+communityRouter.post('/contact-aed/:aedId', authMiddleware, (req, res) => {
   try {
+    const fromUserId = identityOf(req)
+    if (!fromUserId) return res.status(401).json(error('未登录'))
     const aed = get<{ name: string }>('SELECT name FROM aed_devices WHERE id=?', req.params.aedId)
     if (!aed) return res.json(error('AED 不存在'))
     const mgr = get<AedManagerRow>("SELECT * FROM aed_managers WHERE aed_id=? AND role='primary' LIMIT 1", req.params.aedId)
     if (!mgr) return res.json(error('该 AED 暂无维护者'))
-    const { fromUserId, fromUserName, content } = req.body
+    const { fromUserName, content } = req.body
     db.prepare('INSERT INTO messages (id, from_user_id, from_user_name, to_user_id, content) VALUES (?, ?, ?, ?, ?)').run('msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), fromUserId, fromUserName || '', mgr.user_id, `[${aed.name}] ${content}`)
     res.json(success(null, '已发送给 AED 维护者'))
   } catch (e: any) { res.status(500).json(error(e.message)) }
