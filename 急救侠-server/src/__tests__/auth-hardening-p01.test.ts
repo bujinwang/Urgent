@@ -377,11 +377,13 @@ describe('P0-1 · 外部认证「自闭环伪造链」被打断', () => {
     expect(extCertStatus('u_alice')).toBe('verified')
   })
 
-  it('④ 机构 admin 核实 ⇒ 200，status 变 verified', async () => {
+  it('④ 机构 admin 核实**本机构成员**的认证 ⇒ 200，status 变 verified', async () => {
     insertExtCert('ec_org', 'u_alice')
     addOrg('org_2', '第二救援队', 'u_alice')
     addUser('u_dave', 'Dave')
     addMember('org_2', 'u_dave', 'admin')
+    // ★ P0-1 收窄后：被认证者也必须是该机构成员（否则 403，见下方新 describe 的用例 ④）
+    addMember('org_2', 'u_alice', 'member')
     const res = await request(server)
       .put('/api/rescue/certification/ec_org/verify')
       .set('Authorization', `Bearer ${userToken('u_dave')}`)
@@ -597,5 +599,159 @@ describe('P0-1 · 本人自助正常路径仍通过（不能改坏正常功能�
       .set('Authorization', `Bearer ${userToken('u_bob')}`)
     expect(res.status).toBe(403)
     expect((db.prepare('SELECT ended_at FROM live_sessions WHERE id=?').get(s.id) as { ended_at: string | null }).ended_at).toBeNull()
+  })
+})
+
+/* ═══════════════════ 7. P0-1 补漏：机构操作必须限定在本机构成员范围内 ═══════════════════ */
+
+/**
+ * **独立 QA 复核**挖出的越权 + 团队据此裁决的收窄。统一原则：
+ * > **机构维度**的操作必须限定在**本机构成员**范围内（不能只校验调用者、不校验目标）。
+ *
+ * - **缺陷 1（越权）**：`POST /api/org/:id/certificates` 只校验了调用者是本机构 admin/manager，
+ *   没校验目标 `userId` 属于本机构 ⇒ 机构 admin 可给**任意用户**发证（实测 200 且建行），
+ *   而证书会出现在**公开验真页** `public/verify/:publicId` ⇒ 仍是一条伪造链路。
+ * - **缺陷 2（收窄）**：`PUT /api/rescue/certification/:id/verify` 的判据是宽口径
+ *   `isOrgManager`（**任一**机构的 admin/manager）⇒ A 机构 admin 可核实与 A 无关用户的认证。
+ *
+ * ⚠️ 纪律：这些用例断言的是"越权被拒 + **目标侧零变化**"，不得为变绿而放松判据。
+ */
+describe('P0-1 补漏 · 机构操作必须限定在本机构成员范围内', () => {
+  /** 发证请求体（缺 `userId`，各用例自行带上）。 */
+  const CERT_BODY = { type: 'CPR', issuer: '红十字会', issueDate: '2025-01-01', expiryDate: '2027-01-01' }
+
+  /** 按 id 取外部认证 status（不按 user 维度，避免多条认证互相混淆）。 */
+  function certStatusById(id: string): string | undefined {
+    return (db.prepare('SELECT status FROM external_certifications WHERE id=?').get(id) as { status: string } | undefined)?.status
+  }
+
+  /** 某个用户名下的证书行数（用于"受害者侧零变化"断言）。 */
+  function certCount(userId: string): number {
+    return count('SELECT COUNT(*) AS c FROM certificates WHERE user_id=?', userId)
+  }
+
+  /** 证书总行数（含"整个库一张都没多"这种更强断言）。 */
+  function certTotal(): number {
+    return count('SELECT COUNT(*) AS c FROM certificates')
+  }
+
+  // ───────── 缺陷 1：org 发证的目标归属 ─────────
+
+  it('① 机构 admin 给**非本机构成员**发证 ⇒ 403，且**证书行未被创建**', async () => {
+    addOrg('org_a', 'A 救援队', 'u_alice')
+    addMember('org_a', 'u_alice', 'admin')
+    addUser('u_eve', 'Eve') // 与 org_a 毫无关系
+
+    const res = await request(server)
+      .post('/api/org/org_a/certificates')
+      .set('Authorization', `Bearer ${userToken('u_alice')}`)
+      .send({ userId: 'u_eve', ...CERT_BODY })
+
+    expect(res.status).toBe(403)
+    // ★ 去库里断言：不是只看返回码
+    expect(certCount('u_eve')).toBe(0)
+    expect(certTotal()).toBe(0)
+  })
+
+  it('② 机构 admin 给**本机构成员**发证 ⇒ 200 且行已创建（能力必须保留）', async () => {
+    addOrg('org_a', 'A 救援队', 'u_alice')
+    addMember('org_a', 'u_alice', 'admin')
+    addMember('org_a', 'u_bob', 'member')
+
+    const res = await request(server)
+      .post('/api/org/org_a/certificates')
+      .set('Authorization', `Bearer ${userToken('u_alice')}`)
+      .send({ userId: 'u_bob', ...CERT_BODY })
+
+    expect(res.status).toBe(200)
+    expect(res.body.code).toBe(0)
+    expect(certCount('u_bob')).toBe(1)
+  })
+
+  it('③ 非本机构成员的**调用者** ⇒ 仍 403（既有守卫不得回退）', async () => {
+    addOrg('org_a', 'A 救援队', 'u_alice')
+    addMember('org_a', 'u_alice', 'admin')
+    addMember('org_a', 'u_bob', 'member')
+    addUser('u_eve', 'Eve') // 既不是本机构成员，也不是任何机构 admin
+
+    const res = await request(server)
+      .post('/api/org/org_a/certificates')
+      .set('Authorization', `Bearer ${userToken('u_eve')}`)
+      .send({ userId: 'u_bob', ...CERT_BODY })
+
+    expect(res.status).toBe(403)
+    expect(certTotal()).toBe(0)
+  })
+
+  it('④ 目标是**其它机构**的成员（不在本机构）⇒ 403 且未建行', async () => {
+    addOrg('org_a', 'A 救援队', 'u_alice')
+    addMember('org_a', 'u_alice', 'admin')
+    addUser('u_carol', 'Carol')
+    addOrg('org_b', 'B 救援队', 'u_carol')
+    addMember('org_b', 'u_carol', 'member') // 在 B、不在 A
+
+    const res = await request(server)
+      .post('/api/org/org_a/certificates')
+      .set('Authorization', `Bearer ${userToken('u_alice')}`)
+      .send({ userId: 'u_carol', ...CERT_BODY })
+
+    expect(res.status).toBe(403)
+    expect(certCount('u_carol')).toBe(0)
+    expect(certTotal()).toBe(0)
+  })
+
+  // ───────── 缺陷 2：外部认证核实的机构范围收窄 ─────────
+
+  it('⑤ 与认证者**无关机构**的 admin verify ⇒ 403，且 status **未**变成 verified', async () => {
+    insertExtCert('ec_stranger', 'u_bob')
+    addUser('u_dave', 'Dave')
+    addOrg('org_x', 'X 救援队', 'u_dave')
+    addMember('org_x', 'u_dave', 'admin') // Dave 是 X 的 admin，但 u_bob 不在 X
+
+    const res = await request(server)
+      .put('/api/rescue/certification/ec_stranger/verify')
+      .set('Authorization', `Bearer ${userToken('u_dave')}`)
+
+    expect(res.status).toBe(403)
+    // ★ 状态确实没被改动（不是只看返回码）
+    expect(certStatusById('ec_stranger')).toBe('pending')
+  })
+
+  it('⑥ 认证者**所属机构**的 admin verify ⇒ 200 且 status 变 verified（能力保留）', async () => {
+    insertExtCert('ec_member', 'u_bob')
+    addUser('u_dave', 'Dave')
+    addOrg('org_y', 'Y 救援队', 'u_dave')
+    addMember('org_y', 'u_dave', 'admin')
+    addMember('org_y', 'u_bob', 'member') // ★ 被认证者与调用者同机构
+
+    const res = await request(server)
+      .put('/api/rescue/certification/ec_member/verify')
+      .set('Authorization', `Bearer ${userToken('u_dave')}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.code).toBe(0)
+    expect(certStatusById('ec_member')).toBe('verified')
+  })
+
+  it('⑦ 平台管理员 verify ⇒ 200 且 status 变 verified（收窄不得误伤）', async () => {
+    insertExtCert('ec_admin', 'u_bob')
+    addUser('u_dave', 'Dave')
+    makeAdmin('u_dave') // 平台管理员：不受机构范围约束
+
+    const res = await request(server)
+      .put('/api/rescue/certification/ec_admin/verify')
+      .set('Authorization', `Bearer ${userToken('u_dave')}`)
+
+    expect(res.status).toBe(200)
+    expect(certStatusById('ec_admin')).toBe('verified')
+  })
+
+  it('⑧ 收窄后：普通用户核实**自己的**认证仍 403（自闭环伪造链未回退）', async () => {
+    insertExtCert('ec_self', 'u_bob')
+    const res = await request(server)
+      .put('/api/rescue/certification/ec_self/verify')
+      .set('Authorization', `Bearer ${userToken('u_bob')}`)
+    expect(res.status).toBe(403)
+    expect(certStatusById('ec_self')).toBe('pending')
   })
 })

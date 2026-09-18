@@ -57,6 +57,31 @@ function isPlatformOrOrgManager(userId: string): boolean {
   return isPlatformAdmin(userId) || isOrgManager(userId)
 }
 
+/**
+ * 调用者是否是「**指定用户所属机构**」的 admin/manager（★ P0-1 收窄，QA 复核提出）。
+ *
+ * 与 {@link isOrgManager} 的区别：后者只问「调用者在**任意**机构是不是 admin/manager」
+ * ⇒ A 机构的 admin 能核实与 A **毫无关系**的用户的外部认证，并把它置为 `verified`
+ * （外部认证同样出现在公开验真页 ⇒ 越权伪造）。本函数要求**双方在同一机构**：
+ * 调用者在该机构是 admin/manager ∧ 目标用户也在该机构。
+ *
+ * 统一原则：**机构维度**的操作必须限定在本机构成员范围内。
+ */
+function isOrgManagerOf(callerId: string, targetUserId: string): boolean {
+  if (!callerId || !targetUserId) return false
+  const row = get<{ c: number }>(
+    `SELECT COUNT(*) AS c
+     FROM organization_members om
+     WHERE om.user_id = ? AND om.role IN ('admin','manager')
+       AND EXISTS (
+         SELECT 1 FROM organization_members t
+         WHERE t.org_id = om.org_id AND t.user_id = ?
+       )`,
+    callerId, targetUserId
+  )
+  return (row?.c ?? 0) > 0
+}
+
 rescueRouter.post('/certification', authMiddleware, (req, res) => {
   try {
     // ★ P0-1： userId 不再取自 body（可伪造 ⇒ 可替他人提交认证），一律 token 派生。
@@ -87,11 +112,18 @@ rescueRouter.put('/certification/:id/verify', authMiddleware, (req, res) => {
     // 此前**任何人**都能把自己刚提交的认证置为 verified，而外部认证会出现在公开验真页
     // （`public/verify`）⇒ 等于毫无成本地伪造已核实资质。
     // 现要求调用者是**平台管理员**或**机构 admin/manager**，提交者自助核实 ⇒ 403。
+    // （放在取记录之前：无权限者连"这条认证是否存在"都不该探到 ⇒ 403 而非 404。）
     if (!isPlatformOrOrgManager(callerId)) {
       return res.status(403).json(error('无权核实认证，仅平台管理员或机构管理员可执行'))
     }
-    const exist = get<{ id: string }>('SELECT id FROM external_certifications WHERE id=?', req.params.id)
+    const exist = get<{ id: string; user_id: string }>('SELECT id, user_id FROM external_certifications WHERE id=?', req.params.id)
     if (!exist) return res.status(404).json(error('认证不存在'))
+    // ★★ P0-1 收窄（QA 复核）：机构维度操作必须限定在本机构成员范围内。
+    // 仅 `isOrgManager` 时，A 机构 admin 可核实**与 A 无关**的用户 ⇒ 越权。
+    // 现在：平台管理员不限；机构 admin/manager **只能核实本机构成员**的认证。
+    if (!isPlatformAdmin(callerId) && !isOrgManagerOf(callerId, exist.user_id)) {
+      return res.status(403).json(error('无权核实该认证，仅平台管理员或其所属机构管理员可执行'))
+    }
     db.prepare("UPDATE external_certifications SET status='verified' WHERE id=?").run(req.params.id)
     res.json(success(null, '已认证'))
   } catch (e: any) { res.status(500).json(error(e.message)) }

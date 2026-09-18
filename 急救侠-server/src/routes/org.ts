@@ -280,8 +280,10 @@ orgRouter.get('/:id/certificates/expiring', (req, res) => {
 })
 
 // POST /api/org/:id/certificates — add certificate
-// ★ P0-1：保留「机构给成员发证书」能力，但调用者必须是本机构 admin/manager，否则 403
-// （目标 `userId` 仍留在 body —— 那是**被发证的成员**，不是调用者身份；调用者身份走 token）。
+// ★ P0-1：保留「机构给成员发证书」能力，但**两端都要限定在本机构内**：
+//   ① 调用者必须是本机构 admin/manager，否则 403；
+//   ② 目标 `userId` 必须是本机构成员，否则 403（P0-1 补漏：否则可给**任意用户**发证 ⇒ 公开验真页伪造）。
+// （目标 `userId` 仍留在 body —— 那是**被发证的成员**，不是调用者身份；调用者身份走 token。）
 orgRouter.post('/:id/certificates', authMiddleware, (req, res) => {
   try {
     const orgId = req.params.id
@@ -304,6 +306,21 @@ orgRouter.post('/:id/certificates', authMiddleware, (req, res) => {
     if (!userId || !type || !issueDate || !expiryDate) {
       return res.json(error('userId, type, issueDate, expiryDate 不能为空'))
     }
+
+    // ★★ P0-1 补漏（独立 QA 复核挖出的**越权**）：上面只校验了「调用者」是本机构
+    // admin/manager，却没校验「**被发证的目标**」属于本机构 ⇒ 机构管理员可给**任意用户**发证
+    // （实测 200 且证书行确实被创建）。而证书会出现在**公开验真页** `public/verify/:publicId`
+    // ⇒ 仍是一条完整的伪造链路。本能力的语义是「机构给**本机构成员**发证」⇒ 目标必须
+    // 在 `organization_members` 里有 (org_id=:id, user_id=userId) 的行，**否则 403 且不得建行**。
+    // （目标在本机构的**角色不限**：给普通 member 发证正是本能力的正常用法。）
+    const targetMembership = get<{ role: string }>(
+      'SELECT role FROM organization_members WHERE org_id = ? AND user_id = ?',
+      orgId, userId
+    )
+    if (!targetMembership) {
+      return res.status(403).json(error('目标用户不是本机构成员，无法为其颁发证书'))
+    }
+
     const cid = 'cert_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
     db.prepare(
       'INSERT INTO certificates (id, user_id, type, issuer, issue_date, expiry_date, file_url) VALUES (?, ?, ?, ?, ?, ?, ?)'
