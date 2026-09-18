@@ -586,3 +586,63 @@ describe('P0-2 · rescue GET /live/:taskId', () => {
     expect(res.status).toBe(401)
   })
 })
+
+/* ═══════════ C. 跨仓库 403 契约（后端 `error()` ↔ 前端 `isForbidden()` 的接缝） ═══════════ */
+
+/**
+ * ★ 跨仓库契约守卫（对应 qa-engineer-4「调用点守卫清单」第 6 条，两岸各钉一半）。
+ *
+ * 接缝两侧的现状：
+ * - **后端**：`error(message, code = -1)`（`src/types/index.ts:821`）⇒ 403 的
+ *   `body.code` 默认是 **-1**，权限信息**只由 HTTP 状态承载**。
+ * - **前端**：`isForbidden()`（`utils/action-feedback.ts:34`）判
+ *   `statusCode === 403 || code === 403` ⇒ 对本项目的 403，**命中永远是 statusCode 分支**。
+ *
+ * ⚠️ `body.code` 在本项目是**业务细分码空间**，与传输层状态**正交**：
+ * `aed.ts:760` 就是 `res.status(403).json(error('非该设备责任人', 4003))` ——
+ * 同样是 HTTP 403，`body.code` 却是 4003；另有 `aed.ts:582/591` 是
+ * **HTTP 200 + 业务码**。⇒ 想用 body.code 做权限判定，**无论写 `=== 403` 还是 `=== -1`
+ * 都会漏判**（`-1` 判不出 4003，兼容 4003 又等于把业务码硬编码进权限判定）。
+ * **唯一正确的判据恒为 `statusCode === 403`。**
+ *
+ * 两条断言的分工（**强度不同，别混为一谈**）：
+ * - `status === 403` ⇒ **不变量**。防最危险的退化：改成「HTTP 200 + 业务码」，
+ *   那样 `isForbidden` 直接漏判、页面又回到静默降级。
+ * - `code === -1` ⇒ **当前快照，不是不变量**。它只锁住「本批 403 尚未占用业务码」这一现状；
+ *   若将来给这些 403 加业务细分码（只要**同时保留** `res.status(403)`，前端不受影响），
+ *   请放宽此断言 —— 真正要守住的是上一条。
+ */
+describe('P0-2 · 跨仓库 403 契约：权限拒绝必须落在 HTTP 状态上', () => {
+  beforeEach(() => {
+    addMobilization('mob_1', '某救援动员', 'u_alice')
+    addMobilizationVolunteer('mob_1', 'u_bob')
+    addTaskVolunteer('task_001', 'u_dave')
+  })
+
+  /** 非参与者命中 403 的全部五个端点（读 3 + 写 2）。 */
+  const FORBIDDEN_CASES: Array<{ label: string; send: () => Promise<{ status: number; body: { code: number } }> }> = [
+    { label: '读·现场动态（含 GPS）', send: () => request(server).get('/api/rescue/mobilizations/task_001/media').set('Authorization', tk('u_carol')) },
+    { label: '读·志愿者名单',         send: () => request(server).get('/api/rescue/mobilizations/mob_1/volunteers').set('Authorization', tk('u_carol')) },
+    { label: '读·直播会话',           send: () => request(server).get('/api/rescue/live/task_001').set('Authorization', tk('u_carol')) },
+    { label: '写·发现场动态',         send: () => request(server).post('/api/rescue/mobilizations/task_001/media').set('Authorization', tk('u_carol')).send({ content: 'x' }) },
+    { label: '写·开直播',             send: () => request(server).post('/api/rescue/live/task_001/start').set('Authorization', tk('u_carol')) },
+  ]
+
+  it.each(FORBIDDEN_CASES)('$label ⇒ HTTP 403（不变量：权限落在状态上，不是 200+业务码）', async ({ send }) => {
+    const res = await send()
+    // ★ 不变量：前端 isForbidden() 只看 statusCode ⇒ 这里绝不能退化成 200
+    expect(res.status).toBe(403)
+    // 快照：本批 403 未占用业务码空间（将来若加细分码，请放宽此行并复核前端）
+    expect(res.body.code).toBe(-1)
+  })
+
+  it('★ 反例对照：403 的 body.code 与 HTTP 状态**不在同一码空间**（故前端不得只看 code）', async () => {
+    const res = await request(server)
+      .get('/api/rescue/mobilizations/task_001/media')
+      .set('Authorization', tk('u_carol'))
+    expect(res.status).toBe(403)
+    // 若有人把后端改成 `error('...', 403)`（业务码=HTTP 状态），本行会红 ⇒
+    // 说明权限语义被塞进了业务码；而 AED 的 403 用的是 4003 ⇒ 证明业务码空间本就不统一。
+    expect(res.body.code).not.toBe(403)
+  })
+})
