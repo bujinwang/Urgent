@@ -60,6 +60,7 @@ import { useUserStore } from '@/stores/user'
 import { i18n } from '@/i18n'
 import { serviceHoursToCsv, serviceHoursCsvFilename, formatDateTimeMs } from '@/utils/serviceExport'
 import { downloadText } from '@/utils/govExport'
+import { useLocalizedNavTitle } from '@/utils/nav-title-locale'
 
 const store = useServiceHoursStore()
 const user = useUserStore()
@@ -119,6 +120,9 @@ function goBack(): void {
 function goLogin(): void {
   uni.navigateTo({ url: '/pages/auth/login' })
 }
+
+// 原生导航栏标题随语言切换（P1b）；本页有标准原生标题栏 ⇒ 必须接线（见 nav-title-locale.test.ts 的守卫）。
+useLocalizedNavTitle('nav.hours')
 
 onMounted(() => {
   if (isLoggedIn.value) void store.loadHours().catch(() => { /* 错误已记录于 store.error */ })

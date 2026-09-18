@@ -6,6 +6,7 @@ import { defineComponent, h } from 'vue'
 import { applyNavTitle, useLocalizedNavTitle } from '@/utils/nav-title-locale'
 import { setLocale } from '@/i18n'
 import { messages } from '@/locales'
+import { SCOPE_FILES } from '@/__tests__/i18n-scope'
 
 /**
  * F2 P1b —— **原生导航栏标题**随语言切换的独立守卫。
@@ -18,8 +19,10 @@ import { messages } from '@/locales'
  *   ① `nav.*` 文案与 `pages.json` 的 `navigationBarTitleText` **逐字**（否则切回中文会"变样"）；
  *   ② 范围刻意收窄 —— **只**收录「文案已本地化」的页面；
  *      `rescue`/`guide`/`aed-detail` 是 `navigationStyle:'custom'`（自绘标题栏）⇒ 不得收录；
- *   ③ **调用点**：三个页面真的调了 `useLocalizedNavTitle('<key>')`
+ *   ③ **调用点**：五个页面真的调了 `useLocalizedNavTitle('<key>')`
  *      （本项目教训：删掉页面里那一行调用，模块级测试再全也照样全绿）；
+ *   ③' ★ **`pages.json` × 接入一致性**（自动跟随 `SCOPE_FILES`，非硬编码枚举）——
+ *      凡「已本地化 + 标准原生标题栏」的页面都必须接线；防"新增页面忘记接标题"。
  *   ④ 宿主健壮性：方法缺失 / 调用抛错都**不得**冒泡成崩溃；
  *   ⑤ **非冻结**：切语言后标题必须重新设置为新语言（而不是停在 setup 期取到的值）。
  */
@@ -34,12 +37,19 @@ const pagesJson = JSON.parse(
   }>
 }
 
-/** 已本地化且**有原生标题栏**的页面 —— 这三者是 P1b 的完整范围。 */
+/** 已本地化且**有原生标题栏**的页面 —— 这是 P1b 的完整范围（5 页）。 */
 const NAV_PAGES = [
   { pagePath: 'pages/aed/index', titleKey: 'nav.aedIndex', file: 'src/pages/aed/index.vue' },
   { pagePath: 'pages/drill/index', titleKey: 'nav.drill', file: 'src/pages/drill/index.vue' },
   { pagePath: 'pages/cert/index', titleKey: 'nav.mine', file: 'src/pages/cert/index.vue' },
+  { pagePath: 'pages/volunteer/hours', titleKey: 'nav.hours', file: 'src/pages/volunteer/hours.vue' },
+  { pagePath: 'pages/volunteer/certificates', titleKey: 'nav.serviceCert', file: 'src/pages/volunteer/certificates.vue' },
 ] as const
+
+/** `src/xxx/yyy.vue` → `xxx/yyy`（与 `pages.json` 的 `path` 同形）。 */
+function pagePathOf(rel: string): string {
+  return rel.replace(/^src\//, '').replace(/\.vue$/, '')
+}
 
 /** `pages.json` 里某个 pagePath 的 `style`（找不到 ⇒ undefined）。 */
 function styleOf(pagePath: string) {
@@ -99,12 +109,44 @@ describe('P1b：原生导航栏标题本地化', () => {
   // 2) ★ 调用点守卫：页面里那一行真的在吗？
   //    （本项目教训：模块级测试再全，删掉页面里那一行调用仍会全绿）
   // -------------------------------------------------------------------------
-  it('★ 三个页面都调用了 useLocalizedNavTitle(对应 key)', () => {
+  it('★ 五个页面都调用了 useLocalizedNavTitle(对应 key)', () => {
     for (const p of NAV_PAGES) {
       const src = fs.readFileSync(path.resolve(process.cwd(), p.file), 'utf8')
       expect(src, `${p.file} 应调用 useLocalizedNavTitle('${p.titleKey}')`)
         .toContain(`useLocalizedNavTitle('${p.titleKey}')`)
     }
+  })
+
+  // -------------------------------------------------------------------------
+  // 2.5) ★ 【新层】`pages.json` × 接入情况的**一致性守卫**（此前完全空白的一层）
+  //
+  // 判据：凡「在 `SCOPE_FILES`（已本地化集合）中」且「在 `pages.json` 里声明了**原生标题栏**
+  //       （有 `navigationBarTitleText` 且**非** `navigationStyle: 'custom'`）」的页面，
+  //       其源码**必须**出现 `useLocalizedNavTitle(`。
+  //
+  // 为什么需要它：上面第 ③ 条是**硬编码枚举**（NAV_PAGES）—— 新加一个已本地化页面时，
+  // 忘了接线**也能全绿**（枚举里根本没有它）。本层判据**自动跟随 SCOPE_FILES** ⇒
+  // 「新增已本地化页面但忘记接标题」会被抓，而不是靠人记得改枚举。
+  // 本次缺陷（两新页未接标题）正是被这一层咬住。
+  // -------------------------------------------------------------------------
+  it('★ 【新层】pages.json × 接入一致性：已本地化 + 标准原生标题栏的页面必须接线（防日后漏接）', () => {
+    const checked = SCOPE_FILES.filter((rel) => {
+      const st = styleOf(pagePathOf(rel))
+      return !!st?.navigationBarTitleText && st.navigationStyle !== 'custom'
+    })
+
+    // 守卫自检（防判据退化成恒真）：必须真的覆盖到若干页面，且含本次新增两页。
+    expect(checked.length, '本守卫应至少覆盖 5 个页面；为 0 说明 pages.json 路径/判据失效').toBeGreaterThanOrEqual(5)
+    expect(checked, '应覆盖本次新增两页').toEqual(expect.arrayContaining([
+      'src/pages/volunteer/hours.vue', 'src/pages/volunteer/certificates.vue',
+    ]))
+
+    const missing: string[] = []
+    for (const rel of checked) {
+      const src = fs.readFileSync(path.resolve(process.cwd(), rel), 'utf8')
+      if (!src.includes('useLocalizedNavTitle(')) missing.push(rel)
+    }
+    expect(missing, `以下「已本地化 + 标准导航栏」页面未接 useLocalizedNavTitle：${missing.join(', ')}`).toEqual([])
   })
 
   // -------------------------------------------------------------------------

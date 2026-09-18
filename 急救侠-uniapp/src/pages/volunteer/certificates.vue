@@ -58,6 +58,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useServiceHoursStore } from '@/stores/serviceHours'
 import { useUserStore } from '@/stores/user'
 import { i18n } from '@/i18n'
+import { useLocalizedNavTitle } from '@/utils/nav-title-locale'
 
 const store = useServiceHoursStore()
 const user = useUserStore()
@@ -151,6 +152,9 @@ function goBack(): void {
 function goLogin(): void {
   uni.navigateTo({ url: '/pages/auth/login' })
 }
+
+// 原生导航栏标题随语言切换（P1b）；本页有标准原生标题栏 ⇒ 必须接线（见 nav-title-locale.test.ts 的守卫）。
+useLocalizedNavTitle('nav.serviceCert')
 
 onMounted(() => {
   if (isLoggedIn.value) void store.loadCertificates().catch(() => { /* 错误已记录于 store.error */ })

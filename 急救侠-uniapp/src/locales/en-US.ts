@@ -439,6 +439,8 @@ export default {
     aedIndex: 'Nearby AED',
     drill: 'Emergency drills',
     mine: 'My badges',
+    hours: 'My service hours',
+    serviceCert: 'My service certificates',
   },
 
   /** `pages/cert/index.vue` — the "Mine" tab (see zh-CN for the language-switch / freeze notes). */

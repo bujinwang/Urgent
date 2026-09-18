@@ -571,6 +571,8 @@ export default {
     aedIndex: '附近 AED',
     drill: '急救演习',
     mine: '我的徽章',
+    hours: '我的服务时长',
+    serviceCert: '我的服务证明',
   },
 
   /**
