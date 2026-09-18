@@ -98,6 +98,18 @@
       }
     },
     {
+      "path": "pages/volunteer/hours",
+      "style": {
+        "navigationBarTitleText": "我的服务时长"
+      }
+    },
+    {
+      "path": "pages/volunteer/certificates",
+      "style": {
+        "navigationBarTitleText": "我的服务证明"
+      }
+    },
+    {
       "path": "pages/coach/index",
       "style": {
         "navigationBarTitleText": "急救教练"

@@ -506,6 +506,9 @@ export default {
     generate: 'Generate certificate',
     exportCsv: 'Export CSV',
     retry: 'Retry',
+    prev: 'Previous',
+    next: 'Next',
+    page: 'Page {page}',
     activity: {
       rescue_task: 'Rescue task',
       drill: 'Drill',
@@ -536,5 +539,12 @@ export default {
     verifyRevoked: 'This certificate has been revoked',
     verifyNotFound: 'No certificate found for this number',
     verifyFailed: 'Verification failed',
+    rangeFrom: 'Start date',
+    rangeTo: 'End date',
+    rangeHint: 'Format YYYY-MM-DD',
+    invalidRange: 'Invalid date format or range',
+    listTitle: 'My certificates',
+    verifyInputLabel: 'Certificate number',
+    printHint: 'Please print from a browser',
   },
 }

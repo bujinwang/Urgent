@@ -39,7 +39,7 @@ function pad2(n: number): string {
 }
 
 /** `YYYY-MM-DD HH:mm:ss`（**本地时间**、手写补零、不依赖 locale，照 `govExport.ts`）。 */
-function formatDateTime(ms: number): string {
+export function formatDateTimeMs(ms: number): string {
   const dt = new Date(ms)
   return (
     `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())} ` +
@@ -70,7 +70,7 @@ function toLine(cells: string[]): string {
  * 结构：标题行 → 元信息（姓名/生成时间/累计分钟）→ 分项表 → 明细表 → 声明行。
  */
 export function serviceHoursToCsv(input: ServiceHoursExportInput): string {
-  const generated = formatDateTime(input.generatedAt ?? Date.now())
+  const generated = formatDateTimeMs(input.generatedAt ?? Date.now())
 
   const lines: string[] = [
     toLine([SERVICE_HOURS_TITLE]),
@@ -88,7 +88,7 @@ export function serviceHoursToCsv(input: ServiceHoursExportInput): string {
   lines.push('') // 段间空行
   lines.push(toLine(['服务日期', '类型', '时长（分钟）']))
   for (const it of input.items) {
-    lines.push(toLine([formatDateTime(it.startedAtMs), activityLabel(it.activityType), String(it.durationMin)]))
+    lines.push(toLine([formatDateTimeMs(it.startedAtMs), activityLabel(it.activityType), String(it.durationMin)]))
   }
 
   lines.push('') // 段间空行

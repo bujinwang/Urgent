@@ -28,6 +28,9 @@
       <view class="cert-action" @click="goInterests"><text class="cert-action-icon">🎯</text><text class="cert-action-label">{{ $t('mine.actions.interests') }}</text><text class="cert-action-sub">{{ $t('mine.interestsSub') }}</text></view>
       <view class="cert-action" @click="goUpload"><text class="cert-action-icon">📜</text><text class="cert-action-label">{{ $t('mine.actions.uploadCert') }}</text><text class="cert-action-sub">{{ $t('mine.uploadCertSub') }}</text></view>
       <view class="cert-action" @click="goPushSettings"><text class="cert-action-icon">🔔</text><text class="cert-action-label">{{ $t('mine.actions.pushSettings') }}</text><text class="cert-action-sub">{{ $t('mine.pushSettingsSub') }}</text></view>
+      <!-- F4：「我的服务时长 / 我的服务证明」入口 —— 放在「我的」页，**不进 SOS 主流程**（PRD §8）。 -->
+      <view class="cert-action" @click="goHours"><text class="cert-action-icon">⏱</text><text class="cert-action-label">{{ $t('hours.title') }}</text></view>
+      <view class="cert-action" @click="goServiceCerts"><text class="cert-action-icon">📄</text><text class="cert-action-label">{{ $t('serviceCert.title') }}</text></view>
       <view v-if="user.isOrgManager" class="cert-action cert-action-mgr" @click="goOrg"><text class="cert-action-icon">🏢</text><text class="cert-action-label">{{ $t('mine.actions.org') }}</text><text class="cert-action-sub">{{ user.orgRoles[0]?.orgName }}</text></view>
     </view>
     <view class="cert-logout" @click="doLogout"><text>{{ $t('mine.logout') }}</text></view>
@@ -48,6 +51,8 @@
     <view class="cert-guest-links">
       <view class="cert-guest-link" @click="goAtlas">📖 {{ $t('mine.actions.manual') }}</view>
       <view class="cert-guest-link" @click="goVolunteer">🏆 {{ $t('mine.actions.leaderboard') }}</view>
+      <view class="cert-guest-link" @click="goHours">⏱ {{ $t('hours.title') }}</view>
+      <view class="cert-guest-link" @click="goServiceCerts">📄 {{ $t('serviceCert.title') }}</view>
     </view>
     </template>
 
@@ -126,6 +131,9 @@ function goInterests(){uni.navigateTo({url:'/pages/cert/interests'})}
 function goUpload(){uni.navigateTo({url:'/pages/cert/upload'})}
 function goChangePwd(){uni.navigateTo({url:'/pages/auth/change-pwd'})}
 function goPushSettings(){uni.navigateTo({url:'/pages/cert/push-settings'})}
+// F4：「我的服务时长」/「我的服务证明」入口（见模板注释）。
+function goHours(){uni.navigateTo({url:'/pages/volunteer/hours'})}
+function goServiceCerts(){uni.navigateTo({url:'/pages/volunteer/certificates'})}
 function goLogin(){uni.navigateTo({url:'/pages/auth/login'})}
 function doLogout(){authStore.logout();uni.showToast({title:t('mine.toastLoggedOut'),icon:'none'});setTimeout(()=>uni.reLaunch({url:'/pages/home/index'}),800)}
 // 原生导航栏标题随语言切换（P1b）。本页标题在 `pages.json` 里是「我的徽章」（非 custom 导航栏）。

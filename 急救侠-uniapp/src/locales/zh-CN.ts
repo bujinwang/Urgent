@@ -662,6 +662,9 @@ export default {
     generate: '生成证明',
     exportCsv: '导出 CSV',
     retry: '重试',
+    prev: '上一页',
+    next: '下一页',
+    page: '第 {page} 页',
     /** 分项来源（与后端 `activity_type` 取值一致）。P0 实际只有 `rescue_task`，布局须数据驱动。 */
     activity: {
       rescue_task: '救援任务',
@@ -694,5 +697,12 @@ export default {
     verifyRevoked: '该证明已作废',
     verifyNotFound: '未找到该编号对应的证明',
     verifyFailed: '验真失败',
+    rangeFrom: '起始日期',
+    rangeTo: '结束日期',
+    rangeHint: '格式 YYYY-MM-DD',
+    invalidRange: '日期格式或区间不正确',
+    listTitle: '我的证明',
+    verifyInputLabel: '证明编号',
+    printHint: '请在浏览器中打印',
   },
 }
