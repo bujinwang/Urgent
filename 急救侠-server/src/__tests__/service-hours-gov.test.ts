@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import request from 'supertest'
 import { server, seedTestData, userToken, seedGovViewer, db } from './setup'
-import { recordService } from '../services/serviceLog'
+import { recordService, purgeServiceLogs } from '../services/serviceLog'
 import type { ActivityType } from '../types'
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` })
@@ -121,5 +121,34 @@ describe('T05 · 政府看板 serviceHours（零 PII / 冷启动 null）', () =>
     expect(blob).not.toContain('user_001')
     expect(blob).not.toContain('陆远') // seedTestData 的 user_001 姓名
     expect(blob).not.toContain('phone')
+  })
+})
+
+describe('T05 · 台账保留期清理：只碰台账，★绝不碰证明（D7 权益凭证）', () => {
+  beforeEach(() => { seedTestData() })
+
+  it('purgeServiceLogs 清理旧台账，但证明记录仍在', () => {
+    recordService({
+      userId: 'user_001', activityType: 'rescue_task', sourceRef: 'old_ref',
+      startedAtMs: 1, endedAtMs: 1 + 30 * 60000, now: 1, // created_at_ms = 1（很久以前）
+    })
+    db.prepare(
+      `INSERT INTO service_certificates
+         (id, user_id, cert_no, period_from_ms, period_to_ms, total_minutes, breakdown_json, issued_at_ms, issued_by, status, revoked_at_ms, revoke_reason)
+       VALUES ('sc_keep','user_001','VS-KEEP',0,1,30,'[]',1,'self','active',NULL,'')`
+    ).run()
+
+    const affected = purgeServiceLogs(Date.now(), false) // cutoff = now ⇒ 旧台账应被清理
+    expect(affected).toBeGreaterThanOrEqual(1)
+    expect((db.prepare('SELECT COUNT(*) AS c FROM volunteer_service_logs').get() as { c: number }).c).toBe(0)
+    // ★ 证明记录**永不**被清理（权益凭证 D7）
+    expect((db.prepare("SELECT COUNT(*) AS c FROM service_certificates WHERE cert_no = 'VS-KEEP'").get() as { c: number }).c).toBe(1)
+  })
+
+  it('dryRun=true ⇒ 只报数、不删', () => {
+    recordService({ userId: 'user_001', activityType: 'rescue_task', sourceRef: 'old_ref2', startedAtMs: 1, endedAtMs: 1 + 10 * 60000, now: 1 })
+    const would = purgeServiceLogs(Date.now(), true)
+    expect(would).toBeGreaterThanOrEqual(1)
+    expect((db.prepare('SELECT COUNT(*) AS c FROM volunteer_service_logs').get() as { c: number }).c).toBe(1) // 未删
   })
 })
