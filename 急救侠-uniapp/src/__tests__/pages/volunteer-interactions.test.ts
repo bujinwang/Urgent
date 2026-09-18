@@ -196,4 +196,72 @@ describe('F4 T04 补缺 · volunteer 页交互路径', () => {
     expect(uni.navigateBack).not.toHaveBeenCalled()
     w.unmount()
   })
+
+  // ---- 加载失败态（**与空态可区分**；绝不静默落空态） ----
+  it('★ 加载失败（hours）⇒ 渲染失败态、且**不**渲染空态文案（否则用户误以为时长丢了）', async () => {
+    vi.mocked(getMyHours).mockRejectedValueOnce(new Error('net'))
+    const w = await mountHours(); await flushPromises()
+    expect(w.find('.hours-error').exists()).toBe(true)
+    expect(w.find('.hours-error-text').text()).toBe(messages['zh-CN'].hours.loadFailed)
+    expect(w.text(), '失败态不得落成空态').not.toContain(messages['zh-CN'].hours.empty)
+    w.unmount()
+  })
+
+  it('★ 调用点：点 hours 失败态「重试」⇒ 再次加载（getMyHours 第 2 次）；成功后失败态消失', async () => {
+    vi.mocked(getMyHours).mockRejectedValueOnce(new Error('net'))
+    const w = await mountHours(); await flushPromises()
+    expect(w.find('.hours-error').exists()).toBe(true)
+
+    vi.mocked(getMyHours).mockResolvedValueOnce({ totalMinutes: 0, breakdown: [], items: [], page: 1, pageSize: 20, total: 0 })
+    await w.find('.hours-error-retry').trigger('click')
+    await flushPromises()
+    expect(vi.mocked(getMyHours).mock.calls.length, '重试应再发一次请求').toBe(2)
+    expect(w.find('.hours-error').exists()).toBe(false)
+    w.unmount()
+  })
+
+  it('★ 两态可区分（hours）：无错误且无数据 ⇒ 空态（且无失败态）', async () => {
+    const w = await mountHours(); await flushPromises()
+    expect(w.find('.hours-error').exists()).toBe(false)
+    expect(w.find('.hours-empty').text()).toBe(messages['zh-CN'].hours.empty)
+    w.unmount()
+  })
+
+  it('★ 加载失败（certificates）⇒ 渲染失败态、且**不**渲染空态文案', async () => {
+    vi.mocked(listMyCertificates).mockRejectedValueOnce(new Error('net'))
+    const w = await mountCerts(); await flushPromises()
+    expect(w.find('.certs-error').exists()).toBe(true)
+    expect(w.find('.certs-error-text').text()).toBe(messages['zh-CN'].serviceCert.loadFailed)
+    expect(w.text(), '失败态不得落成空态').not.toContain(messages['zh-CN'].serviceCert.empty)
+    w.unmount()
+  })
+
+  it('★ 调用点：点 certificates 失败态「重试」⇒ 再次加载（listMyCertificates 第 2 次）', async () => {
+    vi.mocked(listMyCertificates).mockRejectedValueOnce(new Error('net'))
+    const w = await mountCerts(); await flushPromises()
+    expect(w.find('.certs-error').exists()).toBe(true)
+
+    vi.mocked(listMyCertificates).mockResolvedValueOnce([])
+    await w.find('.certs-error-retry').trigger('click')
+    await flushPromises()
+    expect(vi.mocked(listMyCertificates).mock.calls.length, '重试应再发一次请求').toBe(2)
+    expect(w.find('.certs-error').exists()).toBe(false)
+    w.unmount()
+  })
+
+  it('★ 两态可区分（certificates）：无错误且无数据 ⇒ 空态（且无失败态）；动作失败不把整页换成失败态', async () => {
+    const w = await mountCerts(); await flushPromises()
+    expect(w.find('.certs-error').exists()).toBe(false)
+    expect(w.find('.certs-empty').text()).toBe(messages['zh-CN'].serviceCert.empty)
+
+    // 「撤销失败」（actions 失败）不得让整页变成加载失败态（验证用了**局部** loadError 而非 store.error）
+    vi.mocked(listMyCertificates).mockResolvedValue([{ certNo: 'VS-R', periodFromMs: 0, periodToMs: 1, totalMinutes: 3, status: 'active', issuedAtMs: 1 }])
+    const w2 = await mountCerts(); await flushPromises()
+    vi.mocked(revokeCertificate).mockRejectedValueOnce(new Error('403'))
+    await w2.find('.certs-item-revoke').trigger('click')
+    await flushPromises()
+    expect(w2.find('.certs-error').exists(), '动作失败 ≠ 加载失败').toBe(false)
+    expect(w2.find('.certs-item').exists(), '列表内容应仍在').toBe(true)
+    w.unmount(); w2.unmount()
+  })
 })
