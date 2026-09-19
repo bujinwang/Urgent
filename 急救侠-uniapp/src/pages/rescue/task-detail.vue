@@ -32,6 +32,7 @@
 <script setup lang="ts">
 import { uniInputValue } from '@/types/uni-events'
 import { ref,onMounted,computed } from 'vue';import { useUserStore } from '@/stores/user';import { useTaskStore } from '@/stores/task';import { requestFull } from '@/api/index'
+import { onLoad } from '@dcloudio/uni-app'
 import { useI18n } from 'vue-i18n'
 import { notifyIfFailed, isForbidden, showToast } from '@/utils/action-feedback'
 const { t } = useI18n()
@@ -44,9 +45,41 @@ const progressPct=computed(()=>{if(!task.value||task.value.volunteersNeeded===0)
 function sceneLabel(s:string){return {outdoor:'户外',office:'办公',road:'道路'}[s]||s}
 function typeLabel(t:string){return {text:'💬',photo:'📸',video:'🎬',status:'📊'}[t]||t}
 
+/**
+ * 解析当前任务 id —— **三级回退**（优先级从高到低）。
+ *
+ * 1. `onLoad(options)` 的**路由参数**：**唯一的跳转来源** `pages/home/index.vue:408`
+ *    `uni.navigateTo({ url:'/pages/rescue/task-detail?id='+tid })` 的 `id` 在这里。
+ *
+ *    ⚠️ 原先**完全漏了这一级**：代码只读 `uni.getLaunchOptionsSync()`，而它返回的是
+ *    **App 启动参数**（scheme / 推送唤起），**不是** `navigateTo` 的路由参数 ⇒
+ *    `id` 被**静默丢弃**，页面永远落到 `ts.tasks[0]`（很可能是**别人**接的任务）。
+ *    叠加 P0-2 的「仅该任务参与者可见」后，用户从首页点进详情会直接吃一个莫名其妙的
+ *    403 —— 典型的「**既有 bug 被收紧放大**」。
+ *
+ * 2. `uni.getLaunchOptionsSync()?.query?.id`：推送 / scheme 唤起**确实**依赖它 ⇒ 必须保留。
+ * 3. `ts.tasks[0]`：最后的兜底（原逻辑）。
+ *
+ * ⚠️ 顺带划清边界：**不要**在这里（或 `onMounted` 里）自动调 `acceptMission()` 去"顺手取得
+ * 参与者资格" —— 后端 `/task/accept` 每调用一次 `task_volunteers.volunteers_responded + 1`
+ * （刻意保留的非幂等行为），用户每进一次详情页就要 +1，且离开页面资格也不成立。
+ */
+function resolveTaskId(routeOptions?: Record<string, unknown>): string {
+  const fromRoute = typeof routeOptions?.id === 'string' ? routeOptions.id : ''
+  if (fromRoute) return fromRoute
+  const fromLaunch = uni.getLaunchOptionsSync?.()?.query?.id || ''
+  if (fromLaunch) return fromLaunch
+  return ts.tasks[0]?.id || ''
+}
+
+// `onLoad` 在页面初始化时**先于** `onMounted` 触发 ⇒ 路由参数在此先落定
+onLoad((options?: Record<string, unknown>) => {
+  taskId.value = resolveTaskId(options)
+})
+
 onMounted(()=>{
-  taskId.value=uni.getLaunchOptionsSync?.()?.query?.id||''
-  if(!taskId.value){const t=ts.tasks[0];if(t)taskId.value=t.id}
+  // 兜底：`onLoad` 未提供路由参数（如 H5 直接打开 / 宿主未传参）⇒ 按同一套回退补齐
+  if(!taskId.value) taskId.value = resolveTaskId()
   loadTask();loadMedia()
 })
 async function loadTask(){const t=ts.tasks.find(t=>t.id===taskId.value);if(t)task.value=t}

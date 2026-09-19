@@ -23,6 +23,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
+import * as uniApp from '@dcloudio/uni-app'
 import { request, requestFull } from '@/api/index'
 import { i18n, setLocale } from '@/i18n'
 import { isForbidden } from '@/utils/action-feedback'
@@ -42,6 +43,14 @@ const REAL_JWT =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ1c2VyXzAwMSIsImlhdCI6MTcwMDAwMDAwMH0.9GkQ7Yb2cJ4f8pQd1sV2mZ3nH5rL6tK8wX0aB1cD2eF'
 
 const profileFixture = vi.hoisted(() => ({ current: {} as Record<string, unknown> }))
+/**
+ * 任务列表夹具。
+ *
+ * ⚠️ `stores/task.ts` 在 **store 创建时**就 `void refresh()`（自动拉列表）⇒ 直接给
+ * `store.tasks` 赋值会在下一次微任务被 **真实** `fetchTaskList()` 的结果覆盖掉。
+ * 故这里 mock `@/api/task`，让「兜底 ⇒ `ts.tasks[0]`」这一级有确定的真值。
+ */
+const taskListFixture = vi.hoisted(() => ({ current: [] as Array<Record<string, unknown>> }))
 
 // user store 首次创建会**异步**拉 profile；不 mock 的话 `request`(→null) 会把 profile 写坏。
 vi.mock('@/api/user', () => ({
@@ -55,8 +64,19 @@ vi.mock('@/api/org', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/org')>()),
   fetchUserOrgRoles: vi.fn(() => Promise.resolve([])),
 }))
+vi.mock('@/api/task', () => ({
+  mapRescueTask: (raw: any) => raw,
+  fetchActiveTask: vi.fn(() => Promise.resolve(null)),
+  fetchTaskList: vi.fn(() => Promise.resolve(taskListFixture.current)),
+  acceptTaskApi: vi.fn(() => Promise.resolve()),
+  arriveTaskApi: vi.fn(() => Promise.resolve()),
+  completeTaskApi: vi.fn(() => Promise.resolve()),
+  abandonTaskApi: vi.fn(() => Promise.resolve()),
+}))
 
 import { useUserStore } from '@/stores/user'
+import { useTaskStore } from '@/stores/task'
+import { acceptTaskApi } from '@/api/task'
 
 /** 页面 `<script setup>` 的内部状态（本文件通过 `wrapper.vm` 读写以驱动调用点）。 */
 type PageVM = Record<string, any>
@@ -460,6 +480,105 @@ describe('P0-2 前端收口 · 调用点守卫（401/403 不再静默 / 不再�
       expect(toastTitles()).toContain(gt('permission.taskParticipant.live'))
       expect(vm.isLive).toBe(true)
       expect(vm.liveId).toBe('live_1')
+      wrapper.unmount()
+    })
+  })
+
+  // =========================================================================
+  // E. pages/rescue/task-detail —— 路由参数解析（P0-2 追加：丢了 navigateTo 的 ?id=）
+  //
+  // 背景：`uni.getLaunchOptionsSync()` 返回的是 **App 启动参数**（scheme / 推送唤起），
+  // **不是** `uni.navigateTo({url:'...?id=tid'})` 的路由参数；后者走页面的 `onLoad(options)`。
+  // 唯一的跳转来源 `pages/home/index.vue:408` 用的正是 `navigateTo` ⇒ `id` 原先被**静默丢弃**，
+  // 页面永远显示 `ts.tasks[0]`（别人接的任务）。叠加「仅参与者可见」后 ⇒ 莫名其妙的 403。
+  // =========================================================================
+  describe('rescue/task-detail：taskId 三级回退（路由 > 启动参数 > store）', () => {
+    /**
+     * 让被 mock 的 `onLoad` **同步立即回调**（真实 uni-app 里 `onLoad` 早于 `onMounted`）。
+     *
+     * setup.ts 里的 `onLoad: vi.fn()` 不执行回调 ⇒ 不覆盖实现的话路由参数一级永远测不到。
+     */
+    function withRouteParams(options?: Record<string, unknown>): void {
+      vi.mocked(uniApp.onLoad).mockImplementation(((cb: (o?: Record<string, unknown>) => void) => {
+        cb(options)
+      }) as never)
+    }
+
+    /** `uni.getLaunchOptionsSync()`：模拟 App 启动参数（scheme / 推送唤起）。 */
+    function withLaunchQuery(query: Record<string, string> | undefined): void {
+      ;(uni as unknown as Record<string, unknown>).getLaunchOptionsSync =
+        vi.fn(() => (query ? { query } : {}))
+    }
+
+    /** 「最后兜底」那一级的可辨识真值。 */
+    const STORE_TASK: Record<string, unknown> = {
+      id: 'task_store', type: 'cpr', title: 'T', description: '', address: '',
+      distance: 0, lat: 0, lng: 0, volunteersNeeded: 1, volunteersResponded: 0,
+      volunteersEnRoute: 0, status: 'active', createdAt: '', sceneType: 'outdoor',
+    }
+
+    /** 让 `ts.tasks` 稳定等于 `[STORE_TASK]`（先落夹具，再 `refresh()`，避免被自动 refresh 覆盖）。 */
+    async function withStoreTask(): Promise<ReturnType<typeof useTaskStore>> {
+      taskListFixture.current = [{ ...STORE_TASK }]
+      const store = useTaskStore()
+      await store.refresh()
+      await flushPromises()
+      return store
+    }
+
+    async function mountWith(params: { route?: Record<string, unknown>; launch?: Record<string, string> }) {
+      await readyUser()
+      vi.mocked(uniApp.onLoad).mockClear()
+      withRouteParams(params.route)
+      withLaunchQuery(params.launch)
+      await withStoreTask()
+      const page = await import('@/pages/rescue/task-detail.vue')
+      const wrapper = mount(page.default)
+      await flushPromises()
+      return wrapper
+    }
+
+    it('★ 路由参数优先：navigateTo 的 ?id= 必须胜出（启动参数与 store 都不同值）', async () => {
+      const wrapper = await mountWith({ route: { id: 'task_route' }, launch: { id: 'task_launch' } })
+
+      expect((wrapper.vm as unknown as PageVM).taskId).toBe('task_route')
+      expect(vi.mocked(requestFull)).toHaveBeenCalledWith(
+        expect.objectContaining({ url: '/rescue/mobilizations/task_route/media' }),
+      )
+      wrapper.unmount()
+    })
+
+    it('★ 无路由参数 ⇒ 回落到 App 启动参数（scheme / 推送唤起场景不能丢）', async () => {
+      const wrapper = await mountWith({ launch: { id: 'task_launch' } })
+
+      expect((wrapper.vm as unknown as PageVM).taskId).toBe('task_launch')
+      expect(vi.mocked(requestFull)).toHaveBeenCalledWith(
+        expect.objectContaining({ url: '/rescue/mobilizations/task_launch/media' }),
+      )
+      wrapper.unmount()
+    })
+
+    it('★ 两者都无 ⇒ 兜底 `ts.tasks[0]`（原逻辑不得被改坏）', async () => {
+      const wrapper = await mountWith({})
+
+      expect((wrapper.vm as unknown as PageVM).taskId).toBe('task_store')
+      expect(vi.mocked(requestFull)).toHaveBeenCalledWith(
+        expect.objectContaining({ url: '/rescue/mobilizations/task_store/media' }),
+      )
+      wrapper.unmount()
+    })
+
+    it('★ 进入详情页**不得**自动接受任务（/task/accept 非幂等：每次 volunteers_responded +1）', async () => {
+      const store = await withStoreTask()
+      const acceptMission = vi.spyOn(store, 'acceptMission')
+      vi.mocked(acceptTaskApi).mockClear()
+      const wrapper = await mountWith({ route: { id: 'task_route' } })
+
+      // 进入详情页只是**读**：绝不能顺手 `/task/accept`（否则每进一次 +1，且资格语义也不对）
+      expect(acceptMission).not.toHaveBeenCalled()
+      expect(vi.mocked(acceptTaskApi)).not.toHaveBeenCalled()
+      expect(vi.mocked(uni.navigateTo)).not.toHaveBeenCalled()
+      expect(toastTitles()).toEqual([])
       wrapper.unmount()
     })
   })
