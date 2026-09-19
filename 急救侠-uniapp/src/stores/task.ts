@@ -174,6 +174,16 @@ export const useTaskStore = defineStore('task', () => {
     activeTask, tasks, missionAccepted, missionPhase,
     runningDistance, runningTimeRemaining, loading, error,
     hasMission, showConfirm, hideConfirm,
+    /**
+     * P0-2 追加导出 `reportAccept`（**接受显式 id**）。
+     *
+     * ⚠️ 为什么详情页必须用它、而不能用 `acceptMission()`：后者内部取的是
+     * `activeTask.value?.id`，而详情页展示的任务来自首页轮播卡片（公开任务池里的任意一条），
+     * **不保证等于 `activeTask`** ⇒ 要么**接错任务**，要么在 `activeTask` 为空时
+     * **静默什么都不做**（不抛错也不返回值 —— 正是"静默"类缺陷）。
+     * 语义不变：失败**不抛出**，只记 `error`（急救优先，归因失败不阻断导航）。
+     */
+    reportAccept,
     acceptMission, updateRunning, arrive, endService, abandonMission, finishMission, refresh,
   }
 })

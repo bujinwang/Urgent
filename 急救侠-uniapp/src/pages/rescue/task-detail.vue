@@ -21,6 +21,14 @@
       <image v-if="m.mediaUrl&&(m.type==='photo'||m.type==='video')" :src="m.mediaUrl" class="mm" mode="widthFix" @click="preview(m.mediaUrl)"/>
     </view>
 
+    <!-- ★ P0-2 追加：**非参与者**才出现的接单入口（信号 = `GET media` 返回 403）。
+         ⚠️ 只能由**显式点击**触发：`/task/accept` 非幂等（每次 volunteers_responded + 1），
+         放进 `onLoad`/`onMounted` 会自动、静默地污染计数。 -->
+    <view v-if="canAcceptTask" class="accept-bar">
+      <text class="accept-hint">{{t('permission.taskParticipant.accept.hint')}}</text>
+      <text class="accept-btn" @click="acceptTask">{{t('permission.taskParticipant.accept.cta')}}</text>
+    </view>
+
     <view class="pub">
       <input class="pi" :value="msg" @input="msg=uniInputValue($event)" placeholder="输入现场更新..."/>
       <text class="pb" @click="send">发送</text>
@@ -82,6 +90,43 @@ onMounted(()=>{
   if(!taskId.value) taskId.value = resolveTaskId()
   loadTask();loadMedia()
 })
+
+/**
+ * 接单状态：`idle` = 可点，`working` = 请求中（**防连点**），`done` = 已接过 ⇒ 不再出现。
+ *
+ * ⚠️ 一次性标志位不是"洁癖"：`/task/accept` 每调用一次 `volunteers_responded + 1`
+ * （刻意保留的非幂等），连点两下就把响应人数灌水了。
+ */
+const acceptState=ref<'idle'|'working'|'done'>('idle')
+/** ★ 只在**确认非参与者**时才出现（参与者永远看不到这个入口）。 */
+const canAcceptTask=computed(()=>mediaForbidden.value&&acceptState.value==='idle'&&!!taskId.value)
+
+/**
+ * 接受任务（取得该任务的参与者资格）。
+ *
+ * ⚠️ 为什么用 `ts.reportAccept(taskId.value)` 而**不是** `ts.acceptMission()`：
+ * `acceptMission()` 取的是 **store 的 `activeTask`**，而本页展示的任务来自首页轮播卡片
+ * （公开任务池里的任意一条）⇒ 两者**不保证相等**：用它要么**接错任务**，要么在
+ * `activeTask` 为空时**静默什么都不做**（不抛错、也不返回值 —— 典型的静默缺陷）。
+ */
+async function acceptTask(){
+  if(acceptState.value!=='idle')return
+  const id=taskId.value
+  if(!id)return
+  acceptState.value='working'
+  await ts.reportAccept(id)
+  // ★ `reportAccept` **吞掉异常**（急救优先）⇒ 绝不能用"调用没报错"当成功：
+  //   必须**重新拉一次** media / live，看服务端是否真的给了参与者身份。
+  await loadMedia();await loadLive()
+  if(mediaForbidden.value){
+    // 仍然 403 ⇒ 服务端没接上 ⇒ 明确说失败，并把按钮还原成可点，让用户能重试
+    acceptState.value='idle'
+    showToast(t('permission.taskParticipant.accept.failed'))
+    return
+  }
+  acceptState.value='done'
+  showToast(t('permission.taskParticipant.accept.ok'))
+}
 async function loadTask(){const t=ts.tasks.find(t=>t.id===taskId.value);if(t)task.value=t}
 /**
  * 拉取现场动态。
@@ -160,5 +205,8 @@ onMounted(()=>{loadLive()})
 .mi{padding:16rpx 20rpx;border-bottom:1px solid #eee}.mh{display:flex;align-items:center;gap:10rpx;margin-bottom:6rpx}.ma{width:40rpx;height:40rpx;border-radius:50%;background:#C0392B;display:flex;align-items:center;justify-content:center;font-size:20rpx;color:#fff}.mn{font-size:24rpx;font-weight:600}.mt{font-size:18rpx;color:var(--ink-mute);margin-left:auto}.mtm{font-size:18rpx;color:var(--ink-mute)}.mc{font-size:26rpx;display:block;margin-bottom:8rpx;line-height:1.5}.mm{width:100%;border-radius:12rpx}
 .pub{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;gap:12rpx;padding:12rpx 16rpx;background:#fff;border-top:1px solid #eee;box-shadow:0 -2rpx 12rpx rgba(0,0,0,.06)}.pi{flex:1;height:40px;border:1px solid #ddd;border-radius:20rpx;padding:0 16rpx;font-size:24rpx;background:#f5f5f5;box-sizing:border-box}.live-indicator{font-size:18rpx;color:#FF6B6B;background:rgba(255,107,107,.15);padding:2rpx 10rpx;border-radius:10rpx;margin-left:auto;flex-shrink:0}
 .pb{padding:10rpx 24rpx;background:#C0392B;color:#fff;border-radius:24rpx;font-size:24rpx;font-weight:600}.pc{font-size:36rpx}
+.accept-bar{margin:16rpx 20rpx;padding:20rpx 24rpx;background:#FFF7ED;border:1px solid #FCD9B6;border-radius:16rpx;display:flex;flex-direction:column;gap:14rpx}
+.accept-hint{font-size:22rpx;color:#8A5A2B;line-height:1.5}
+.accept-btn{align-self:flex-start;padding:14rpx 32rpx;background:#C0392B;color:#fff;border-radius:32rpx;font-size:24rpx;font-weight:700}
 .pl{padding:10rpx 16rpx;border-radius:24rpx;font-size:22rpx;font-weight:600;background:#f0f0f0;color:#666}.live-on{background:#E63946;color:#fff;animation:livePulse 2s infinite}@keyframes livePulse{0%,100%{opacity:1}50%{opacity:.6}}
 </style>

@@ -109,6 +109,55 @@ function mockModalConfirm(content: string, confirm = true): void {
   }) as never))
 }
 
+// ---------------------------------------------------------------------------
+// `pages/rescue/task-detail` 的宿主夹具（describe E / F 共用）
+// ---------------------------------------------------------------------------
+
+/**
+ * 让被 mock 的 `onLoad` **同步立即回调**（真实 uni-app 里 `onLoad` 早于 `onMounted`）。
+ *
+ * setup.ts 里的 `onLoad: vi.fn()` **不执行回调** ⇒ 不覆盖实现的话路由参数一级永远测不到。
+ */
+function withRouteParams(options?: Record<string, unknown>): void {
+  vi.mocked(uniApp.onLoad).mockImplementation(((cb: (o?: Record<string, unknown>) => void) => {
+    cb(options)
+  }) as never)
+}
+
+/** `uni.getLaunchOptionsSync()`：模拟 App 启动参数（scheme / 推送唤起）。 */
+function withLaunchQuery(query: Record<string, string> | undefined): void {
+  ;(uni as unknown as Record<string, unknown>).getLaunchOptionsSync =
+    vi.fn(() => (query ? { query } : {}))
+}
+
+/** 「最后兜底」那一级的可辨识真值。 */
+const STORE_TASK: Record<string, unknown> = {
+  id: 'task_store', type: 'cpr', title: 'T', description: '', address: '',
+  distance: 0, lat: 0, lng: 0, volunteersNeeded: 1, volunteersResponded: 0,
+  volunteersEnRoute: 0, status: 'active', createdAt: '', sceneType: 'outdoor',
+}
+
+/** 让 `ts.tasks` 稳定等于 `[STORE_TASK]`（先落夹具，再 `refresh()`，避免被自动 refresh 覆盖）。 */
+async function withStoreTask(): Promise<ReturnType<typeof useTaskStore>> {
+  taskListFixture.current = [{ ...STORE_TASK }]
+  const store = useTaskStore()
+  await store.refresh()
+  await flushPromises()
+  return store
+}
+
+async function mountWith(params: { route?: Record<string, unknown>; launch?: Record<string, string> }) {
+  await readyUser()
+  vi.mocked(uniApp.onLoad).mockClear()
+  withRouteParams(params.route)
+  withLaunchQuery(params.launch)
+  await withStoreTask()
+  const page = await import('@/pages/rescue/task-detail.vue')
+  const wrapper = mount(page.default)
+  await flushPromises()
+  return wrapper
+}
+
 describe('P0-2 前端收口 · 调用点守卫（401/403 不再静默 / 不再假成功）', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -493,51 +542,6 @@ describe('P0-2 前端收口 · 调用点守卫（401/403 不再静默 / 不再�
   // 页面永远显示 `ts.tasks[0]`（别人接的任务）。叠加「仅参与者可见」后 ⇒ 莫名其妙的 403。
   // =========================================================================
   describe('rescue/task-detail：taskId 三级回退（路由 > 启动参数 > store）', () => {
-    /**
-     * 让被 mock 的 `onLoad` **同步立即回调**（真实 uni-app 里 `onLoad` 早于 `onMounted`）。
-     *
-     * setup.ts 里的 `onLoad: vi.fn()` 不执行回调 ⇒ 不覆盖实现的话路由参数一级永远测不到。
-     */
-    function withRouteParams(options?: Record<string, unknown>): void {
-      vi.mocked(uniApp.onLoad).mockImplementation(((cb: (o?: Record<string, unknown>) => void) => {
-        cb(options)
-      }) as never)
-    }
-
-    /** `uni.getLaunchOptionsSync()`：模拟 App 启动参数（scheme / 推送唤起）。 */
-    function withLaunchQuery(query: Record<string, string> | undefined): void {
-      ;(uni as unknown as Record<string, unknown>).getLaunchOptionsSync =
-        vi.fn(() => (query ? { query } : {}))
-    }
-
-    /** 「最后兜底」那一级的可辨识真值。 */
-    const STORE_TASK: Record<string, unknown> = {
-      id: 'task_store', type: 'cpr', title: 'T', description: '', address: '',
-      distance: 0, lat: 0, lng: 0, volunteersNeeded: 1, volunteersResponded: 0,
-      volunteersEnRoute: 0, status: 'active', createdAt: '', sceneType: 'outdoor',
-    }
-
-    /** 让 `ts.tasks` 稳定等于 `[STORE_TASK]`（先落夹具，再 `refresh()`，避免被自动 refresh 覆盖）。 */
-    async function withStoreTask(): Promise<ReturnType<typeof useTaskStore>> {
-      taskListFixture.current = [{ ...STORE_TASK }]
-      const store = useTaskStore()
-      await store.refresh()
-      await flushPromises()
-      return store
-    }
-
-    async function mountWith(params: { route?: Record<string, unknown>; launch?: Record<string, string> }) {
-      await readyUser()
-      vi.mocked(uniApp.onLoad).mockClear()
-      withRouteParams(params.route)
-      withLaunchQuery(params.launch)
-      await withStoreTask()
-      const page = await import('@/pages/rescue/task-detail.vue')
-      const wrapper = mount(page.default)
-      await flushPromises()
-      return wrapper
-    }
-
     it('★ 路由参数优先：navigateTo 的 ?id= 必须胜出（启动参数与 store 都不同值）', async () => {
       const wrapper = await mountWith({ route: { id: 'task_route' }, launch: { id: 'task_launch' } })
 
@@ -579,6 +583,137 @@ describe('P0-2 前端收口 · 调用点守卫（401/403 不再静默 / 不再�
       expect(vi.mocked(acceptTaskApi)).not.toHaveBeenCalled()
       expect(vi.mocked(uni.navigateTo)).not.toHaveBeenCalled()
       expect(toastTitles()).toEqual([])
+      wrapper.unmount()
+    })
+  })
+
+  // =========================================================================
+  // F. pages/rescue/task-detail —— 「接受任务」入口（用户拍板新增的产品入口）
+  //
+  // 三个硬性约束，每条都有对应用例 + 突变：
+  // 1. 只在**确认非参与者**时出现（`GET media` 403）⇒ 参与者看不到；
+  // 2. **只能显式点击**（一次性标志位防连点）—— `/task/accept` 非幂等（每次 +1）；
+  // 3. 必须用**本页 taskId** 调 `reportAccept()`，**不能用** `acceptMission()`
+  //    （后者取 `store.activeTask`，与首页轮播传来的 taskId **不必相等** ⇒ 接错任务 / 静默无动作）；
+  // 4. `reportAccept()` 吞异常 ⇒ 必须**重拉 media/live 复验**，不能"没报错就算成功"。
+  // =========================================================================
+  describe('rescue/task-detail：接受任务入口（显式点击 + 用本页 taskId）', () => {
+    const MEDIA_ITEM = { id: 'm1', userName: '先行者', type: 'text', content: '已到达现场' }
+    /** 关键夹具：**store 的 activeTask ≠ 详情页的 taskId**（首页轮播是公开任务池）。 */
+    const ACTIVE_TASK_ID = 'task_active'
+
+    interface MountOpts {
+      /** 点击后服务端是否真的给了参与者身份（默认：给了）。 */
+      grantParticipation?: boolean
+      /** 是否把 `store.activeTask` 设成**另一条**任务（用于 N2「接错任务」突变）。 */
+      withDifferentActiveTask?: boolean
+    }
+
+    async function mountNonParticipant(opts: MountOpts = {}) {
+      const grant = opts.grantParticipation !== false
+      await readyUser()
+      vi.mocked(uniApp.onLoad).mockClear()
+      withRouteParams({ id: 'task_route' })
+      withLaunchQuery(undefined)
+      const store = await withStoreTask()
+      if (opts.withDifferentActiveTask) {
+        store.activeTask = { ...STORE_TASK, id: ACTIVE_TASK_ID } as never
+      }
+      let accepted = false
+      vi.mocked(requestFull).mockImplementation((async (o: { url?: string }) => {
+        // 接受之前：media / live 一律 403（非参与者）；接受之后恢复正常
+        if (o.url?.includes('/media') || o.url?.includes('/live/')) {
+          return accepted ? OK([{ ...MEDIA_ITEM }]) : FORBIDDEN
+        }
+        return OK()
+      }) as never)
+      vi.mocked(acceptTaskApi).mockClear()
+      vi.mocked(acceptTaskApi).mockImplementation((async () => { accepted = grant }) as never)
+
+      const page = await import('@/pages/rescue/task-detail.vue')
+      const wrapper = mount(page.default)
+      await flushPromises()
+      return wrapper
+    }
+
+    it('★ 非参与者（media 403）⇒ 显示「接受任务」入口', async () => {
+      const wrapper = await mountNonParticipant()
+
+      expect(wrapper.find('.accept-btn').exists()).toBe(true)
+      expect(wrapper.find('.accept-hint').text()).toBe(gt('permission.taskParticipant.accept.hint'))
+      expect(wrapper.find('.accept-btn').text()).toBe(gt('permission.taskParticipant.accept.cta'))
+      wrapper.unmount()
+    })
+
+    it('★ 参与者（media 200）⇒ **不**显示「接受任务」入口', async () => {
+      await readyUser()
+      withRouteParams({ id: 'task_route' })
+      withLaunchQuery(undefined)
+      await withStoreTask()
+      vi.mocked(requestFull).mockResolvedValue(OK([{ ...MEDIA_ITEM }]))
+      vi.mocked(acceptTaskApi).mockClear()
+      const page = await import('@/pages/rescue/task-detail.vue')
+      const wrapper = mount(page.default)
+      await flushPromises()
+
+      expect(wrapper.find('.accept-btn').exists()).toBe(false)
+      expect(vi.mocked(acceptTaskApi)).not.toHaveBeenCalled()
+      wrapper.unmount()
+    })
+
+    it('★★ 接受任务必须用**本页 taskId**（store.activeTask 是另一条任务 ⇒ 不得接错）', async () => {
+      const wrapper = await mountNonParticipant({ withDifferentActiveTask: true })
+      expect((wrapper.vm as unknown as PageVM).taskId).toBe('task_route')
+
+      await wrapper.find('.accept-btn').trigger('click')
+      await flushPromises()
+
+      const args = vi.mocked(acceptTaskApi).mock.calls
+      expect(args.length).toBeGreaterThan(0)
+      expect(args[0][0]).toBe('task_route')
+      // ★ 绝不能出现 `acceptMission()` 的行为：拿 activeTask 去接 ⇒ 接了别的任务
+      for (const call of args) expect(call[0]).not.toBe(ACTIVE_TASK_ID)
+      wrapper.unmount()
+    })
+
+    it('★ 接单成功 ⇒ 重拉 media/live 验证资格，按钮消失、列表可读', async () => {
+      const wrapper = await mountNonParticipant()
+      await wrapper.find('.accept-btn').trigger('click')
+      await flushPromises()
+
+      const mediaCalls = vi.mocked(requestFull).mock.calls
+        .filter((c) => (c[0] as { url?: string }).url?.includes('/media'))
+      // 进一次 + 接单后复验一次 ⇒ 至少 2 次（★ 没有这次复验就无法确认服务端真的给了资格）
+      expect(mediaCalls.length).toBeGreaterThanOrEqual(2)
+      expect((wrapper.vm as unknown as PageVM).mediaList).toEqual([MEDIA_ITEM])
+      expect((wrapper.vm as unknown as PageVM).mediaForbidden).toBe(false)
+      expect(wrapper.find('.accept-btn').exists()).toBe(false)
+      expect(toastTitles()).toContain(gt('permission.taskParticipant.accept.ok'))
+      wrapper.unmount()
+    })
+
+    it('★ 服务端没给资格（仍 403）⇒ 明确提示「接单失败」且按钮可重试（不静默）', async () => {
+      const wrapper = await mountNonParticipant({ grantParticipation: false })
+
+      await wrapper.find('.accept-btn').trigger('click')
+      await flushPromises()
+
+      expect(toastTitles()).toContain(gt('permission.taskParticipant.accept.failed'))
+      expect((wrapper.vm as unknown as PageVM).mediaForbidden).toBe(true)
+      // 不能消失（否则用户没有任何重试路径）
+      expect(wrapper.find('.accept-btn').exists()).toBe(true)
+      wrapper.unmount()
+    })
+
+    it('★ 连点只算一次（/task/accept 非幂等：每次 volunteers_responded +1）', async () => {
+      const wrapper = await mountNonParticipant()
+      const vm = wrapper.vm as unknown as PageVM
+
+      vm.acceptTask()
+      await vm.acceptTask()
+      await flushPromises()
+
+      expect(vi.mocked(acceptTaskApi)).toHaveBeenCalledTimes(1)
       wrapper.unmount()
     })
   })

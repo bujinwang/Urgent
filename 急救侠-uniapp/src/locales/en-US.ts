@@ -33,6 +33,12 @@ export default {
       readMedia: 'Only volunteers taking part in this task can view live updates',
       writeMedia: 'Only volunteers taking part in this task can post live updates',
       live: 'Only volunteers taking part in this task can start or end the live stream',
+      accept: {
+        hint: 'You are not taking part in this task yet — accept it to view and post live updates',
+        cta: 'Accept task',
+        ok: 'Task accepted',
+        failed: 'Could not accept the task. Please try again.',
+      },
     },
   },
 
