@@ -652,6 +652,22 @@ export function initDb(options: { silent?: boolean } = {}) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- ★ P1-4：点赞/播放去重表。同一用户对同一视频只记一行（主键去重），
+    -- 配合 INSERT OR IGNORE 让 /:id/like、/:id/view 幂等，避免「实名可刷」。
+    CREATE TABLE IF NOT EXISTS video_likes (
+      user_id TEXT NOT NULL,
+      video_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, video_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS video_views (
+      user_id TEXT NOT NULL,
+      video_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, video_id)
+    );
+
     CREATE TABLE IF NOT EXISTS public_inquiries (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL DEFAULT '',

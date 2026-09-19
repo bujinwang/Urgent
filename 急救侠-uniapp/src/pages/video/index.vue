@@ -214,8 +214,10 @@ function goProfile(userId?:string){
  */
 async function recordView(v:any){
   if(!v?.id)return
+  if(v.viewed)return   // ★ P1-4：本会话已记过播放 ⇒ 不再乐观自增（后端幂等，重复播放不计）
   const res=await requestFull({url:`/video/${v.id}/view`,method:'POST'})
   if(res?.code!==0)return
+  v.viewed=true
   v.viewCount=(v.viewCount||0)+1
 }
 /**
@@ -226,6 +228,7 @@ async function recordView(v:any){
  */
 async function doLike(v:any){
   if(!v?.id)return
+  if(v.liked)return   // ★ P1-4：已赞 ⇒ 不再重复乐观自增（后端幂等，重复点击不计）
   const res=await requestFull({url:`/video/${v.id}/like`,method:'POST'})
   if(notifyIfFailed(res))return
   v.likeCount=(v.likeCount||0)+1;v.liked=true

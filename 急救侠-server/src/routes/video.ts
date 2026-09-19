@@ -116,23 +116,27 @@ videoRouter.post('/', authMiddleware, (req, res) => {
 
 // ★ P0-2：此前**不鉴权** ⇒ 匿名可无限刷播放量（`view_count` 是推荐排序权重之一，
 // 见 `/recommend` 的 score 公式 ⇒ 可把任意视频刷上榜）。现加登录门槛。
-// ⚠️ P1 待办：本批次**只加登录门槛**，**未做**「同一用户对同一视频只计一次」的去重
-// （需要新增 `video_likes(user_id, video_id)` 唯一表 ⇒ 属 P1）。因此**已登录用户仍可重复刷**
-// 播放量/点赞数，只是从「匿名无限刷」收敛为「实名可刷、可追溯」。
+// ★ P1-4：播放去重 —— 同一用户对同一视频只计一次（`video_views` 主键 + INSERT OR IGNORE），
+// 从「匿名无限刷」彻底收敛为「实名、可追溯、不可刷」。
 videoRouter.post('/:id/view', authMiddleware, (req, res) => {
   try {
     const userId = identityOf(req)
     if (!userId) return res.status(401).json(error('未登录'))
-    db.prepare('UPDATE video_posts SET view_count=view_count+1 WHERE id=?').run(req.params.id); res.json(success(null))
+    const info = db.prepare('INSERT OR IGNORE INTO video_views (user_id, video_id) VALUES (?,?)').run(userId, req.params.id)
+    if (info.changes > 0) db.prepare('UPDATE video_posts SET view_count=view_count+1 WHERE id=?').run(req.params.id)
+    res.json(success(null))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 
-// ★ P0-2：同上（匿名刷点赞数 ⇒ 数据造假）。去重属 P1，见上方 `/:id/view` 注释。
+// ★ P0-2：同上（匿名刷点赞数 ⇒ 数据造假）。
+// ★ P1-4：点赞去重 —— 同一用户对同一视频只计一次（`video_likes` 主键 + INSERT OR IGNORE），幂等。
 videoRouter.post('/:id/like', authMiddleware, (req, res) => {
   try {
     const userId = identityOf(req)
     if (!userId) return res.status(401).json(error('未登录'))
-    db.prepare('UPDATE video_posts SET like_count=like_count+1 WHERE id=?').run(req.params.id); res.json(success(null))
+    const info = db.prepare('INSERT OR IGNORE INTO video_likes (user_id, video_id) VALUES (?,?)').run(userId, req.params.id)
+    if (info.changes > 0) db.prepare('UPDATE video_posts SET like_count=like_count+1 WHERE id=?').run(req.params.id)
+    res.json(success(null))
   } catch (e: any) { res.status(500).json(error(e.message)) }
 })
 

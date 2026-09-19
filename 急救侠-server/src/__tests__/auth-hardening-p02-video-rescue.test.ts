@@ -962,3 +962,46 @@ describe('P0-2 · 跨仓库 403 契约：权限拒绝必须落在 HTTP 状态上
     expect(res.body.code).not.toBe(403)
   })
 })
+
+/* ════════════════════════════════════════════════════════════════
+ * P1-4 · video 点赞/播放去重（幂等）
+ *
+ * 覆盖：同一用户对同一视频只计一次（`video_likes` / `video_views` 主键 + `INSERT OR IGNORE`）。
+ * 突变锁定：把 `/:id/like`、`/:id/view` 的「`INSERT OR IGNORE … if (info.changes>0) 才 +1`」
+ * 改回「无条件 UPDATE +1」⇒ 下列「同人连点两次 ⇒ 计数仍 1」用例必须变红。
+ * ════════════════════════════════════════════════════════════════ */
+describe('P1-4 · video 点赞/播放去重（幂等）', () => {
+  beforeEach(() => {
+    addVideoPost('vp_dedup', 'rescue')
+  })
+
+  it('★ 同人对同一视频连点两次点赞 ⇒ like_count 仍为 1（去重生效）', async () => {
+    const auth = tk('u_alice')
+    await request(server).post('/api/video/vp_dedup/like').set('Authorization', auth)
+    await request(server).post('/api/video/vp_dedup/like').set('Authorization', auth)
+    const row = db.prepare('SELECT like_count FROM video_posts WHERE id=?').get('vp_dedup') as { like_count: number }
+    expect(row.like_count).toBe(1)
+    const likes = db.prepare('SELECT COUNT(*) AS c FROM video_likes WHERE video_id=?').get('vp_dedup') as { c: number }
+    expect(likes.c).toBe(1)
+  })
+
+  it('★ 同人对同一视频连点两次播放 ⇒ view_count 仍为 1（去重生效）', async () => {
+    const auth = tk('u_alice')
+    await request(server).post('/api/video/vp_dedup/view').set('Authorization', auth)
+    await request(server).post('/api/video/vp_dedup/view').set('Authorization', auth)
+    const row = db.prepare('SELECT view_count FROM video_posts WHERE id=?').get('vp_dedup') as { view_count: number }
+    expect(row.view_count).toBe(1)
+  })
+
+  it('★ 不同用户各点赞一次 ⇒ like_count = 2（按人计数，不互相覆盖）', async () => {
+    await request(server).post('/api/video/vp_dedup/like').set('Authorization', tk('u_alice'))
+    await request(server).post('/api/video/vp_dedup/like').set('Authorization', tk('u_bob'))
+    const row = db.prepare('SELECT like_count FROM video_posts WHERE id=?').get('vp_dedup') as { like_count: number }
+    expect(row.like_count).toBe(2)
+  })
+
+  it('★ 无 token 点赞 ⇒ 401（P0-2 登录门槛不回退）', async () => {
+    const res = await request(server).post('/api/video/vp_dedup/like')
+    expect(res.status).toBe(401)
+  })
+})

@@ -399,6 +399,35 @@ describe('P0-2 前端收口 · 调用点守卫（401/403 不再静默 / 不再�
       expect(vm.videos[0].viewCount).toBe(7)
       wrapper.unmount()
     })
+
+    it('★ P1-4：已赞后再次 doLike ⇒ 不重复乐观自增（后端幂等，前端须同步）', async () => {
+      const wrapper = await mountVideo()
+      const vm = wrapper.vm as unknown as PageVM
+      vm.videos = [{ id: 'v1', likeCount: 3, viewCount: 1, liked: true }]
+      vi.mocked(requestFull).mockResolvedValue(OK(null))
+
+      await vm.doLike(vm.videos[0])
+      await flushPromises()
+
+      expect(vm.videos[0].likeCount).toBe(3)   // ★ 不 +1
+      expect(vm.videos[0].liked).toBe(true)
+      expect(vi.mocked(requestFull)).not.toHaveBeenCalled()  // 已赞 ⇒ 不发请求
+      wrapper.unmount()
+    })
+
+    it('★ P1-4：已观看后再次 recordView ⇒ 不重复乐观自增（后端幂等）', async () => {
+      const wrapper = await mountVideo()
+      const vm = wrapper.vm as unknown as PageVM
+      vm.videos = [{ id: 'v1', viewCount: 7, viewed: true }]
+      vi.mocked(requestFull).mockResolvedValue(OK(null))
+
+      await vm.recordView(vm.videos[0])
+      await flushPromises()
+
+      expect(vm.videos[0].viewCount).toBe(7)   // ★ 不 +1
+      expect(vi.mocked(requestFull)).not.toHaveBeenCalled()
+      wrapper.unmount()
+    })
   })
 
   // =========================================================================
