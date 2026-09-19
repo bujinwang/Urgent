@@ -416,10 +416,10 @@ node scripts/smoke.mjs --base https://<域名>     # 生产（不跳过 TLS 校�
   （或让 `fetchProfile` 自身兜底）。
 - **发现者**：F4 T04 的实现方 —— **报告但未顺手改**（纪律正确：不在本任务范围，且改动面大）。
 
-**② `org_id` 从未写入台账**（F4 设计 D-7）
-`closeServiceForUser()` → `recordService()` **不传 `orgId`** ⇒ `volunteer_service_logs.org_id` 恒为空串。
-后果：机构汇总只能退化为"按成员"口径（同一人的时长会在其**每个所属机构**报表里各出现一次）。
-政府侧若要求"不重复"，须先写入 `org_id` —— 已记为 **F4 设计 §9 的 D-7（P1/另立）**。
+**② `org_id` 从未写入台账**（F4 设计 D-7）　✅ **已闭环（`63dd7c9` + `f069408`，均已 on origin/main）**
+`resolveUserOrgId(userId)` 从 `organization_members` **唯一推导**机构归属（admin/manager 优先 → 最早加入 → 无机构 `''`），**绝不**信请求体（防伪造把时长记到别家机构）；
+`closeServiceForUser()` 现经 `recordService({ orgId: resolveUserOrgId(userId) })` 落库；迁移 `047_backfill_service_log_org_id` 回填旧行（同一规则，不翻倍）。
+⇒ 机构汇总不再退化为"按成员"口径。`org-caliber-d7.test.ts`（7 例）+ `service-hours-gov.test.ts`（D-7 聚合口径）全绿。**本段原为"待派/另立"，系快照滞后，勿再当待办。**
 
 ---
 

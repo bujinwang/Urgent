@@ -406,8 +406,10 @@ export default {
     /** 地图浮标：`{count} 台 AED 在附近`。 */
     nearby: '{count} 台 AED 在附近',
     radarTitle: '🔭 附近雷达',
-    /** AED 状态标签（`status`：available / maintenance / in_use；本页把非 available 一律显示"维护中"）。 */
-    status: { available: '可用', maintenance: '维护中' },
+    /** 真地图加载占位（无 Key / SDK 失败时不显示，直接回落草图，PRD D3）。 */
+    mapLoading: '地图加载中…',
+    /** AED 状态标签（status：available / in_use / maintenance —— 三值必须有确定输出，见 `utils/map/status.ts`）。 */
+    status: { available: '可用', inUse: '使用中', maintenance: '维护中' },
     viewDetail: '查看详情',
     checkIn: '📸 打卡',
     /** 地点标签：`indoor` 为 false 时显示。 */

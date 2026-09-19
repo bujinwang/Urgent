@@ -40,8 +40,14 @@
 
     <!-- 地图区域 -->
     <view class="aed-map-area">
-      <!-- 草地质感地图 -->
-      <view class="aed-map-grass">
+      <!-- 真地图（PRD D2/D3）：有 Key 且 SDK 加载成功才渲染；否则/加载失败 → fallback 回落草图 -->
+      <MapCanvas
+        v-if="showRealMap"
+        :devices="aedStore.nearbyAeds"
+        @fallback="showRealMap = false"
+      />
+      <!-- 草地质感地图（无 Key 时的降级图） -->
+      <view v-else class="aed-map-grass">
         <view class="aed-map-grid" />
         <view class="aed-map-user-pin">
           <view class="aed-map-user-avatar">{{ user.profile.avatar }}</view>
@@ -52,7 +58,12 @@
           v-for="aed in aedStore.nearbyAeds"
           :key="aed.id"
           class="aed-map-pokestop"
-          :class="{ discovered: aed.discovered, verified: aed.verified, maintenance: aed.status === 'maintenance' }"
+          :class="{
+            discovered: aed.discovered,
+            verified: aed.verified,
+            maintenance: aed.status === 'maintenance',
+            in_use: aed.status === 'in_use',
+          }"
           :style="aedPinStyle(aed)"
           @click="showAedDetail(aed)"
         >
@@ -93,7 +104,7 @@
             <text class="aed-radar-addr">{{ aed.address }}</text>
           </view>
           <view class="aed-radar-status" :class="aed.status">
-            <text>{{ statusLabel(aed.status) }}</text>
+            <text>{{ aedStatusLabel(aed.status) }}</text>
           </view>
         </view>
       </view>
@@ -105,7 +116,7 @@
         <view class="aed-preview-handle" />
         <view class="aed-preview-photo">
           <image :src="previewAed.photo" mode="aspectFill" class="aed-preview-photo-img" />
-          <view class="aed-preview-photo-badge" :class="previewAed.status">{{ statusLabel(previewAed.status) }}</view>
+          <view class="aed-preview-photo-badge" :class="previewAed.status">{{ aedStatusLabel(previewAed.status) }}</view>
         </view>
         <text class="aed-preview-name">{{ previewAed.name }}</text>
         <text class="aed-preview-addr">{{ previewAed.address }}</text>
@@ -134,6 +145,9 @@ import { useAedStore } from '@/stores/aed'
 import { useUserStore } from '@/stores/user'
 import { i18n } from '@/i18n'
 import { useLocalizedNavTitle } from '@/utils/nav-title-locale'
+import MapCanvas from '@/pages/aed/MapCanvas.vue'
+import { isMapEnabled } from '@/utils/map/adapter'
+import { aedStatusLabel } from '@/utils/map/status'
 import type { AedDevice } from '@/api/aed'
 
 /**
@@ -145,6 +159,13 @@ import type { AedDevice } from '@/api/aed'
 const aedStore = useAedStore()
 const user = useUserStore()
 const previewAed = ref<AedDevice | null>(null)
+
+/**
+ * 真地图是否启用（PRD D3 降级判定）。
+ * `isMapEnabled()` 同步读取 `VITE_AMAP_KEY`：无 Key ⇒ false ⇒ 渲染草图降级图，绝不白屏/阻塞。
+ * `MapCanvas` 在 Key 存在但 SDK 加载失败时也会 emit('fallback')，届时回落草图。
+ */
+const showRealMap = ref(isMapEnabled())
 
 // --- i18n ---
 /**
@@ -174,10 +195,11 @@ const tierLabel = computed<string>(() => {
   return labels[user.profile.tier] || ''
 })
 
-/** AED 状态标签：仅 `available` 显示"可用"，其余（maintenance / in_use）沿用原逻辑显示"维护中"。 */
-function statusLabel(status: AedDevice['status']): string {
-  return status === 'available' ? t('aed.status.available') : t('aed.status.maintenance')
-}
+/**
+ * AED 状态标签 —— 改用唯一权威映射 `aedStatusLabel`（PRD D5）。
+ * 旧 `statusLabel` 只特判 available，导致 `in_use` 渲染成"维护中"（PRD §1.2 bug）；
+ * 现三值封闭映射，随语言切换。
+ */
 
 /** 计算 AED Pin 在地图上的位置（基于简单坐标系模拟） */
 const pinMap = new Map<string, { x: number; y: number }>([
@@ -427,6 +449,16 @@ function goHome() {
   background: rgba(255, 107, 91, 0.2);
   border-color: rgba(255, 107, 91, 0.4);
 }
+.aed-map-pokestop.in_use .aed-pin-icon {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+.aed-map-pokestop.in_use .aed-pin-ring {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+.aed-map-pokestop.in_use .aed-pin-ring-2 {
+  border-color: rgba(245, 158, 11, 0.2);
+}
 .aed-pin-ring {
   position: absolute;
   width: 96rpx;
@@ -565,6 +597,7 @@ function goHome() {
   font-weight: 600;
   flex-shrink: 0;
   &.available { background: rgba(52, 210, 119, 0.15); color: #34D277; }
+  &.in_use { background: rgba(245, 158, 11, 0.15); color: #F59E0B; }
   &.maintenance { background: rgba(255, 107, 91, 0.15); color: #FF6B5B; }
 }
 
@@ -617,6 +650,7 @@ function goHome() {
   font-size: 20rpx;
   font-weight: 700;
   &.available { background: rgba(52, 210, 119, 0.9); color: #fff; }
+  &.in_use { background: rgba(245, 158, 11, 0.9); color: #fff; }
   &.maintenance { background: rgba(255, 107, 91, 0.9); color: #fff; }
 }
 .aed-preview-name {
