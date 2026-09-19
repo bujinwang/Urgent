@@ -120,6 +120,17 @@ function isOrgManagerOf(callerId: string, targetUserId: string): boolean {
  * > 参与表。禁止只看路由路径字面（`.../mobilizations/...`）就推断 id 空间 ——
  * > 本文件的路由路径写作 `mobilizations`，实际流量却是 `tasks`，正是这条规矩的反例。
  */
+/**
+ * ★ P1-6（产品决策 A，2026-09-19）：动员发起人 **不等于** 任务参与者 —— 这是**预期行为**，不是 bug。
+ *
+ * 本函数是 4 分支并集：平台管理员 ∪ 动员发起者(leader_id) ∪ 动员志愿者 ∪ **任务**志愿者。
+ * 动员（emergency_mobilizations）与任务（tasks）在 schema 上是两个独立实体，各自有参与表
+ * （mobilization_volunteers / task_volunteers）。因此「发起动员的人」不会自动获得其动员下
+ * 任务的参与者权限——除非他另行**接受任务**（写入 task_volunteers）。
+ *
+ * 若未来产品要把「动员发起人 = 任务参与者」设为 true，需要 schema 改动（tasks 加 mobilization_id
+ * FK 或建统一参与者视图），**不是改这一个布尔判据能解决的**。改动前务必先与产品确认，勿"顺手修"。
+ */
 function isMobilizationParticipant(taskId: string, callerId: string): boolean {
   if (!taskId || !callerId) return false
   if (isPlatformAdmin(callerId)) return true
