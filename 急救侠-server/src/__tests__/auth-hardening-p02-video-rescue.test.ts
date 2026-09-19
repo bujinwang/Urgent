@@ -846,6 +846,63 @@ describe('P0-2 · /live/end/:sessionId：按 session 归属判定（不经 taskI
   })
 })
 
+/* ═══════════ D. 参与者判据一致性：五个端点必须同判 ═══════════ */
+
+/**
+ * ★ 判据一致性守卫（team-lead 裁决选项 C 的落地形态）。
+ *
+ * 背景：本文件对「参与者」的判定**只有 `isMobilizationParticipant` 一个实现**，
+ * 五个受保护端点（读 3 + 写 2）全部调用它。但这类"多端点共用一个判据"的结构
+ * 有个典型退化方式：**某个端点被单独换成另一套判据**（例如只查 `task_volunteers`），
+ * 于是同一个人、同一个页面，A 端点放行、B 端点被拒 —— 而每个端点的单测**仍然全绿**。
+ *
+ * ⇒ 本组用例不测"某个端点对不对"，而测**五个端点对同一个 (taskId, 调用者) 的判定是否一致**，
+ * 这是单点用例咬不住的横切性质。
+ *
+ * ⚠️ 并集判据**不是**"两表都可能为真"的模糊性：`mob_*` 与 `task_*` 是**两个不相交的 id 空间**
+ * （`mobilization_volunteers.mobilization_id` 有 FK→`emergency_mobilizations`；
+ * `task_volunteers.task_id` 有 FK→`tasks`），对**给定的一个** taskId，能命中的分支是确定的。
+ * 并集的语义是"覆盖两个 id 空间"，不是"二选一皆可"。
+ */
+describe('P0-2 · 参与者判据一致性：同一 (taskId, 调用者) 下五个端点必须同判', () => {
+  beforeEach(() => {
+    addMobilization('mob_1', '某救援动员', 'u_alice')
+    addMobilizationVolunteer('mob_1', 'u_bob')
+    addTaskVolunteer('task_001', 'u_dave')
+  })
+
+  /** 五个受保护端点（读 3 + 写 2），以同一个 taskId 探测，返回各自 HTTP 状态。 */
+  async function probeAll(taskId: string, userId: string): Promise<number[]> {
+    const token = tk(userId)
+    const responses = await Promise.all([
+      request(server).get(`/api/rescue/mobilizations/${taskId}/media`).set('Authorization', token),
+      request(server).get(`/api/rescue/mobilizations/${taskId}/volunteers`).set('Authorization', token),
+      request(server).get(`/api/rescue/live/${taskId}`).set('Authorization', token),
+      request(server).post(`/api/rescue/mobilizations/${taskId}/media`).set('Authorization', token).send({ content: 'x' }),
+      request(server).post(`/api/rescue/live/${taskId}/start`).set('Authorization', token),
+    ])
+    return responses.map((r) => r.status)
+  }
+
+  const MATRIX: Array<{ label: string; taskId: string; userId: string; expected: number }> = [
+    // ---- task_001（`tasks.id` 空间）----
+    { label: 'tasks 空间 + 已接受任务者 ⇒ 五个端点一致放行', taskId: 'task_001', userId: 'u_dave',  expected: 200 },
+    { label: 'tasks 空间 + 仅动员发起者（未接单）⇒ 一致拒绝', taskId: 'task_001', userId: 'u_alice', expected: 403 },
+    { label: 'tasks 空间 + 局外人 ⇒ 一致拒绝',               taskId: 'task_001', userId: 'u_carol', expected: 403 },
+    // ---- mob_1（`emergency_mobilizations.id` 空间）----
+    { label: 'mob 空间 + 动员发起者 ⇒ 一致放行',             taskId: 'mob_1',    userId: 'u_alice', expected: 200 },
+    { label: 'mob 空间 + 已响应志愿者 ⇒ 一致放行',           taskId: 'mob_1',    userId: 'u_bob',   expected: 200 },
+    { label: 'mob 空间 + 仅任务参与者（未响应该动员）⇒ 一致拒绝', taskId: 'mob_1', userId: 'u_dave', expected: 403 },
+    { label: 'mob 空间 + 局外人 ⇒ 一致拒绝',                 taskId: 'mob_1',    userId: 'u_carol', expected: 403 },
+  ]
+
+  it.each(MATRIX)('$label', async ({ taskId, userId, expected }) => {
+    const statuses = await probeAll(taskId, userId)
+    // ★ 关键：不是"某个端点对"，而是"五个必须同判"
+    expect(statuses).toEqual([expected, expected, expected, expected, expected])
+  })
+})
+
 /* ═══════════ C. 跨仓库 403 契约（后端 `error()` ↔ 前端 `isForbidden()` 的接缝） ═══════════ */
 
 /**
