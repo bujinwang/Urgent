@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { uniInputValue } from '@/types/uni-events'
-import { ref,onMounted } from 'vue';import { useUserStore } from '@/stores/user';import { request } from '@/api/index'
+import { ref,onMounted } from 'vue';import { useUserStore } from '@/stores/user';import { request, ApiBusinessError } from '@/api/index'
 const s=useUserStore()
 const animals=ref<any[]>([]),form=ref({species:'',name:'',color:'',size:'',features:'',location:''})
 const showForm=ref(false),detail=ref<any>(null),logMode=ref('')
@@ -76,9 +76,14 @@ function animalIcon(s:string){return s==='猫'?'🐱':s==='狗'?'🐕':'🐾'}
 function careLabel(t:string){return t==='feeding'?'🍽️ 喂食':t==='check'?'👀 查看':t==='rescue'?'🚑 救助':t||'照料'}
 async function create(){
   if(!form.value.species){uni.showToast({title:'请填写物种',icon:'none'});return}
-  await request({url:'/animals',method:'POST',data:{...form.value,createdBy:s.profile.id}})
-  uni.showToast({title:'已登记',icon:'success'});showForm.value=false
-  form.value={species:'',name:'',color:'',size:'',features:'',location:''};load()
+  try {
+    await request({url:'/animals',method:'POST',data:{...form.value,createdBy:s.profile.id}})
+    uni.showToast({title:'已登记',icon:'success'});showForm.value=false
+    form.value={species:'',name:'',color:'',size:'',features:'',location:''};load()
+  } catch (e:any) {
+    // ★ P1-1：request() 现已抛错 ⇒ 失败必须有反馈，禁止「假成功」
+    uni.showToast({ title: e instanceof ApiBusinessError ? e.message : '登记失败，请重试', icon:'none' })
+  }
 }
 async function openDetail(a:any){try{detail.value=await request({url:`/animals/${a.id}`});detailIcon.value=animalIcon(detail.value.species)}catch{}}
 function openCare(){logMode.value='care';logForm.value={careType:'',checkType:'',description:'',vetName:''}}
@@ -86,10 +91,15 @@ function openHealth(){logMode.value='health';logForm.value={careType:'',checkTyp
 async function submitLog(){
   if(!logForm.value.description){uni.showToast({title:'请填写描述',icon:'none'});return}
   const d=detail.value;if(!d)return
-  if(logMode.value==='care')await request({url:`/animals/${d.id}/care`,method:'POST',data:{userId:s.profile.id,userName:s.profile.name,careType:logForm.value.careType,description:logForm.value.description}})
-  else await request({url:`/animals/${d.id}/health`,method:'POST',data:{userId:s.profile.id,userName:s.profile.name,checkType:logForm.value.checkType,findings:logForm.value.description,vetName:logForm.value.vetName}})
-  uni.showToast({title:'已记录',icon:'success'});logMode.value=''
-  try{detail.value=await request({url:`/animals/${d.id}`});detailIcon.value=animalIcon(detail.value.species)}catch{}
+  try {
+    if(logMode.value==='care')await request({url:`/animals/${d.id}/care`,method:'POST',data:{userId:s.profile.id,userName:s.profile.name,careType:logForm.value.careType,description:logForm.value.description}})
+    else await request({url:`/animals/${d.id}/health`,method:'POST',data:{userId:s.profile.id,userName:s.profile.name,checkType:logForm.value.checkType,findings:logForm.value.description,vetName:logForm.value.vetName}})
+    uni.showToast({title:'已记录',icon:'success'});logMode.value=''
+    try{detail.value=await request({url:`/animals/${d.id}`});detailIcon.value=animalIcon(detail.value.species)}catch{}
+  } catch (e:any) {
+    // ★ P1-1：request() 现已抛错 ⇒ 失败必须有反馈，禁止「假成功」
+    uni.showToast({ title: e instanceof ApiBusinessError ? e.message : '记录失败，请重试', icon:'none' })
+  }
 }
 </script>
 

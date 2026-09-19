@@ -26,6 +26,27 @@ interface ApiResponse<T> {
   message: string
 }
 
+/**
+ * ★ P1-1 根治：业务错误（code ≠ 0）统一抛出的错误类型。
+ *
+ * 根因：`request()` 此前只 `console.warn` 后**静默回传 `body.data`** ⇒ 调用方拿到
+ * `undefined`/脏数据却以为成功，系统性「假成功」（5 次复发的真凶）。现在 `request()`
+ * 在 code ≠ 0 时抛此错误，失败**可见**、可被调用方 catch。
+ *
+ * 需要**按业务码分支**的调用方（如 AED 联动的 4001/4006）请用 `requestFull()` —— 它
+ * 不抛错、返回完整响应体。两者不可混用。
+ */
+export class ApiBusinessError extends Error {
+  code: number
+  data?: unknown
+  constructor(code: number, message: string, data?: unknown) {
+    super(message || `业务错误（code=${code}）`)
+    this.name = 'ApiBusinessError'
+    this.code = code
+    this.data = data
+  }
+}
+
 function getAuthHeader(): Record<string, string> {
   const token = uni.getStorageSync('jwt_token')
   return token ? { Authorization: `Bearer ${token}` } : {}
@@ -47,11 +68,14 @@ export async function request<T>(options: RequestOptions): Promise<T> {
     })
 
     const body = res.data as ApiResponse<T>
+    // ★ P1-1 根治：业务错误必须抛错，禁止静默回传 body.data（系统性「假成功」根因）。
+    // 需要按业务码分支的调用方请改用 `requestFull()`。
     if (body.code !== 0) {
-      console.warn('[API] 业务错误:', body.message)
+      throw new ApiBusinessError(body.code, body.message, body.data)
     }
     return body.data
   } catch (e: any) {
+    if (e instanceof ApiBusinessError) throw e
     console.warn('[API] 请求失败:', e.errMsg || e.message)
     throw e
   }

@@ -16,16 +16,22 @@
 </template>
 <script setup lang="ts">
 import { uniInputValue } from '@/types/uni-events'
-import { ref,onMounted } from 'vue';import { request } from '@/api/index'
+import { ref,onMounted } from 'vue';import { request, ApiBusinessError } from '@/api/index'
 // ★ P0-1：`GET /rescue/certifications` 与 `POST /rescue/certification` 的身份一律由服务端从 token 派生，
 // 故不再传 `?userId=`（服务端已忽略，留着会误导后人以为生效）。
 const type=ref(''),issuer=ref(''),certNumber=ref(''),issueDate=ref(''),expiryDate=ref(''),list=ref<any[]>([])
 onMounted(async()=>{try{list.value=await request({url:'/rescue/certifications'})}catch{}})
 async function submit(){
   if(!type.value||!issuer.value){uni.showToast({title:'请填写类型和机构',icon:'none'});return}
-  await request({url:'/rescue/certification',method:'POST',data:{type:type.value,issuer:issuer.value,certNumber:certNumber.value,issueDate:issueDate.value,expiryDate:expiryDate.value}})
-  uni.showToast({title:'已提交，等待平台验证',icon:'success'});type.value=issuer.value=certNumber.value=issueDate.value=expiryDate.value=''
-  try{list.value=await request({url:'/rescue/certifications'})}catch{}
+  try {
+    await request({url:'/rescue/certification',method:'POST',data:{type:type.value,issuer:issuer.value,certNumber:certNumber.value,issueDate:issueDate.value,expiryDate:expiryDate.value}})
+    uni.showToast({title:'已提交，等待平台验证',icon:'success'})
+    type.value=issuer.value=certNumber.value=issueDate.value=expiryDate.value=''
+    try{list.value=await request({url:'/rescue/certifications'})}catch{}
+  } catch (e:any) {
+    // ★ P1-1：request() 现已抛错 ⇒ 失败必须有反馈，禁止「假成功」
+    uni.showToast({ title: e instanceof ApiBusinessError ? e.message : '提交失败，请重试', icon:'none' })
+  }
 }
 </script>
 <style scoped>
