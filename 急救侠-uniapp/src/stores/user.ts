@@ -33,7 +33,12 @@ export const useUserStore = defineStore('user', () => {
   /** 拉取当前用户资料（真实接口）。失败显式记 error 并抛出。 */
   async function loadProfile(): Promise<void> {
     try {
-      profile.value = await fetchProfile()
+      const p = await fetchProfile()
+      // ★ P1-2：防御 `fetchProfile()` 在业务错误时回传 `undefined`/`null`
+      // （根因见 #1：`request()` 吞噬业务错误、直接回传 `body.data`）。
+      // 若不加守卫会把 `profile` 置空 ⇒ 页面访问 `user.profile.xxx` 直接白屏。
+      // 仅当拿到**真实对象**才覆盖；否则保留 GUEST 占位（等 #1 落地后由下方 catch 兜底）。
+      if (p && typeof p === 'object' && 'id' in p) profile.value = p
     } catch (e) {
       error.value = e instanceof Error ? e.message : '加载用户资料失败'
       throw e

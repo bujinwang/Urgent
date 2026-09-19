@@ -52,4 +52,18 @@ describe('User Store（真实接口）', () => {
     // reason 不再被静默丢弃：进入积分流水
     expect(store.pointLog[0]).toMatchObject({ amount: 200, reason: '测试奖励' })
   })
+
+  it('★ P1-2：profile 接口异常（回传 undefined）⇒ 不把 profile 置空（避免白屏），保留 GUEST 占位', async () => {
+    // 模拟 request() 吞噬业务错误、回传 body.data = undefined 的场景（根因见 #1）
+    vi.mocked(request).mockImplementation((options) => {
+      if (options.url === '/user/profile') return Promise.resolve(undefined as unknown as typeof profile)
+      if (options.url === '/user/stats') return Promise.resolve(stats)
+      return Promise.resolve([])
+    })
+    const store = useUserStore()
+    await store.loadProfile()
+    // ★ 不被置空：仍是 GUEST 占位（id 为空串），页面访问 user.profile.xxx 不崩
+    expect(store.profile).toBeDefined()
+    expect(store.profile.id).toBe('')
+  })
 })
