@@ -146,7 +146,7 @@ import { useUserStore } from '@/stores/user'
 import { i18n } from '@/i18n'
 import { useLocalizedNavTitle } from '@/utils/nav-title-locale'
 import MapCanvas from '@/pages/aed/MapCanvas.vue'
-import { isMapEnabled } from '@/utils/map/adapter'
+import { isMapEnabled, isMpWeixin } from '@/utils/map/adapter'
 import { aedStatusLabel } from '@/utils/map/status'
 import type { AedDevice } from '@/api/aed'
 
@@ -161,11 +161,17 @@ const user = useUserStore()
 const previewAed = ref<AedDevice | null>(null)
 
 /**
- * 真地图是否启用（PRD D3 降级判定）。
- * `isMapEnabled()` 同步读取 `VITE_AMAP_KEY`：无 Key ⇒ false ⇒ 渲染草图降级图，绝不白屏/阻塞。
- * `MapCanvas` 在 Key 存在但 SDK 加载失败时也会 emit('fallback')，届时回落草图。
+ * 真地图是否启用（PRD D3 降级判定）——按平台分流：
+ * - 微信小程序：`isMpWeixin()` ⇒ 恒 true，走 uni-app 原生 `<map>`，**免 Key、免 SDK**。
+ * - H5 / 其他：`isMapEnabled()` 同步读取 `VITE_TMAP_KEY`；无 Key ⇒ false ⇒ 渲染草图降级图，
+ *   绝不白屏 / 阻塞。SDK 加载失败 / 超时 / 实例化异常时 `MapCanvas` 也会 emit('fallback')。
+ *
+ * ⚠️ 平台分支**只**放在 `.vue` 模板条件编译里；此处用的是可被 vitest 安全求值的运行时判据
+ * （`isMpWeixin()` 优先读 `uniPlatform`、老运行时回落到 wx + 无 DOM，全程 try/catch；
+ *   测试宿主恒判 false ⇒ H5 语义可测），
+ * 绝不写 `// #ifdef` 逻辑分支（条件编译注释在单测里不生效，两个分支会同时执行）。
  */
-const showRealMap = ref(isMapEnabled())
+const showRealMap = ref(isMpWeixin() || isMapEnabled())
 
 // --- i18n ---
 /**
