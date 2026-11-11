@@ -105,42 +105,20 @@ export function isMapEnabled(): boolean {
 }
 
 /**
- * 运行时判据：当前宿主是否为**微信小程序**（原生 `<map>` 免 Key 路径）。
+ * 平台判据转出：`isMpWeixin()` 的**唯一事实源**在显式模块 `./platform`（可被 `vi.doMock` 驱动）。
  *
- * ⚠️ 刻意**不用** `// #ifdef MP-WEIXIN` 条件编译做逻辑分支：uni-app 的条件编译注释在
- * vitest / happy-dom 里不会被构建插件处理（原样只是注释），两个分支会同时执行、测试全挂。
- * 这里改用可被 vitest 安全求值的运行时判据，且**双保险**：
- * 1. 首选 uni-app 官方 `uni.getSystemInfoSync().uniPlatform === 'mp-weixin'`（跨端权威判据，
- *    新版小程序运行时即便补了 DOM 垫片也能正确识别）；
- * 2. 老运行时 / 单测无该 API 时，回落到「有 `wx.getSystemInfoSync` 且无 DOM」判据。
+ * ⚠️ 刻意**不复用** `src/utils/platform.ts` 的 `isWechatMP`：它是「用条件编译指令包住
+ * `return true`、后面紧跟 `return false`」的自执行函数；vitest 没有 uni 预处理 ⇒ 指令只是
+ * 死注释 ⇒ `return true` 先执行（实测 `isWechatMP=true`、`isH5=true`、`getPlatform()='h5'`）。
+ * 拿它做 `showRealMap` 分流会让测试宿主恒判「小程序」⇒ 草图 `v-else` 不渲染 ⇒
+ * `guide-aed-i18n.test.ts` 的 `.aed-map-pokestop` 探针必红；更隐蔽的是「在自己的新用例里
+ * mock 掉它 ⇒ 自测全绿、生产 H5 行为与测试分叉」。
  *
- * H5 / vitest(happy-dom) 语义：`uni` mock 无 `getSystemInfoSync`、`wx` 不存在、
- * `window` / `document` 均在 ⇒ 恒为 false ⇒ 保持 **H5 语义**可测。
- * 全程 try/catch，任何宿主异常一律兜底 false（H5 语义），绝不误开原生 map 分支。
+ * 也刻意**不写**条件编译指令做逻辑分支：这类注释在 vitest / happy-dom 里原样只是注释，
+ * 两个分支会同时执行、测试全挂。平台分支只放在 `.vue` 模板条件编译里。
+ * 注释里同样刻意不写出指令字面量（uni 预处理器指令正则非行首锚定，会被误当真实指令）。
  */
-export function isMpWeixin(): boolean {
-  try {
-    const scope = globalThis as unknown as {
-      uni?: { getSystemInfoSync?: () => { uniPlatform?: string } | undefined }
-      wx?: { getSystemInfoSync?: unknown }
-      window?: unknown
-      document?: unknown
-    }
-    if (typeof scope.uni?.getSystemInfoSync === 'function') {
-      const info = scope.uni.getSystemInfoSync()
-      if (typeof info?.uniPlatform === 'string') {
-        return info.uniPlatform === 'mp-weixin'
-      }
-    }
-    const hasWx = typeof scope.wx !== 'undefined'
-      && typeof scope.wx.getSystemInfoSync === 'function'
-    const noDom = typeof scope.window === 'undefined'
-      || typeof scope.document === 'undefined'
-    return hasWx && noDom
-  } catch {
-    return false
-  }
-}
+export { isMpWeixin } from './platform'
 
 /** 无 Key 时抛出，供调用方转降级路径。 */
 export class MapKeyMissingError extends Error {

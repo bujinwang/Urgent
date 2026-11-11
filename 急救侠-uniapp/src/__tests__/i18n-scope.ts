@@ -24,11 +24,15 @@ import path from 'node:path'
  * P1a 已补：`src/pages/cert/index.vue`（「我的」页文案已双语化 + 语言切换入口）。
  * F4 T04 已补：`src/pages/volunteer/hours.vue`、`src/pages/volunteer/certificates.vue`
  * （「我的服务时长 / 我的服务证明」两页文案已双语化 ⇒ 必须纳入，否则抽漏不会被任何守卫发现）。
+ * F1 已补：`src/pages/aed/MapCanvas.vue`
+ * （新增地图画布此前**不在**清单里 ⇒ 组件内写裸中文没有任何守卫会抓；现已全部走 `t()`
+ *   且剥离注释后零裸中文字面量，纳入清单由 `rescue-i18n.test.ts` 的循环逐文件扫描）。
  */
 export const SCOPE_FILES = [
   'src/pages/rescue/index.vue',
   'src/pages/guide/index.vue',
   'src/pages/aed/index.vue',
+  'src/pages/aed/MapCanvas.vue',
   'src/pages/aed/detail.vue',
   'src/pages/drill/index.vue',
   'src/pages/cert/index.vue',

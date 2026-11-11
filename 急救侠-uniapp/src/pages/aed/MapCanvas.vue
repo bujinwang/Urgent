@@ -34,11 +34,14 @@ import type { AedDevice } from '@/api/aed'
 
 /**
  * 真地图画布（PRD D2 / D3）——平台分流：
- * - **模板**用 `.vue` 条件编译（`<!-- #ifdef MP-WEIXIN -->` / `<!-- #ifndef MP-WEIXIN -->`）
- *   决定渲染原生 `<map>` 还是 DOM 容器；逻辑分支**不写** `// #ifdef`，
+ * - **模板**用 `.vue` 条件编译（MP-WEIXIN 的 ifdef / ifndef 两段，见上方 template）
+ *   决定渲染原生 `<map>` 还是 DOM 容器；逻辑分支**不写**任何条件编译指令，
  *   因为 vitest / happy-dom 不处理条件编译注释，两个分支会同时执行、测试全挂。
- * - `<script setup>` 里的平台判据走 `isMpWeixin()` 运行时判断：
- *   测试环境（happy-dom，有 document、无 wx）恒为 false ⇒ 保持 **H5 语义**可测。
+ *   ⚠️ 注释里刻意不写出指令字面量：uni 预处理器指令正则非行首锚定，
+ *   在 `<script>` 注释里出现字面量指令会被当成真实指令、造成条件块不配对。
+ * - `<script setup>` 里的平台判据走显式模块 `@/utils/map/platform` 的 `isMpWeixin()`
+ *   （经 adapter 转出，可被 `vi.doMock` 驱动）；测试环境（happy-dom，有 document、无 wx）
+ *   恒为 false ⇒ 保持 **H5 语义**可测，绝不复用 `src/utils/platform.ts` 的 `isWechatMP`。
  *
  * 降级（PRD D3 硬约束）：
  * - 小程序：设备为空 / 坐标非法 ⇒ `emit('fallback')`（原生 map 免 Key，不加载任何 SDK）。

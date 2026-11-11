@@ -166,10 +166,13 @@ const previewAed = ref<AedDevice | null>(null)
  * - H5 / 其他：`isMapEnabled()` 同步读取 `VITE_TMAP_KEY`；无 Key ⇒ false ⇒ 渲染草图降级图，
  *   绝不白屏 / 阻塞。SDK 加载失败 / 超时 / 实例化异常时 `MapCanvas` 也会 emit('fallback')。
  *
- * ⚠️ 平台分支**只**放在 `.vue` 模板条件编译里；此处用的是可被 vitest 安全求值的运行时判据
- * （`isMpWeixin()` 优先读 `uniPlatform`、老运行时回落到 wx + 无 DOM，全程 try/catch；
- *   测试宿主恒判 false ⇒ H5 语义可测），
- * 绝不写 `// #ifdef` 逻辑分支（条件编译注释在单测里不生效，两个分支会同时执行）。
+ * ⚠️ 平台分支**只**放在 `.vue` 模板条件编译里；此处用的是显式模块
+ * `@/utils/map/platform` 导出的 `isMpWeixin()`（经 adapter 转出）：构建期常量
+ * `process.env.UNI_PLATFORM` → `uniPlatform` → wx + 无 DOM，全程 try/catch；
+ * 测试宿主恒判 false ⇒ H5 语义可测，且**绝不复用** `src/utils/platform.ts` 的
+ * `isWechatMP`（它在 vitest 下恒 true，会让草图 `v-else` 消失、草图探针必红）。
+ * 也绝不写条件编译指令做逻辑分支（这类注释在单测里不生效，两个分支会同时执行）；
+ * 注释里刻意不写出指令字面量（uni 预处理器指令正则非行首锚定，会被误当真实指令）。
  */
 const showRealMap = ref(isMpWeixin() || isMapEnabled())
 

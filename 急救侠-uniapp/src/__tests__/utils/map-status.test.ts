@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
+import { parse, compileTemplate } from '@vue/compiler-sfc'
 import { setLocale } from '@/i18n'
 import { messages } from '@/locales'
+import { SCOPE_FILES, findNakedCjkLines, stripComments } from '@/__tests__/i18n-scope'
 import {
   aedStatusLabel,
   aedStatusTone,
@@ -302,5 +306,142 @@ describe('F1 utils/map/adapter —— createMap（腾讯 GL JS 实例化，PRD D
     vi.stubGlobal('TMap', TMap)
     expect(() => createMap(null, { lat: 0, lng: 0 }, [])).toThrow()
     expect(TMap.Map).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * F1 补充陷阱守卫 —— 主理人用本地编译器/VM 取得实证的「生产能跑、测试全崩」分叉点。
+ * 这里把每个陷阱固化成可回归的断言，防止后续改动悄悄把分叉带回来。
+ */
+describe('F1 补充陷阱守卫（防平台判据 / 模板编译 / 坐标语义的生产-单测分叉）', () => {
+  const readSrc = (rel: string): string =>
+    fs.readFileSync(path.resolve(process.cwd(), rel), 'utf8')
+
+  /** 递归列出生产源码文件（跳过 __tests__，它们合法地在「反向断言」里提到旧名）。 */
+  function walkProduction(rel: string): string[] {
+    const abs = path.resolve(process.cwd(), rel)
+    const out: string[] = []
+    for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+      const child = path.join(rel, entry.name)
+      if (entry.isDirectory()) {
+        if (entry.name !== '__tests__') out.push(...walkProduction(child))
+      } else if (/\.(ts|tsx|vue|js|json)$/.test(entry.name)) {
+        out.push(child)
+      }
+    }
+    return out
+  }
+
+  afterEach(() => {
+    vi.doUnmock('@/utils/map/platform')
+    vi.resetModules()
+    vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
+  })
+
+  it('① 平台判据不复用 src/utils/platform.ts 的 isWechatMP（vitest 下恒 true ⇒ 草图探针必红）', () => {
+    for (const rel of ['src/pages/aed/index.vue', 'src/pages/aed/MapCanvas.vue']) {
+      // 只扫**代码**：本页/本组件的说明注释里合法地提到 isWechatMP / #ifdef 作为反面教材
+      const code = stripComments(readSrc(rel))
+      expect(code, `${rel} 不得出现 isWechatMP`).not.toContain('isWechatMP')
+      expect(code, `${rel} 不得 import @/utils/platform`).not.toMatch(/from\s+['"][^'"]*utils\/platform['"]/)
+    }
+    // 唯一事实源：显式模块 + adapter 转出同名判据（页面 import 路径不变）
+    expect(readSrc('src/pages/aed/index.vue')).toContain('isMpWeixin')
+    expect(readSrc('src/utils/map/adapter.ts')).toContain("export { isMpWeixin } from './platform'")
+  })
+
+  it('② 显式平台模块可由 vi.doMock 驱动，且未打桩时 vitest 下恒为 H5 语义', async () => {
+    const platform = await import('@/utils/map/platform')
+    expect(platform.isMpWeixin()).toBe(false)
+    expect(readSrc('src/utils/platform.ts')).toContain('#ifdef MP-WEIXIN')
+
+    vi.resetModules()
+    await vi.doMock('@/utils/map/platform', () => ({ isMpWeixin: () => true }))
+    const adapter = await import('@/utils/map/adapter')
+    expect(adapter.isMpWeixin(), 'adapter 转出的判据必须来自显式平台模块').toBe(true)
+  })
+
+  it('③ index.vue / MapCanvas.vue 模板 compileTemplate errors 为空（条件编译注释不得夹进 v-if/v-else 链）', () => {
+    for (const rel of ['src/pages/aed/index.vue', 'src/pages/aed/MapCanvas.vue']) {
+      const { descriptor, errors: parseErrors } = parse(readSrc(rel), { filename: rel })
+      expect(parseErrors, `${rel} SFC parse`).toEqual([])
+      const result = compileTemplate({
+        id: rel,
+        filename: rel,
+        source: descriptor.template?.content ?? '',
+        compilerOptions: { bindingMetadata: {} },
+      })
+      expect(result.errors, `${rel} template compile`).toEqual([])
+    }
+
+    // ⚠️ 实测补充：本机 Vue 3.4.21 的 compileTemplate 默认会**丢弃**注释，
+    // 即使把条件编译指令注释夹进 v-if/v-else 之间也返回 errors=[]（与 QA 用别的口径实测到的
+    // `v-else has no adjacent v-if` 不同）。因此不能只靠编译器断言，必须再做一条**确定性静态邻接检查**：
+    // 从 v-if="showRealMap" 到其后第一个 v-else 之间，不得出现任何条件编译指令。
+    const { descriptor } = parse(readSrc('src/pages/aed/index.vue'), { filename: 'src/pages/aed/index.vue' })
+    const tpl = descriptor.template?.content ?? ''
+    const chain = tpl.match(/v-if="showRealMap"[\s\S]*?v-else/)
+    expect(chain, 'index.vue 的 v-if/v-else 草图降级链必须存在').toBeTruthy()
+    expect(chain![0], 'v-if 与 v-else 之间不得夹条件编译注释（生产能跑、测试编译期全崩）')
+      .not.toMatch(/<!--\s*#(?:ifdef|ifndef|endif)/)
+  })
+
+  it('④ MapCanvas.vue 已纳入裸 CJK 守卫 SCOPE_FILES，且当前源码剥离注释后零裸中文', () => {
+    expect([...SCOPE_FILES]).toContain('src/pages/aed/MapCanvas.vue')
+    expect(findNakedCjkLines('src/pages/aed/MapCanvas.vue')).toEqual([])
+  })
+
+  it('⑤ lat/lng 三处语义翻转：toMpMarkers 只输出 latitude/longitude，深圳点位不互换', () => {
+    const [marker] = toMpMarkers([dev({ id: 'sz', name: 'SZ', lat: 22.517, lng: 113.947 })])
+    expect(marker).toHaveProperty('latitude', 22.517)
+    expect(marker).toHaveProperty('longitude', 113.947)
+    expect(marker).not.toHaveProperty('lat')
+    expect(marker).not.toHaveProperty('lng')
+    // 深圳：纬度 22.x、经度 113.x；互换后 113.x 会被当纬度（>90）一眼可辨
+    expect(marker.latitude).toBeLessThan(90)
+    expect(marker.longitude).toBeGreaterThan(90)
+    expect(JSON.stringify(toMpMarkers([dev({ lat: 22.5, lng: 113.9 })]))).not.toContain('iconPath')
+  })
+
+  it('⑥ 构建期常量 UNI_PLATFORM 优先：mp-weixin 恒 true、h5 恒 false（不被运行时 DOM/uni 垫片带偏）', () => {
+    vi.stubEnv('UNI_PLATFORM', 'mp-weixin')
+    expect(isMpWeixin()).toBe(true)
+
+    vi.stubEnv('UNI_PLATFORM', 'h5')
+    vi.stubGlobal('uni', { getSystemInfoSync: () => ({ uniPlatform: 'mp-weixin' }) })
+    expect(isMpWeixin(), '构建期常量为 h5 时不得被运行时 uni 带偏').toBe(false)
+
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+    expect(isMpWeixin(), 'vitest 默认仍是 H5 语义').toBe(false)
+  })
+
+  it('⑦ 注释里不得出现条件编译指令字面量（uni 预处理器 js/html 正则非行首锚定，会误伤真实构建）', () => {
+    const directive = /(?:\/\/|\/\*)[ \t]*#(?:ifdef|ifndef|endif)|<!--[ \t]*#(?:ifdef|ifndef|endif)/
+    for (const rel of [
+      'src/utils/map/platform.ts',
+      'src/utils/map/adapter.ts',
+      'src/pages/aed/index.vue',
+    ]) {
+      expect(directive.test(readSrc(rel)), `${rel} 的指令字面量可能被 uni 预处理器误判`).toBe(false)
+    }
+    // MapCanvas.vue 的 template 里是**真实**指令（必须保留）；只检查 <script> 块
+    const { descriptor } = parse(readSrc('src/pages/aed/MapCanvas.vue'), { filename: 'src/pages/aed/MapCanvas.vue' })
+    const script = descriptor.scriptSetup?.content ?? descriptor.script?.content ?? ''
+    expect(directive.test(script), 'MapCanvas.vue 的 <script> 注释里不得出现指令字面量').toBe(false)
+  })
+
+  it('⑧ 生产 src 下旧高德引用 / 预览代理模式清零；SDK URL 为腾讯 GL JS 且 Key 由 env 注入', () => {
+    const forbidden = /webapi\.amap\.com|VITE_AMAP_KEY|loadAmapSdk|_TMapSecurityConfig/
+    const offenders = walkProduction('src')
+      .filter((rel) => forbidden.test(readSrc(rel)))
+    expect(offenders, '生产源码不得残留高德 / 代理模式引用').toEqual([])
+
+    const adapter = readSrc('src/utils/map/adapter.ts')
+    expect(adapter).toContain('https://map.qq.com/api/gljs?v=1.exp&key=${encodeURIComponent(effective)}')
+    expect(adapter).not.toMatch(/mapStyleId\s*:/)
+    // .env.example 必须是空值占位，绝不入库真实 Key
+    expect(readSrc('.env.example')).toMatch(/^VITE_TMAP_KEY=\s*$/m)
   })
 })
