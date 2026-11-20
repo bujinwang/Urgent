@@ -32,7 +32,15 @@
       <label>标题</label><input v-model="form.title">
       <label>描述</label><textarea v-model="form.description"></textarea>
       <label>地点</label><input v-model="form.address">
-      <label>类型</label><select v-model="form.type"><option value="rescue">救援</option><option value="training">训练</option><option value="assist">协助</option></select>
+      <label>类型</label>
+      <!-- #ifdef MP-WEIXIN -->
+      <picker mode="selector" class="modal-select" :range="mobTypeLabels" :value="mobTypeIndex" @change="onMobTypeChange">
+        <view class="modal-picker-value">{{ mobTypeLabel }}</view>
+      </picker>
+      <!-- #endif -->
+      <!-- #ifndef MP-WEIXIN -->
+      <select v-model="form.type"><option value="rescue">救援</option><option value="training">训练</option><option value="assist">协助</option></select>
+      <!-- #endif -->
       <label>需要人数</label><input type="number" v-model="form.volunteersNeeded">
       <div class="modal-actions"><button class="btn btn-g" @click="showCreate=false">取消</button><button class="btn btn-p" @click="createMob">发起</button></div></div></div>
   </view>
@@ -48,6 +56,22 @@ const userStore = useUserStore()
 const mobilizations = ref<any[]>([])
 const showCreate = ref(false)
 const form = ref({ title:'', description:'', address:'深圳湾公园', type:'rescue', volunteersNeeded:5 })
+
+// Single-column picker state for the mini-program branch; H5 keeps the select + v-model above.
+// Raw values are the backend contract; labels are only what the picker displays.
+const mobTypeValues = ['rescue', 'training', 'assist'] as const
+type MobType = typeof mobTypeValues[number]
+const mobTypeLabels = ['救援', '训练', '协助'] as const
+const mobTypeIndex = computed(() => {
+  const i = mobTypeValues.indexOf(form.value.type as MobType)
+  return i >= 0 ? i : 0
+})
+const mobTypeLabel = computed(() => mobTypeLabels[mobTypeIndex.value] || form.value.type)
+function onMobTypeChange(e: { detail: { value: number | string } }): void {
+  const raw = Math.trunc(Number(e.detail.value))
+  const idx = Number.isFinite(raw) ? Math.min(Math.max(raw, 0), mobTypeValues.length - 1) : 0
+  form.value.type = mobTypeValues[idx]
+}
 
 /**
  * 「批准」入口的可见性（**computed** ⇒ 随 store 变化；不能提到模块级，那会冻结）。
@@ -114,6 +138,7 @@ onMounted(load)
 .modal label{display:block;font-size:12px;color:#8E8E8E;margin-bottom:6rpx}
 .modal input,.modal select,.modal textarea{width:100%;padding:10rpx 12rpx;border:1px solid #E5E5E0;border-radius:8rpx;font-size:13px;margin-bottom:14rpx;font-family:inherit}
 .modal textarea{resize:vertical;min-height:50rpx}
+.modal picker,.modal-picker-value{display:block}.modal-picker-value{width:100%;padding:10rpx 12rpx;border:1px solid #E5E5E0;border-radius:8rpx;font-size:13px;margin-bottom:14rpx;font-family:inherit;box-sizing:border-box}
 .modal-actions{display:flex;gap:10rpx;justify-content:flex-end}
 .btn{padding:10rpx 20rpx;border-radius:8rpx;font-size:13px;cursor:pointer;border:none}
 .btn-p{background:#C0392B;color:#fff}.btn-g{background:transparent;color:#8E8E8E}

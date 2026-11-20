@@ -43,7 +43,15 @@
     <div class="modal"><h3>{{ $t('drill.form.title') }}</h3>
       <label>{{ $t('drill.form.label.title') }}</label><input v-model="form.title">
       <label>{{ $t('drill.form.label.description') }}</label><textarea v-model="form.description"></textarea>
-      <label>{{ $t('drill.form.label.scenario') }}</label><select v-model="form.scenario"><option value="cpr">{{ $t('drill.scenario.cpr') }}</option><option value="aed">{{ $t('drill.scenario.aed') }}</option><option value="trauma">{{ $t('drill.scenario.trauma') }}</option><option value="choking">{{ $t('drill.scenario.choking') }}</option><option value="mass">{{ $t('drill.scenario.mass') }}</option></select>
+      <label>{{ $t('drill.form.label.scenario') }}</label>
+      <!-- #ifdef MP-WEIXIN -->
+      <picker mode="selector" class="modal-select" :range="scenarioLabels" :value="scenarioIndex" @change="onScenarioChange">
+        <view class="modal-picker-value">{{ scenarioLabelText }}</view>
+      </picker>
+      <!-- #endif -->
+      <!-- #ifndef MP-WEIXIN -->
+      <select v-model="form.scenario"><option value="cpr">{{ $t('drill.scenario.cpr') }}</option><option value="aed">{{ $t('drill.scenario.aed') }}</option><option value="trauma">{{ $t('drill.scenario.trauma') }}</option><option value="choking">{{ $t('drill.scenario.choking') }}</option><option value="mass">{{ $t('drill.scenario.mass') }}</option></select>
+      <!-- #endif -->
       <label>{{ $t('drill.form.label.date') }}</label><input type="datetime-local" v-model="form.date">
       <label>{{ $t('drill.form.label.location') }}</label><input v-model="form.location">
       <label>{{ $t('drill.form.label.maxParticipants') }}</label><input type="number" v-model="form.maxParticipants">
@@ -114,6 +122,23 @@ function scenarioLabel(s:string) {
   }
   return labels[s] || s
 }
+
+// Single-column picker state for the mini-program branch; H5 keeps the select + v-model above.
+// Raw values are the backend contract and must never be replaced by localized labels.
+const scenarioValues = ['cpr', 'aed', 'trauma', 'choking', 'mass'] as const
+type ScenarioValue = typeof scenarioValues[number]
+// Labels are built inside a computed (not at module scope) so locale switches stay reactive.
+const scenarioLabels = computed<string[]>(() => scenarioValues.map((v) => scenarioLabel(v)))
+const scenarioIndex = computed(() => {
+  const i = scenarioValues.indexOf(form.value.scenario as ScenarioValue)
+  return i >= 0 ? i : 0
+})
+const scenarioLabelText = computed(() => scenarioLabels.value[scenarioIndex.value] || form.value.scenario)
+function onScenarioChange(e: { detail: { value: number | string } }): void {
+  const raw = Math.trunc(Number(e.detail.value))
+  const idx = Number.isFinite(raw) ? Math.min(Math.max(raw, 0), scenarioValues.length - 1) : 0
+  form.value.scenario = scenarioValues[idx]
+}
 // 原生导航栏标题随语言切换（P1b）。本页是**标准**导航栏（非 custom ⇒ 有原生标题栏）。
 useLocalizedNavTitle('nav.drill')
 onMounted(load)
@@ -143,6 +168,7 @@ onMounted(load)
 .modal{background:#fff;border-radius:16rpx;padding:28rpx;width:90%;max-width:400rpx;box-shadow:0 8rpx 40rpx rgba(0,0,0,0.15)}
 .modal h3{font-size:17px;margin-bottom:16rpx}.modal label{display:block;font-size:12px;color:#8E8E8E;margin-bottom:6rpx}
 .modal input,.modal select,.modal textarea{width:100%;padding:10rpx 12rpx;border:1px solid #E5E5E0;border-radius:8rpx;font-size:13px;margin-bottom:14rpx;font-family:inherit}.modal textarea{resize:vertical;min-height:50rpx}
+.modal picker,.modal-picker-value{display:block}.modal-picker-value{width:100%;padding:10rpx 12rpx;border:1px solid #E5E5E0;border-radius:8rpx;font-size:13px;margin-bottom:14rpx;font-family:inherit;box-sizing:border-box}
 .modal-actions{display:flex;gap:10rpx;justify-content:flex-end}
 .btn{padding:10rpx 20rpx;border-radius:8rpx;font-size:13px;cursor:pointer;border:none}.btn-p{background:#C0392B;color:#fff}.btn-g{background:transparent;color:#8E8E8E}
 </style>

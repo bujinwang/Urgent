@@ -37,7 +37,15 @@
 
     <div v-if="showReport" class="modal-overlay" @click.self="showReport=false">
     <div class="modal"><h3>上报动物</h3>
-      <label>类型</label><select v-model="form.category"><option value="pet">🐱 流浪宠物</option><option value="wildlife">🦅 野生动物（保护机构处理）</option></select>
+      <label>类型</label>
+      <!-- #ifdef MP-WEIXIN -->
+      <picker mode="selector" class="modal-select" :range="reportCategoryLabels" :value="reportCategoryIndex" @change="onReportCategoryChange">
+        <view class="modal-picker-value">{{ reportCategoryLabel }}</view>
+      </picker>
+      <!-- #endif -->
+      <!-- #ifndef MP-WEIXIN -->
+      <select v-model="form.category"><option value="pet">🐱 流浪宠物</option><option value="wildlife">🦅 野生动物（保护机构处理）</option></select>
+      <!-- #endif -->
       <label>物种</label><input v-model="form.species">
       <label>描述</label><textarea v-model="form.description"></textarea>
       <view class="wl-gps-row">
@@ -61,6 +69,22 @@ const tab=ref<'wildlife'|'pet'|'rescue'>('wildlife'),ar=ref<any[]>([]),tasks=ref
 const showReport=ref(false),gpsDone=ref(false)
 const form=ref({category:'pet',species:'',description:'',notes:'',lat:22.517,lng:113.947,photos:[] as string[]})
 const formReset=()=>{form.value={category:'pet',species:'',description:'',notes:'',lat:22.517,lng:113.947,photos:[]};gpsDone.value=false}
+
+// Single-column picker state for the mini-program branch; H5 keeps the select + v-model above.
+// Raw values are the backend contract; labels are only what the picker displays.
+const reportCategoryValues = ['pet', 'wildlife'] as const
+type ReportCategory = typeof reportCategoryValues[number]
+const reportCategoryLabels = ['🐱 流浪宠物', '🦅 野生动物（保护机构处理）'] as const
+const reportCategoryIndex = computed(() => {
+  const i = reportCategoryValues.indexOf(form.value.category as ReportCategory)
+  return i >= 0 ? i : 0
+})
+const reportCategoryLabel = computed(() => reportCategoryLabels[reportCategoryIndex.value] || form.value.category)
+function onReportCategoryChange(e: { detail: { value: number | string } }): void {
+  const raw = Math.trunc(Number(e.detail.value))
+  const idx = Number.isFinite(raw) ? Math.min(Math.max(raw, 0), reportCategoryValues.length - 1) : 0
+  form.value.category = reportCategoryValues[idx]
+}
 
 // 打开表单时自动获取 GPS
 watch(showReport,async (v)=>{if(!v)return
@@ -130,5 +154,6 @@ onMounted(lr)
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:100}
 .modal{background:#fff;border-radius:16rpx;padding:28rpx;width:90%;max-width:400rpx;max-height:85vh;overflow-y:auto;box-shadow:0 8rpx 40rpx rgba(0,0,0,0.15)}.modal h3{font-size:17px;margin-bottom:16rpx}.modal label{display:block;font-size:12px;color:#8E8E8E;margin-bottom:6rpx}
 .modal input,.modal select,.modal textarea{width:100%;padding:10rpx 12rpx;border:1px solid #E5E5E0;border-radius:8rpx;font-size:13px;margin-bottom:14rpx;font-family:inherit}.modal textarea{resize:vertical;min-height:50rpx}.modal-actions{display:flex;gap:10rpx;justify-content:flex-end}
+.modal picker,.modal-picker-value{display:block}.modal-picker-value{width:100%;padding:10rpx 12rpx;border:1px solid #E5E5E0;border-radius:8rpx;font-size:13px;margin-bottom:14rpx;font-family:inherit;box-sizing:border-box}
 .btn{padding:10rpx 20rpx;border-radius:8rpx;font-size:13px;cursor:pointer;border:none}.btn-p{background:#10B981;color:#fff}.btn-g{background:transparent;color:#8E8E8E}
 </style>
