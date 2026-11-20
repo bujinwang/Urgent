@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>急救侠 · AED 地图（腾讯 GL · 免 Key 测试预览）</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f4f7f5; color: #1b2b23; display: flex; flex-direction: column; min-height: 100vh;
+  }
+  header {
+    background: #fff; border-bottom: 1px solid #dfe8e2; padding: 14px 20px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+  .badge {
+    font-size: 11px; padding: 3px 9px; border-radius: 999px;
+    background: #e7f5ec; color: #12733f; border: 1px solid #bde3cd; font-weight: 600;
+  }
+  .sub { font-size: 12px; color: #6b7d73; margin-left: auto; }
+  main { flex: 1; display: flex; gap: 14px; padding: 14px; min-height: 0; }
+  #map {
+    flex: 1; min-width: 0; height: 62vh; min-height: 420px;
+    border-radius: 12px; border: 1px solid #dfe8e2; background: #eef2ef; overflow: hidden;
+  }
+  aside {
+    width: 310px; flex-shrink: 0; background: #fff; border: 1px solid #dfe8e2;
+    border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .aside-head { padding: 12px 14px; border-bottom: 1px solid #eef2ef; font-size: 13px; font-weight: 650; }
+  .legend { display: flex; gap: 12px; padding: 10px 14px; border-bottom: 1px solid #eef2ef; font-size: 11px; color: #5b6c62; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .list { overflow-y: auto; flex: 1; padding: 6px; }
+  .item {
+    padding: 9px 10px; border-radius: 8px; cursor: pointer; border: 1px solid transparent;
+    display: flex; gap: 9px; align-items: flex-start; transition: background .15s, border-color .15s;
+  }
+  .item:hover { background: #f4f8f5; }
+  .item.active { background: #eaf5ee; border-color: #a9d8bd; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .nm { font-size: 12.5px; font-weight: 600; line-height: 1.35; }
+  .addr { font-size: 11px; color: #7b8b81; margin-top: 2px; line-height: 1.4; }
+  .st { font-size: 10px; margin-top: 4px; font-weight: 600; }
+  .note {
+    margin: 0 14px 14px; padding: 11px 12px; background: #f7faf8; border: 1px solid #e3ece6;
+    border-radius: 10px; font-size: 11px; line-height: 1.65; color: #4c5f54;
+  }
+  .note b { color: #1b2b23; }
+  .note ul { margin: 6px 0 0; padding-left: 16px; }
+  .err { padding: 16px; font-size: 12px; color: #a1321f; }
+</style>
+<!-- 1) 官方 key 代理模式：SDK 的内部请求走本地代理，前端不出现任何 Key -->
+<script type="text/javascript">
+  window._TMapSecurityConfig = {
+    serviceHost: 'http://127.0.0.1:__WB_HTTP_PORT__/_TMapService/_wbt/__WB_TMAP_SECRET__',
+  };
+</script>
+<!-- 2) 官方 CDN，URL 不带 key 参数 -->
+<script src="https://map.qq.com/api/gljs?v=1.exp"></script>
+</head>
+<body>
+
+<header>
+  <h1>急救侠 · AED 地图</h1>
+  <span class="badge">腾讯地图 GL JS · 免 Key 测试预览</span>
+  <span class="sub">合规白名单内 · GCJ-02 · 点位取自 seed.ts</span>
+</header>
+
+<main>
+  <div id="map"></div>
+  <aside>
+    <div class="aside-head">附近 AED <span style="font-weight:400;color:#7b8b81">（9 台 · 点击定位）</span></div>
+    <div class="legend">
+      <span><i style="background:#16A34A"></i>可用</span>
+      <span><i style="background:#F59E0B"></i>使用中</span>
+      <span><i style="background:#DC2626"></i>维护中</span>
+    </div>
+    <div class="list" id="list"></div>
+    <div class="note">
+      <b>这是「测试用的」预览，不是生产代码。</b>
+      <ul>
+        <li>Key 由 WorkBuddy 后端代理持有，前端零暴露；仅本地预览可用。</li>
+        <li>生产 H5 需自行申请<b>腾讯位置服务 Key</b>（公益/非商业用途免费，见 §下）。</li>
+        <li>坐标沿用 <code>aed_devices.lat/lng</code>（GCJ-02），换腾讯零转换。</li>
+      </ul>
+      <div style="margin-top:6px;color:#8a6a2f">⚠️ 其中 1 台「使用中」与 1 台「维护中」为演示着色，用于展示三态图例，非生产真实状态。</div>
+    </div>
+  </aside>
+</main>
+
+<script type="text/javascript">
+  // 真实点位：急救侠-server/src/seed.ts（深圳南山 · GCJ-02）
+  var AEDS = [
+    { id: 'aed_001', name: '深圳湾公园 AED',        addr: '深圳湾公园南门入口',   lat: 22.517, lng: 113.947, tone: 'green' },
+    { id: 'aed_002', name: '海岸城购物中心 AED',    addr: '海岸城 B1 层电梯旁',   lat: 22.518, lng: 113.942, tone: 'green' },
+    { id: 'aed_003', name: '人才公园 AED',          addr: '人才公园北门保安室',   lat: 22.522, lng: 113.952, tone: 'green' },
+    { id: 'aed_004', name: '南山区政府 AED',        addr: '南山区政府一楼大厅',   lat: 22.533, lng: 113.930, tone: 'red'   },
+    { id: 'aed_005', name: '南山书城 AED',          addr: '南山书城二楼服务台',   lat: 22.519, lng: 113.938, tone: 'green' },
+    { id: 'aed_006', name: '深圳湾体育中心 AED',    addr: '春茧体育馆一楼',       lat: 22.521, lng: 113.955, tone: 'amber' },
+    { id: 'aed_007', name: '创维大厦 AED',          addr: '创维大厦 A 座大堂',    lat: 22.536, lng: 113.948, tone: 'green' },
+    { id: 'aed_008', name: '腾讯滨海大厦 AED',      addr: '腾讯滨海大厦一楼',     lat: 22.524, lng: 113.940, tone: 'green' },
+    { id: 'aed_009', name: '🚗 陆远的车载 AED',     addr: '车辆移动中 · 示意位置', lat: 22.514, lng: 113.944, tone: 'green' }
+  ];
+  var COLORS = { green: '#16A34A', amber: '#F59E0B', red: '#DC2626' };
+  var LABELS = { green: '可用', amber: '使用中（演示）', red: '维护中' };
+
+  function pinSVG(color) {
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="34" height="44" viewBox="0 0 34 44">' +
+      '<path d="M17 1.5C9.5 1.5 3.5 7.6 3.5 15.2c0 9.9 13.5 27.3 13.5 27.3s13.5-17.4 13.5-27.3C30.5 7.6 24.5 1.5 17 1.5z" fill="' + color + '" stroke="#ffffff" stroke-width="2.2"/>' +
+      '<circle cx="17" cy="15" r="8.5" fill="#ffffff"/>' +
+      '<path d="M15.2 10.4h3.6v3.1h3.1v3.6h-3.1v3.1h-3.6v-3.1h-3.1v-3.6h3.1z" fill="' + color + '"/>' +
+      '</svg>';
+    return 'data:image/svg+xml,' + encodeURIComponent(svg);
+  }
+
+  var map = null;
+  function buildList() {
+    var box = document.getElementById('list');
+    AEDS.forEach(function (a, i) {
+      var el = document.createElement('div');
+      el.className = 'item';
+      el.setAttribute('data-i', String(i));
+      el.innerHTML =
+        '<span class="dot" style="background:' + COLORS[a.tone] + '"></span>' +
+        '<div><div class="nm">' + a.name + '</div>' +
+        '<div class="addr">' + a.addr + '</div>' +
+        '<div class="st" style="color:' + COLORS[a.tone] + '">' + LABELS[a.tone] + '</div></div>';
+      el.onclick = function () {
+        if (!map) return;
+        map.setCenter(new TMap.LatLng(a.lat, a.lng));
+        map.setZoom(16);
+        var all = box.querySelectorAll('.item');
+        for (var k = 0; k < all.length; k++) all[k].classList.remove('active');
+        el.classList.add('active');
+      };
+      box.appendChild(el);
+    });
+  }
+
+  buildList();
+
+  if (typeof TMap === 'undefined' || !TMap.Map) {
+    document.getElementById('map').innerHTML =
+      '<div class="err">腾讯地图 GL JS 未能加载（本地代理未就绪或网络不通）。<br>' +
+      '此预览依赖 WorkBuddy 运行时代理；生产项目请使用自己申请的 Key。</div>';
+  } else {
+    // 注意：_TMapSecurityConfig 已配置代理，不要再调用 TMap.setConfig()
+    map = new TMap.Map(document.getElementById('map'), {
+      zoom: 14,
+      center: new TMap.LatLng(22.524, 113.945)
+    });
+    var styles = {
+      green: new TMap.MarkerStyle({ width: 34, height: 44, anchor: { x: 17, y: 44 }, src: pinSVG(COLORS.green) }),
+      amber: new TMap.MarkerStyle({ width: 34, height: 44, anchor: { x: 17, y: 44 }, src: pinSVG(COLORS.amber) }),
+      red:   new TMap.MarkerStyle({ width: 34, height: 44, anchor: { x: 17, y: 44 }, src: pinSVG(COLORS.red) })
+    };
+    var geometries = AEDS.map(function (a) {
+      return { id: a.id, styleId: a.tone, position: new TMap.LatLng(a.lat, a.lng) };
+    });
+    new TMap.MultiMarker({ map: map, styles: styles, geometries: geometries });
+  }
+</script>
+</body>
+</html>
